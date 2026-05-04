@@ -1,0 +1,172 @@
+Refactor the existing E-Migration Assist assessment system to enforce SAFE classification logic, compliant wording, and controlled output messaging.
+
+GOAL:
+- Remove any legal-risk language
+- Standardise classification engine
+- Ensure system does NOT make decisions, only preliminary assessments
+
+------------------------------------
+
+1. REPLACE CLASSIFICATION LOGIC
+
+Create a new classification function in /lib/classification.ts:
+
+export function classifyCase(input) {
+  const {
+    immigrationSituation,
+    overstayReason,
+    hasSupportingDocuments
+  } = input;
+
+  if (immigrationSituation === "valid") {
+    return {
+      category: "VALID_STATUS_GENERAL_INTEREST",
+      score: 30,
+      label: "General Status Check"
+    };
+  }
+
+  if (immigrationSituation === "expired") {
+    return {
+      category: "VISA_EXPIRING_OR_EXPIRED",
+      score: 55,
+      label: "Visa Expiry Needs Review"
+    };
+  }
+
+  if (immigrationSituation === "overstay") {
+    if (
+      ["medical", "accident", "family_emergency", "admin_delay"].includes(overstayReason) &&
+      hasSupportingDocuments === "yes"
+    ) {
+      return {
+        category: "OVERSTAY_STRONG_CONTEXT",
+        score: 85,
+        label: "Supporting Circumstances Present"
+      };
+    }
+
+    if (hasSupportingDocuments === "some") {
+      return {
+        category: "OVERSTAY_MODERATE_CONTEXT",
+        score: 70,
+        label: "Partial Supporting Context"
+      };
+    }
+
+    return {
+      category: "OVERSTAY_LIMITED_CONTEXT",
+      score: 50,
+      label: "Limited Supporting Context"
+    };
+  }
+
+  if (immigrationSituation === "undesirable") {
+    return {
+      category: "DECLARED_UNDESIRABLE",
+      score: 90,
+      label: "Declared Undesirable Status"
+    };
+  }
+
+  if (immigrationSituation === "prohibited") {
+    return {
+      category: "POSSIBLE_PROHIBITED_PERSON",
+      score: 95,
+      label: "Potential Prohibited Status"
+    };
+  }
+
+  return {
+    category: "UNKNOWN_REQUIRES_REVIEW",
+    score: 60,
+    label: "Further Review Required"
+  };
+}
+
+------------------------------------
+
+2. REPLACE USER-FACING OUTPUT MESSAGES
+
+Wherever results are displayed, replace ALL wording with safe language:
+
+Use ONLY these patterns:
+
+- "Based on the information provided, your situation may fall into a category that requires further review."
+- "Your case may require additional supporting documents before a full assessment can be made."
+- "Your situation may involve an overstay or documentation issue that requires structured review."
+- "This is a preliminary system-generated assessment and does not represent a final decision."
+
+STRICTLY REMOVE:
+- "approved"
+- "rejected"
+- "guaranteed"
+- "qualify"
+- "you will"
+- "we will fix"
+- "Home Affairs will"
+
+------------------------------------
+
+3. UPDATE THANK YOU PAGE
+
+Replace with:
+
+"Your preliminary assessment has been successfully recorded.
+
+This system provides a structured, early-stage understanding of your situation based on the information you submitted.
+
+We are currently finalising the full E-Migration Assist platform. You will be notified when more detailed assessment capabilities become available."
+
+Display:
+- reference number
+- safe label (NOT decision)
+
+------------------------------------
+
+4. ENSURE INTERNAL VS EXTERNAL SEPARATION
+
+IN DATABASE:
+Store:
+- category (internal)
+- score (internal)
+
+IN UI:
+Show ONLY:
+- label
+- safe explanation
+
+------------------------------------
+
+5. ADD GLOBAL DISCLAIMER COMPONENT
+
+Create component:
+
+/components/Disclaimer.tsx
+
+Content:
+
+"This tool provides a preliminary, system-generated assessment based on user input. It does not constitute legal advice, immigration advice, or any guarantee of outcome. Final determinations remain with the relevant authorities."
+
+Render this:
+- on landing page
+- before submission
+- on results page
+
+------------------------------------
+
+6. DO NOT CHANGE UI DESIGN
+
+Only:
+- logic
+- wording
+- classification
+- safety
+
+------------------------------------
+
+OUTPUT:
+- updated classification logic
+- safe UI messaging
+- disclaimer visible
+- no legal-risk wording anywhere
