@@ -14,32 +14,43 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { Disclaimer } from "@/components/disclaimer";
 
 const assessmentSchema = z.object({
   // Step 1
   nationality: z.string().min(2, "Nationality is required"),
   countryOfResidence: z.string().optional(),
   currentlyInSouthAfrica: z.boolean().default(false),
-  
+
   // Step 2
-  immigrationSituation: z.enum(["visa_holder", "overstayed", "undocumented", "rejected", "first_time", "other"]),
+  immigrationSituation: z.enum([
+    "valid",
+    "expired",
+    "overstay",
+    "undesirable",
+    "prohibited",
+    "unknown",
+  ]),
   passportStatus: z.enum(["valid", "expired", "lost", "none"]).optional(),
-  
+
   // Step 3 (Conditional)
   visaExpiryDate: z.string().optional(),
   exitDate: z.string().optional(),
   borderDocumentIssued: z.string().optional(),
-  overstayReason: z.string().optional(),
+  overstayReason: z
+    .enum(["medical", "accident", "family_emergency", "admin_delay", "other"])
+    .optional(),
+  overstayReasonNotes: z.string().optional(),
   previousOverstay: z.enum(["yes", "no"]).optional(),
-  hasSupportingDocuments: z.enum(["yes", "partial", "no"]).optional(),
+  hasSupportingDocuments: z.enum(["yes", "some", "no"]).optional(),
   visaHistory: z.string().optional(),
-  
+
   // Step 4
   fullName: z.string().min(2, "Full name is required"),
   email: z.string().email("Invalid email address"),
   whatsapp: z.string().optional(),
   preferredContactMethod: z.enum(["email", "whatsapp", "phone"]).default("email"),
-  consentAccepted: z.boolean().refine(val => val === true, "You must accept the terms"),
+  consentAccepted: z.boolean().refine((val) => val === true, "You must accept the terms"),
 });
 
 type AssessmentFormValues = z.infer<typeof assessmentSchema>;
@@ -49,7 +60,7 @@ export function Assessment() {
   const { toast } = useToast();
   const [step, setStep] = useState(1);
   const totalSteps = 4;
-  
+
   const createLead = useCreateLead();
 
   useEffect(() => {
@@ -60,7 +71,7 @@ export function Assessment() {
     resolver: zodResolver(assessmentSchema),
     defaultValues: {
       currentlyInSouthAfrica: false,
-      immigrationSituation: "first_time",
+      immigrationSituation: "valid",
       passportStatus: "valid",
       preferredContactMethod: "email",
       consentAccepted: false,
@@ -72,11 +83,11 @@ export function Assessment() {
 
   const nextStep = async () => {
     let fieldsToValidate: any[] = [];
-    
+
     if (step === 1) fieldsToValidate = ["nationality", "countryOfResidence", "currentlyInSouthAfrica"];
     if (step === 2) fieldsToValidate = ["immigrationSituation", "passportStatus"];
-    if (step === 3) fieldsToValidate = ["visaExpiryDate", "exitDate", "borderDocumentIssued", "overstayReason", "previousOverstay", "hasSupportingDocuments", "visaHistory"];
-    
+    if (step === 3) fieldsToValidate = ["visaExpiryDate", "exitDate", "borderDocumentIssued", "overstayReason", "overstayReasonNotes", "previousOverstay", "hasSupportingDocuments", "visaHistory"];
+
     const isValid = await form.trigger(fieldsToValidate as any);
     if (isValid) {
       setStep((s) => Math.min(s + 1, totalSteps));
@@ -90,25 +101,42 @@ export function Assessment() {
   };
 
   const onSubmit = (data: AssessmentFormValues) => {
-    createLead.mutate({ data }, {
-      onSuccess: (result) => {
-        setLocation(`/thank-you/${result.referenceNumber}`);
+    const { overstayReasonNotes, ...rest } = data;
+    // Keep the canonical enum value in overstayReason so server-side classification
+    // can match exactly. Free-text notes are appended to visaHistory for context.
+    const visaHistoryWithNotes = overstayReasonNotes
+      ? [rest.visaHistory, `Overstay context: ${overstayReasonNotes}`]
+          .filter(Boolean)
+          .join("\n\n")
+      : rest.visaHistory;
+
+    const submitData = {
+      ...rest,
+      visaHistory: visaHistoryWithNotes,
+    };
+
+    createLead.mutate(
+      { data: submitData },
+      {
+        onSuccess: (result) => {
+          setLocation(`/thank-you/${result.referenceNumber}`);
+        },
+        onError: () => {
+          toast({
+            title: "Submission could not be completed",
+            description: "There was an issue saving your information. Please try again.",
+            variant: "destructive",
+          });
+        },
       },
-      onError: () => {
-        toast({
-          title: "Submission failed",
-          description: "There was an error saving your assessment. Please try again.",
-          variant: "destructive",
-        });
-      }
-    });
+    );
   };
 
   return (
     <div className="min-h-screen bg-muted/30 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto space-y-8">
         <div className="space-y-4">
-          <h1 className="text-3xl font-display font-semibold text-center">Your Assessment</h1>
+          <h1 className="text-3xl font-display font-semibold text-center">Your Preliminary Assessment</h1>
           <Progress value={(step / totalSteps) * 100} className="h-2" />
           <p className="text-center text-sm text-muted-foreground">Step {step} of {totalSteps}</p>
         </div>
@@ -116,11 +144,11 @@ export function Assessment() {
         <Card className="p-6 md:p-8 shadow-lg border-border/40">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-              
+
               {step === 1 && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                   <h2 className="text-xl font-medium border-b pb-2">Basic Information</h2>
-                  
+
                   <FormField
                     control={form.control}
                     name="nationality"
@@ -155,15 +183,10 @@ export function Assessment() {
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
                         <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
+                          <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                         </FormControl>
                         <div className="space-y-1 leading-none">
-                          <FormLabel>
-                            I am currently inside South Africa
-                          </FormLabel>
+                          <FormLabel>I am currently inside South Africa</FormLabel>
                         </div>
                       </FormItem>
                     )}
@@ -173,14 +196,14 @@ export function Assessment() {
 
               {step === 2 && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <h2 className="text-xl font-medium border-b pb-2">Immigration Status</h2>
-                  
+                  <h2 className="text-xl font-medium border-b pb-2">Current Situation</h2>
+
                   <FormField
                     control={form.control}
                     name="immigrationSituation"
                     render={({ field }) => (
                       <FormItem className="space-y-3">
-                        <FormLabel>What is your current situation?</FormLabel>
+                        <FormLabel>Which best describes your situation?</FormLabel>
                         <FormControl>
                           <RadioGroup
                             onValueChange={field.onChange}
@@ -189,39 +212,39 @@ export function Assessment() {
                           >
                             <FormItem className="flex items-center space-x-3 space-y-0 p-3 rounded border hover:bg-accent/50 transition-colors">
                               <FormControl>
-                                <RadioGroupItem value="first_time" />
+                                <RadioGroupItem value="valid" />
                               </FormControl>
-                              <FormLabel className="font-normal cursor-pointer w-full">I want to apply for a visa for the first time</FormLabel>
+                              <FormLabel className="font-normal cursor-pointer w-full">I currently hold a valid visa</FormLabel>
                             </FormItem>
                             <FormItem className="flex items-center space-x-3 space-y-0 p-3 rounded border hover:bg-accent/50 transition-colors">
                               <FormControl>
-                                <RadioGroupItem value="visa_holder" />
+                                <RadioGroupItem value="expired" />
                               </FormControl>
-                              <FormLabel className="font-normal cursor-pointer w-full">I hold a valid visa and need to renew or change it</FormLabel>
+                              <FormLabel className="font-normal cursor-pointer w-full">My visa is expiring or has expired</FormLabel>
                             </FormItem>
                             <FormItem className="flex items-center space-x-3 space-y-0 p-3 rounded border hover:bg-accent/50 transition-colors">
                               <FormControl>
-                                <RadioGroupItem value="overstayed" />
+                                <RadioGroupItem value="overstay" />
                               </FormControl>
-                              <FormLabel className="font-normal cursor-pointer w-full">My visa has expired (Overstayed)</FormLabel>
+                              <FormLabel className="font-normal cursor-pointer w-full">I have remained beyond my visa period (overstay)</FormLabel>
                             </FormItem>
                             <FormItem className="flex items-center space-x-3 space-y-0 p-3 rounded border hover:bg-accent/50 transition-colors">
                               <FormControl>
-                                <RadioGroupItem value="rejected" />
+                                <RadioGroupItem value="undesirable" />
                               </FormControl>
-                              <FormLabel className="font-normal cursor-pointer w-full">My visa application was rejected</FormLabel>
+                              <FormLabel className="font-normal cursor-pointer w-full">I have been declared undesirable</FormLabel>
                             </FormItem>
                             <FormItem className="flex items-center space-x-3 space-y-0 p-3 rounded border hover:bg-accent/50 transition-colors">
                               <FormControl>
-                                <RadioGroupItem value="undocumented" />
+                                <RadioGroupItem value="prohibited" />
                               </FormControl>
-                              <FormLabel className="font-normal cursor-pointer w-full">I am undocumented</FormLabel>
+                                <FormLabel className="font-normal cursor-pointer w-full">I may have been listed as a prohibited person</FormLabel>
                             </FormItem>
                             <FormItem className="flex items-center space-x-3 space-y-0 p-3 rounded border hover:bg-accent/50 transition-colors">
                               <FormControl>
-                                <RadioGroupItem value="other" />
+                                <RadioGroupItem value="unknown" />
                               </FormControl>
-                              <FormLabel className="font-normal cursor-pointer w-full">Other / Unsure</FormLabel>
+                              <FormLabel className="font-normal cursor-pointer w-full">Unsure / prefer further review</FormLabel>
                             </FormItem>
                           </RadioGroup>
                         </FormControl>
@@ -245,7 +268,7 @@ export function Assessment() {
                           <SelectContent>
                             <SelectItem value="valid">Valid passport</SelectItem>
                             <SelectItem value="expired">Expired passport</SelectItem>
-                            <SelectItem value="lost">Lost/Stolen passport</SelectItem>
+                            <SelectItem value="lost">Lost or stolen passport</SelectItem>
                             <SelectItem value="none">No passport</SelectItem>
                           </SelectContent>
                         </Select>
@@ -258,9 +281,9 @@ export function Assessment() {
 
               {step === 3 && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <h2 className="text-xl font-medium border-b pb-2">Additional Details</h2>
-                  
-                  {['visa_holder', 'overstayed'].includes(situation) && (
+                  <h2 className="text-xl font-medium border-b pb-2">Additional Context</h2>
+
+                  {(situation === "expired" || situation === "overstay") && (
                     <FormField
                       control={form.control}
                       name="visaExpiryDate"
@@ -268,7 +291,7 @@ export function Assessment() {
                         <FormItem>
                           <FormLabel>Visa Expiry Date</FormLabel>
                           <FormControl>
-                            <Input type="date" {...field} value={field.value || ''} />
+                            <Input type="date" {...field} value={field.value || ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -276,20 +299,73 @@ export function Assessment() {
                     />
                   )}
 
-                  {situation === 'overstayed' && (
-                    <FormField
-                      control={form.control}
-                      name="overstayReason"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Reason for overstay (Optional)</FormLabel>
-                          <FormControl>
-                            <Textarea placeholder="Briefly explain what happened..." className="resize-none" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  {situation === "overstay" && (
+                    <>
+                      <FormField
+                        control={form.control}
+                        name="overstayReason"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Reason for the overstay</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select a reason" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="medical">Medical reasons</SelectItem>
+                                <SelectItem value="accident">Accident</SelectItem>
+                                <SelectItem value="family_emergency">Family emergency</SelectItem>
+                                <SelectItem value="admin_delay">Administrative delay</SelectItem>
+                                <SelectItem value="other">Other</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="overstayReasonNotes"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Additional context (optional)</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Briefly describe the circumstances..."
+                                className="resize-none"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="previousOverstay"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Have you had a previous overstay?</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select an option" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="no">No</SelectItem>
+                                <SelectItem value="yes">Yes</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </>
                   )}
 
                   <FormField
@@ -297,17 +373,20 @@ export function Assessment() {
                     name="hasSupportingDocuments"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Do you have supporting documents? (e.g. proof of funds, employment, family ties)</FormLabel>
+                        <FormLabel>Do you have supporting documents?</FormLabel>
+                        <FormDescription>
+                          For example: medical records, proof of incident, employer letters, family-tie documents.
+                        </FormDescription>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select..." />
+                              <SelectValue placeholder="Select an option" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="yes">Yes, I have all necessary documents</SelectItem>
-                            <SelectItem value="partial">I have some documents</SelectItem>
-                            <SelectItem value="no">No, I need help gathering documents</SelectItem>
+                            <SelectItem value="yes">Yes, I have full supporting documents</SelectItem>
+                            <SelectItem value="some">I have some supporting documents</SelectItem>
+                            <SelectItem value="no">No supporting documents at this time</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -320,10 +399,10 @@ export function Assessment() {
                     name="visaHistory"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Brief Visa History (Optional)</FormLabel>
-                        <FormDescription>Any previous visas held or applications made?</FormDescription>
+                        <FormLabel>Brief Visa History (optional)</FormLabel>
+                        <FormDescription>Any previous visas held or applications submitted.</FormDescription>
                         <FormControl>
-                          <Textarea placeholder="e.g. Held study visa from 2018-2021..." className="resize-none" {...field} />
+                          <Textarea placeholder="e.g. Held a study visa from 2018 to 2021..." className="resize-none" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -335,8 +414,10 @@ export function Assessment() {
               {step === 4 && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                   <h2 className="text-xl font-medium border-b pb-2">Contact Details</h2>
-                  <p className="text-sm text-muted-foreground">We will use this information to send you your reference number and contact you when our services launch.</p>
-                  
+                  <p className="text-sm text-muted-foreground">
+                    Your reference number will be sent here. We may also notify you when fuller assessment capabilities become available.
+                  </p>
+
                   <FormField
                     control={form.control}
                     name="fullName"
@@ -344,7 +425,7 @@ export function Assessment() {
                       <FormItem>
                         <FormLabel>Full Name</FormLabel>
                         <FormControl>
-                          <Input placeholder="John Doe" {...field} />
+                          <Input placeholder="Your full name" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -358,7 +439,7 @@ export function Assessment() {
                       <FormItem>
                         <FormLabel>Email Address</FormLabel>
                         <FormControl>
-                          <Input type="email" placeholder="john@example.com" {...field} />
+                          <Input type="email" placeholder="you@example.com" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -370,7 +451,7 @@ export function Assessment() {
                     name="whatsapp"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>WhatsApp Number (Optional)</FormLabel>
+                        <FormLabel>WhatsApp Number (optional)</FormLabel>
                         <FormControl>
                           <Input type="tel" placeholder="+27..." {...field} />
                         </FormControl>
@@ -402,23 +483,22 @@ export function Assessment() {
                     )}
                   />
 
+                  <Disclaimer />
+
                   <FormField
                     control={form.control}
                     name="consentAccepted"
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-muted/50">
                         <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
+                          <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                         </FormControl>
                         <div className="space-y-1 leading-none">
                           <FormLabel>
-                            I consent to E-Migration Assist storing my information to assess my immigration case.
+                            I understand this is a preliminary, system-generated assessment and consent to E-Migration Assist storing my information.
                           </FormLabel>
                           <FormDescription>
-                            Your data is strictly confidential and will not be shared with any government department.
+                            Your information is held confidentially and is not shared with any government department.
                           </FormDescription>
                         </div>
                       </FormItem>
@@ -435,7 +515,7 @@ export function Assessment() {
                 ) : (
                   <div></div>
                 )}
-                
+
                 {step < totalSteps ? (
                   <Button type="button" onClick={nextStep}>
                     Continue

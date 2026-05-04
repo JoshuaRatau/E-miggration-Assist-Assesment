@@ -4,6 +4,7 @@ import { useGetStatsSummary } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Disclaimer } from "@/components/disclaimer";
 
 export function Home() {
   useEffect(() => {
@@ -20,14 +21,14 @@ export function Home() {
             Check your South African immigration status.
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            A calm, clear, and confidential pre-launch assessment. Get clarity on your visa situation, overstay status, and next steps in just a few minutes.
+            A calm, structured pre-launch questionnaire that helps build an early-stage understanding of your situation. This is a preliminary system-generated assessment and does not represent a final decision.
           </p>
         </header>
 
         <div className="flex justify-center">
           <Link href="/assessment">
             <Button size="lg" className="h-14 px-8 text-lg rounded-xl">
-              Start Free Assessment
+              Start Preliminary Assessment
             </Button>
           </Link>
         </div>
@@ -39,7 +40,7 @@ export function Home() {
             </CardHeader>
             <CardContent>
               <CardDescription className="text-base">
-                A secure, non-judgmental questionnaire to help understand your current immigration standing in South Africa.
+                A structured, confidential questionnaire that records your information and produces a preliminary, system-generated assessment.
               </CardDescription>
             </CardContent>
           </Card>
@@ -49,7 +50,7 @@ export function Home() {
             </CardHeader>
             <CardContent>
               <CardDescription className="text-base">
-                Anyone facing visa challenges, overstays, lost documents, or seeking long-term residency options.
+                Anyone navigating visa expiry, overstay context, lost documents, or other situations that require structured review.
               </CardDescription>
             </CardContent>
           </Card>
@@ -59,14 +60,14 @@ export function Home() {
             </CardHeader>
             <CardContent>
               <CardDescription className="text-base">
-                You'll receive a secure reference number and join our pre-launch waiting list for expert immigration guidance.
+                A secure reference number is issued to you. A notification follows once more detailed assessment capabilities become available.
               </CardDescription>
             </CardContent>
           </Card>
         </div>
 
         <div className="text-center pt-8">
-          <h3 className="text-lg font-medium mb-6">Trusted by hundreds of individuals</h3>
+          <h3 className="text-lg font-medium mb-6">Pre-launch activity</h3>
           {isLoading ? (
             <div className="flex flex-wrap justify-center gap-4">
               <Skeleton className="h-24 w-32 rounded-xl" />
@@ -77,23 +78,29 @@ export function Home() {
             <div className="flex flex-wrap justify-center gap-6">
               <div className="flex flex-col items-center bg-accent/50 px-6 py-4 rounded-xl">
                 <span className="text-3xl font-bold text-primary">{stats.totalAssessments}</span>
-                <span className="text-sm text-muted-foreground mt-1">Assessments</span>
+                <span className="text-sm text-muted-foreground mt-1">Assessments recorded</span>
               </div>
-              {stats.byCategory?.slice(0, 3).map((cat) => (
-                <div key={cat.category} className="flex flex-col items-center bg-accent/50 px-6 py-4 rounded-xl">
-                  <span className="text-3xl font-bold text-primary">{cat.count}</span>
-                  <span className="text-sm text-muted-foreground mt-1 capitalize">{cat.category.replace('_', ' ')}</span>
-                </div>
-              ))}
+              <div className="flex flex-col items-center bg-accent/50 px-6 py-4 rounded-xl">
+                <span className="text-3xl font-bold text-primary">{stats.last24Hours}</span>
+                <span className="text-sm text-muted-foreground mt-1">In the last 24 hours</span>
+              </div>
+              <div className="flex flex-col items-center bg-accent/50 px-6 py-4 rounded-xl">
+                <span className="text-3xl font-bold text-primary">{stats.byCategory?.length ?? 0}</span>
+                <span className="text-sm text-muted-foreground mt-1">Distinct review categories</span>
+              </div>
             </div>
           ) : null}
         </div>
-        
-        <footer className="text-center pt-16 text-sm text-muted-foreground">
-          <p>Strictly confidential. No data is shared with government agencies without explicit consent.</p>
-          <div className="mt-4">
+
+        <div className="pt-8">
+          <Disclaimer />
+        </div>
+
+        <footer className="text-center pt-8 text-sm text-muted-foreground space-y-3">
+          <p>Strictly confidential. Information is not shared with government agencies without explicit consent.</p>
+          <div>
             <Link href="/status" className="underline hover:text-primary transition-colors">
-              Already have a reference number? Check status here.
+              Already have a reference number? Check your status here.
             </Link>
           </div>
         </footer>

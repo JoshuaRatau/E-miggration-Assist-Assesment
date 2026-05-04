@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
+import { Disclaimer } from "@/components/disclaimer";
 
 export function Status() {
   useEffect(() => {
@@ -19,8 +20,8 @@ export function Status() {
     query: {
       enabled: !!activeRef,
       queryKey: getGetLeadByReferenceQueryKey(activeRef),
-      retry: false
-    }
+      retry: false,
+    },
   });
 
   const handleSearch = (e: React.FormEvent) => {
@@ -33,17 +34,17 @@ export function Status() {
   return (
     <div className="min-h-screen bg-muted/30 flex flex-col items-center py-12 px-6">
       <div className="w-full max-w-lg space-y-8">
-        
+
         <div className="text-center space-y-3">
           <h1 className="text-3xl font-display font-bold">Check Your Status</h1>
-          <p className="text-muted-foreground">Enter your reference number to view your assessment status.</p>
+          <p className="text-muted-foreground">Enter your reference number to view your preliminary assessment.</p>
         </div>
 
         <Card className="border-border/50 shadow-sm">
           <CardContent className="pt-6">
             <form onSubmit={handleSearch} className="flex gap-3">
-              <Input 
-                placeholder="e.g. REF-123456" 
+              <Input
+                placeholder="e.g. EMA-..."
                 value={searchRef}
                 onChange={(e) => setSearchRef(e.target.value)}
                 className="font-mono uppercase"
@@ -64,56 +65,61 @@ export function Status() {
                 </CardContent>
               </Card>
             ) : isError ? (
-              <Card className="border-destructive/30 bg-destructive/5">
-                <CardContent className="pt-6 text-center text-destructive">
-                  <p className="font-medium">Reference not found</p>
+              <Card className="border-border/40 bg-muted/40">
+                <CardContent className="pt-6 text-center text-muted-foreground">
+                  <p className="font-medium text-foreground">Reference not found</p>
                   <p className="text-sm mt-1">Please check the number and try again.</p>
                 </CardContent>
               </Card>
             ) : lead ? (
               <Card className="border-border/50 shadow-md">
                 <CardHeader className="border-b bg-accent/20">
-                  <div className="flex justify-between items-start">
+                  <div className="flex justify-between items-start gap-3">
                     <div>
                       <CardTitle className="text-xl">Assessment Details</CardTitle>
-                      <CardDescription className="font-mono mt-1">{lead.referenceNumber}</CardDescription>
+                      <CardDescription className="font-mono mt-1 break-all">{lead.referenceNumber}</CardDescription>
                     </div>
-                    <Badge variant="outline" className="bg-background">
-                      Submitted {format(new Date(lead.createdAt), 'MMM d, yyyy')}
+                    <Badge variant="outline" className="bg-background whitespace-nowrap">
+                      Recorded {format(new Date(lead.createdAt), "MMM d, yyyy")}
                     </Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-6 space-y-6">
-                  
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <span className="text-xs text-muted-foreground uppercase tracking-wider">Status</span>
-                      <p className="font-medium">Waitlisted</p>
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-xs text-muted-foreground uppercase tracking-wider">Category</span>
-                      <p className="font-medium capitalize">{lead.leadCategory?.replace('_', ' ') || 'Pending'}</p>
+                      <p className="font-medium">On waiting list</p>
                     </div>
                     <div className="space-y-1">
                       <span className="text-xs text-muted-foreground uppercase tracking-wider">Nationality</span>
                       <p className="font-medium">{lead.nationality}</p>
                     </div>
-                    <div className="space-y-1">
-                      <span className="text-xs text-muted-foreground uppercase tracking-wider">Current Situation</span>
-                      <p className="font-medium capitalize">{lead.immigrationSituation?.replace('_', ' ')}</p>
-                    </div>
                   </div>
 
-                  <div className="bg-primary/5 p-4 rounded-lg text-sm text-foreground/80 leading-relaxed border border-primary/10">
-                    Your assessment has been categorized. We will contact you via {lead.preferredContactMethod || 'your preferred method'} when our specialists are ready to assist with your specific case type.
+                  {lead.leadCategory ? (
+                    <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-2">
+                      <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                        Assessment Note
+                      </div>
+                      <div className="text-base font-medium text-foreground">
+                        {lead.leadCategory}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="bg-muted/40 p-4 rounded-lg text-sm text-foreground/80 leading-relaxed border border-border/50">
+                    Your situation may involve an overstay or documentation issue that requires structured review. Your case may require additional supporting documents before a full assessment can be made. This is a preliminary system-generated assessment and does not represent a final decision.
                   </div>
+
+                  <Disclaimer variant="compact" />
 
                 </CardContent>
               </Card>
             ) : null}
           </div>
         )}
-        
+
         <div className="text-center pt-8">
           <Button variant="link" asChild>
             <a href="/">Back to Home</a>

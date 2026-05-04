@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, prelaunchLeadsTable } from "@workspace/db";
 import { CreateLeadBody, ListLeadsQueryParams } from "@workspace/api-zod";
 import { desc, eq } from "drizzle-orm";
-import { classifyLead, generateReferenceNumber } from "../lib/scoring";
+import { classifyCase, generateReferenceNumber } from "../lib/classification";
 
 const router: IRouter = Router();
 
@@ -21,7 +21,9 @@ function serializeLead(row: typeof prelaunchLeadsTable.$inferSelect) {
 router.post("/leads", async (req, res) => {
   const parsed = CreateLeadBody.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "Invalid input", details: parsed.error.issues });
+    return res
+      .status(400)
+      .json({ error: "Invalid input", details: parsed.error.issues });
   }
   const data = parsed.data;
 
@@ -29,17 +31,19 @@ router.post("/leads", async (req, res) => {
     return res.status(400).json({ error: "Consent is required" });
   }
 
-  const scoring = classifyLead({
+  const result = classifyCase({
     immigrationSituation: data.immigrationSituation ?? null,
-    passportStatus: data.passportStatus ?? null,
+    overstayReason: data.overstayReason ?? null,
     hasSupportingDocuments: data.hasSupportingDocuments ?? null,
-    previousOverstay: data.previousOverstay ?? null,
-    currentlyInSouthAfrica: data.currentlyInSouthAfrica ?? null,
-    visaExpiryDate: data.visaExpiryDate ?? null,
   });
 
   const referenceNumber = generateReferenceNumber();
   const now = new Date();
+
+  const toDateString = (d: Date | undefined): string | null =>
+    d instanceof Date && !Number.isNaN(d.getTime())
+      ? d.toISOString().slice(0, 10)
+      : null;
 
   const [inserted] = await db
     .insert(prelaunchLeadsTable)
@@ -54,8 +58,8 @@ router.post("/leads", async (req, res) => {
       passportStatus: data.passportStatus ?? null,
       visaHistory: data.visaHistory ?? null,
       immigrationSituation: data.immigrationSituation,
-      visaExpiryDate: data.visaExpiryDate ?? null,
-      exitDate: data.exitDate ?? null,
+      visaExpiryDate: toDateString(data.visaExpiryDate),
+      exitDate: toDateString(data.exitDate),
       borderDocumentIssued: data.borderDocumentIssued ?? null,
       overstayReason: data.overstayReason ?? null,
       hasSupportingDocuments: data.hasSupportingDocuments ?? null,
@@ -63,9 +67,11 @@ router.post("/leads", async (req, res) => {
       preferredContactMethod: data.preferredContactMethod ?? null,
       consentAccepted: data.consentAccepted,
       consentTimestamp: now,
-      leadScore: scoring.leadScore,
-      leadCategory: scoring.leadCategory,
-      internalClassification: scoring.internalClassification,
+      // Internal-only fields
+      internalClassification: result.category,
+      leadScore: result.score,
+      // Safe public-facing label
+      leadCategory: result.label,
     })
     .returning();
 
@@ -79,7 +85,9 @@ router.post("/leads", async (req, res) => {
 router.get("/leads", async (req, res) => {
   const parsed = ListLeadsQueryParams.safeParse(req.query);
   if (!parsed.success) {
-    return res.status(400).json({ error: "Invalid query", details: parsed.error.issues });
+    return res
+      .status(400)
+      .json({ error: "Invalid query", details: parsed.error.issues });
   }
   const limit = parsed.data.limit ?? 20;
 
