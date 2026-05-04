@@ -1,0 +1,99 @@
+Build a production-ready Next.js 14 (App Router) project using TypeScript and Tailwind CSS for a pre-launch Immigration Assessment Funnel called “E-Migration Assist”.
+
+SETUP:
+- Framework: Next.js 14 (App Router)
+- Language: TypeScript
+- Styling: Tailwind CSS
+- ORM: Prisma
+- Database: PostgreSQL
+- Package manager: npm
+
+INSTALL DEPENDENCIES:
+- prisma
+- @prisma/client
+- zod
+- react-hook-form
+- uuid
+
+PROJECT STRUCTURE:
+
+/app
+  /assessment
+  /api
+  /components
+  /lib
+  /styles
+
+/components:
+- Button.tsx
+- Input.tsx
+- Select.tsx
+- ProgressBar.tsx
+- Card.tsx
+
+/lib:
+- classification.ts
+- scoring.ts
+- utils.ts
+
+/app/page.tsx → Landing page
+/app/assessment/page.tsx → Start assessment flow
+
+TAILWIND DESIGN SYSTEM:
+- Primary: #0F172A
+- Accent: #2563EB
+- Background: #F8FAFC
+- Text: #111827
+- Border radius: rounded-2xl
+- Buttons: soft shadow, modern SaaS style
+
+PRISMA SCHEMA:
+
+model PrelaunchLead {
+  id String @id @default(uuid())
+  referenceNumber String
+  fullName String?
+  email String?
+  whatsapp String?
+  nationality String?
+  countryOfResidence String?
+  currentlyInSouthAfrica Boolean?
+  passportStatus String?
+  visaHistory String?
+  immigrationSituation String?
+  visaExpiryDate DateTime?
+  exitDate DateTime?
+  borderDocumentIssued String?
+  overstayReason String?
+  hasSupportingDocuments String?
+  previousOverstay String?
+  internalClassification String?
+  leadScore Int?
+  leadCategory String?
+  preferredContactMethod String?
+  consentAccepted Boolean @default(false)
+  consentTimestamp DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PrelaunchDocument {
+  id String @id @default(uuid())
+  leadId String
+  documentType String
+  fileUrl String
+  createdAt DateTime @default(now())
+}
+
+SETUP:
+- Configure Prisma client
+- Connect to PostgreSQL (use environment variable DATABASE_URL)
+- Create a simple homepage with:
+  - Title: “Check your South African immigration status”
+  - Button: “Start Assessment” → /assessment
+
+OUTPUT:
+- Fully working Next.js app
+- Tailwind styled homepage
+- Prisma schema ready
+- No errors

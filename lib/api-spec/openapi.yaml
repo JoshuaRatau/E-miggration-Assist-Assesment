@@ -3,20 +3,23 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: E-Migration Assist API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: leads
+    description: Pre-launch immigration assessment leads
+  - name: stats
+    description: Aggregate stats
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +27,78 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /leads:
+    post:
+      operationId: createLead
+      tags: [leads]
+      summary: Submit a completed immigration assessment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLeadInput"
+      responses:
+        "201":
+          description: Lead created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+    get:
+      operationId: listLeads
+      tags: [leads]
+      summary: List recent leads (admin overview)
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: List of leads
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Lead"
+  /leads/{referenceNumber}:
+    get:
+      operationId: getLeadByReference
+      tags: [leads]
+      summary: Look up a lead by reference number
+      parameters:
+        - name: referenceNumber
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Lead found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+        "404":
+          description: Not found
+  /stats/summary:
+    get:
+      operationId: getStatsSummary
+      tags: [stats]
+      summary: Aggregate stats for the landing page (total assessments, category breakdown)
+      responses:
+        "200":
+          description: Stats summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatsSummary"
 components:
   schemas:
     HealthStatus:
@@ -31,6 +106,151 @@ components:
       properties:
         status:
           type: string
+      required: [status]
+    CreateLeadInput:
+      type: object
+      properties:
+        fullName:
+          type: string
+        email:
+          type: string
+        whatsapp:
+          type: string
+        nationality:
+          type: string
+        countryOfResidence:
+          type: string
+        currentlyInSouthAfrica:
+          type: boolean
+        passportStatus:
+          type: string
+          description: 'valid | expired | lost | none'
+        visaHistory:
+          type: string
+        immigrationSituation:
+          type: string
+          description: 'visa_holder | overstayed | undocumented | rejected | first_time | other'
+        visaExpiryDate:
+          type: string
+          format: date
+        exitDate:
+          type: string
+          format: date
+        borderDocumentIssued:
+          type: string
+        overstayReason:
+          type: string
+        hasSupportingDocuments:
+          type: string
+          description: 'yes | partial | no'
+        previousOverstay:
+          type: string
+        preferredContactMethod:
+          type: string
+          description: 'email | whatsapp | phone'
+        consentAccepted:
+          type: boolean
       required:
-        - status
-
+        - fullName
+        - email
+        - nationality
+        - immigrationSituation
+        - consentAccepted
+    Lead:
+      type: object
+      properties:
+        id:
+          type: string
+        referenceNumber:
+          type: string
+        fullName:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        whatsapp:
+          type: string
+          nullable: true
+        nationality:
+          type: string
+          nullable: true
+        countryOfResidence:
+          type: string
+          nullable: true
+        currentlyInSouthAfrica:
+          type: boolean
+          nullable: true
+        passportStatus:
+          type: string
+          nullable: true
+        visaHistory:
+          type: string
+          nullable: true
+        immigrationSituation:
+          type: string
+          nullable: true
+        visaExpiryDate:
+          type: string
+          nullable: true
+        exitDate:
+          type: string
+          nullable: true
+        borderDocumentIssued:
+          type: string
+          nullable: true
+        overstayReason:
+          type: string
+          nullable: true
+        hasSupportingDocuments:
+          type: string
+          nullable: true
+        previousOverstay:
+          type: string
+          nullable: true
+        internalClassification:
+          type: string
+          nullable: true
+        leadScore:
+          type: integer
+          nullable: true
+        leadCategory:
+          type: string
+          nullable: true
+        preferredContactMethod:
+          type: string
+          nullable: true
+        consentAccepted:
+          type: boolean
+        consentTimestamp:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+      required:
+        - id
+        - referenceNumber
+        - consentAccepted
+        - createdAt
+    CategoryCount:
+      type: object
+      properties:
+        category:
+          type: string
+        count:
+          type: integer
+      required: [category, count]
+    StatsSummary:
+      type: object
+      properties:
+        totalAssessments:
+          type: integer
+        last24Hours:
+          type: integer
+        avgScore:
+          type: number
+        byCategory:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryCount"
+      required: [totalAssessments, last24Hours, avgScore, byCategory]

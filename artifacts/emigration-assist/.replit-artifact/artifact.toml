@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "E-Migration Assist"
+version = "1.0.0"
+id = "artifacts/emigration-assist"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22187
+
+[services.development]
+run = "pnpm --filter @workspace/emigration-assist run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/emigration-assist", "run", "build" ]
+publicDir = "artifacts/emigration-assist/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22187"
+BASE_PATH = "/"
