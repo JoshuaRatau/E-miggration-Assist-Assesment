@@ -1,0 +1,14 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "AUDU5VAn8oJGHnHLiXbFl"
+uri = "file://docs/ARCHITECTURE.md"
+type = "text"
+title = "E-Migration Assist — Architecture Document"
+
+[[outputs]]
+id = "e2n6172uZbXEPfuDKLxoU"
+uri = "file://docs/FUNCTIONAL_SPEC.md"
+type = "text"
+title = "E-Migration Assist — Functional Specification (Fully Functioning)"
