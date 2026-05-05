@@ -3,7 +3,10 @@ type EventName =
   | "assessment_completed"
   | "classification_result"
   | "document_upload"
-  | "lead.whatsapp_captured";
+  | "lead.whatsapp_captured"
+  // Conversion Engine V1: admin clicked the per-row "Contact" quick-action
+  // on /admin.  Payload: { leadId, channel: "whatsapp" | "email" }.
+  | "lead_contact_clicked";
 
 const ENDPOINT = `${import.meta.env.BASE_URL}api/analytics/events`;
 

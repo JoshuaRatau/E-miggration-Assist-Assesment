@@ -8,6 +8,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { getAdminToken, clearAdminToken } from "@/lib/adminToken";
+import { trackEvent } from "@/lib/analytics";
 import {
   Dialog,
   DialogContent,
@@ -162,26 +163,68 @@ function rowHighlightClass(status: string | null | undefined): string {
   return "";
 }
 
+// Conversion Engine V1 — outbound contact message template.
+//
+// Strict copy rules (per product spec): no payment CTA, no approval/rejection
+// wording, no guarantees.  Use the lead's first name when available; fall
+// back to "there" so we never render the literal `{{name}}` placeholder.
+function buildContactMessage(
+  fullName: string | null | undefined,
+  referenceNumber: string,
+): string {
+  const trimmed = (fullName ?? "").trim();
+  // First word only — keeps the salutation casual and avoids leaking surnames
+  // into a copy-pasted WhatsApp/email body.
+  const firstName = trimmed.length > 0 ? trimmed.split(/\s+/)[0] : "there";
+  return (
+    `Hi ${firstName}, this is E-Migration Assist. ` +
+    `We received your assessment under reference ${referenceNumber}. ` +
+    `We are reviewing the information submitted and may request ` +
+    `additional details if needed.`
+  );
+}
+
 // Build the best-available "Contact" deeplink for a lead.  Prefers WhatsApp
 // when a number is on file (single-tap from desktop browsers via wa.me),
 // falls back to email.  Returns null when neither is available so the
 // button can be disabled with an explanatory tooltip.
+//
+// The message template is appended as `?text=` for wa.me and `?body=` for
+// mailto so the operator opens a chat/draft pre-filled with the V1 copy.
 function contactHref(
   email: string | null | undefined,
   whatsapp: string | null | undefined,
+  message: string,
 ): { href: string; channel: "whatsapp" | "email" } | null {
+  const encodedMessage = encodeURIComponent(message);
   if (typeof whatsapp === "string" && whatsapp.length > 0) {
     // wa.me requires a digits-only phone (no leading +).
     const digits = whatsapp.replace(/[^0-9]/g, "");
     if (digits.length > 0) {
-      return { href: `https://wa.me/${digits}`, channel: "whatsapp" };
+      return {
+        href: `https://wa.me/${digits}?text=${encodedMessage}`,
+        channel: "whatsapp",
+      };
     }
   }
   if (typeof email === "string" && email.length > 0) {
-    return { href: `mailto:${email}`, channel: "email" };
+    return {
+      href: `mailto:${email}?body=${encodedMessage}`,
+      channel: "email",
+    };
   }
   return null;
 }
+
+// Statuses that already represent "contacted or further along the funnel".
+// Clicking the Contact button on these leads will NOT downgrade their
+// status back to "contacted" — we only auto-advance from new/reviewing.
+const CONTACTED_OR_LATER = new Set([
+  "contacted",
+  "qualified",
+  "converted",
+  "closed",
+]);
 
 // "Visa Type" surfaces the lead's `immigrationSituation` (the canonical
 // enum captured in the funnel: valid / expired / overstay / undesirable /
@@ -728,9 +771,14 @@ export function Admin() {
                       // Always recompute locally so the column reflects the
                       // current optimistic status without a server round-trip.
                       const nextStep = nextStepFor(lead.leadStatus);
+                      const contactMessage = buildContactMessage(
+                        lead.fullName,
+                        lead.referenceNumber,
+                      );
                       const contact = contactHref(
                         lead.email,
                         typeof lead.whatsapp === "string" ? lead.whatsapp : null,
+                        contactMessage,
                       );
                       return (
                         <TableRow
@@ -830,32 +878,75 @@ export function Admin() {
                             <div className="flex items-center justify-end gap-1">
                               {contact ? (
                                 <Button
-                                  asChild
                                   variant="default"
                                   size="sm"
                                   data-testid={`button-contact-${lead.referenceNumber}`}
                                   data-channel={contact.channel}
+                                  title={
+                                    contact.channel === "whatsapp"
+                                      ? "Open WhatsApp chat (pre-filled) and mark contacted"
+                                      : "Open email draft (pre-filled) and mark contacted"
+                                  }
+                                  onClick={() => {
+                                    // ORDER MATTERS:
+                                    // 1) Open the contact link FIRST in the
+                                    //    same synchronous tick as the user's
+                                    //    click.  Browsers will block popups
+                                    //    that open after an `await`.  Both
+                                    //    channels use window.open so the
+                                    //    admin tab is never navigated away
+                                    //    — guarantees the subsequent PATCH
+                                    //    and analytics fetches are not
+                                    //    interrupted by a top-level
+                                    //    location change (mailto handlers
+                                    //    can otherwise abort in-flight work
+                                    //    on some browsers).
+                                    window.open(
+                                      contact.href,
+                                      "_blank",
+                                      "noopener,noreferrer",
+                                    );
+
+                                    // 2) Fire-and-forget analytics — never
+                                    //    blocks the UI on network failure.
+                                    trackEvent("lead_contact_clicked", {
+                                      referenceNumber: lead.referenceNumber,
+                                      payload: {
+                                        leadId: lead.id,
+                                        channel: contact.channel,
+                                      },
+                                    });
+
+                                    // 3) Auto-advance status only when the
+                                    //    lead is still upstream of "contacted".
+                                    //    Skipping later statuses prevents the
+                                    //    funnel from regressing (qualified →
+                                    //    contacted would be a downgrade).
+                                    //    A short toast keeps the UX honest
+                                    //    about the skip so operators aren't
+                                    //    confused by silence.
+                                    if (
+                                      !CONTACTED_OR_LATER.has(lead.leadStatus)
+                                    ) {
+                                      void patchLead(lead.id, {
+                                        status: "contacted",
+                                      }).then((ok) => {
+                                        if (ok) {
+                                          toast({
+                                            title: "Marked as contacted",
+                                          });
+                                        }
+                                      });
+                                    } else {
+                                      toast({
+                                        title: "Status unchanged",
+                                        description:
+                                          "Lead is already past “contacted” — no funnel regression applied.",
+                                      });
+                                    }
+                                  }}
                                 >
-                                  <a
-                                    href={contact.href}
-                                    target={
-                                      contact.channel === "whatsapp"
-                                        ? "_blank"
-                                        : undefined
-                                    }
-                                    rel={
-                                      contact.channel === "whatsapp"
-                                        ? "noopener noreferrer"
-                                        : undefined
-                                    }
-                                    title={
-                                      contact.channel === "whatsapp"
-                                        ? "Open WhatsApp chat"
-                                        : "Compose email"
-                                    }
-                                  >
-                                    Contact
-                                  </a>
+                                  Contact
                                 </Button>
                               ) : (
                                 <Button

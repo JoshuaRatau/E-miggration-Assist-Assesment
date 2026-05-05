@@ -424,7 +424,9 @@ components:
       properties:
         eventName:
           type: string
-          description: 'assessment_started | assessment_completed | classification_result | document_upload'
+          description: >-
+            assessment_started | assessment_completed |
+            classification_result | document_upload | lead_contact_clicked
         referenceNumber:
           type: string
           nullable: true

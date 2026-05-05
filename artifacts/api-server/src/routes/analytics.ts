@@ -10,6 +10,9 @@ const ALLOWED_EVENTS = new Set([
   "assessment_completed",
   "classification_result",
   "document_upload",
+  // Conversion Engine V1: fired when an admin clicks the per-row "Contact"
+  // button on /admin.  Payload carries { leadId, channel: "whatsapp"|"email" }.
+  "lead_contact_clicked",
 ]);
 
 router.post("/analytics/events", async (req, res) => {
