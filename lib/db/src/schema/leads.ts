@@ -101,6 +101,36 @@ export const leadEngagementsTable = pgTable("lead_engagements", {
     .defaultNow(),
 });
 
+// Case Messages -------------------------------------------------------------
+//
+// One row per INBOUND message received from a contact (initially WhatsApp).
+// "case" in the spec refers to a lead — there is no separate cases table —
+// so leadId is the FK-style reference to prelaunch_leads.id.
+//
+//   direction       ∈ inbound        (outbound deliveries are tracked in
+//                                     lead_engagements; this table is
+//                                     reserved for replies coming TO us)
+//   intent          ∈ task_complete_signal | null
+//                     (deterministic Phase-1 classification — no LLM yet)
+//   matchedKeyword  the literal keyword that fired the intent ("done",
+//                   "uploaded", "sent", …) — useful for audit/replay.
+//   waMessageId     Meta wamid; UNIQUE so duplicate webhook deliveries from
+//                   Meta (which retries aggressively on non-2xx) cannot
+//                   create duplicate rows.  Nullable for non-WhatsApp
+//                   future channels.
+export const caseMessagesTable = pgTable("case_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  leadId: uuid("lead_id").notNull(),
+  direction: text("direction").notNull(),
+  waMessageId: text("wa_message_id").unique(),
+  message: text("message").notNull(),
+  intent: text("intent"),
+  matchedKeyword: text("matched_keyword"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export type PrelaunchLead = typeof prelaunchLeadsTable.$inferSelect;
 export type InsertPrelaunchLead = typeof prelaunchLeadsTable.$inferInsert;
 export type PrelaunchDocument = typeof prelaunchDocumentsTable.$inferSelect;
@@ -108,3 +138,5 @@ export type AnalyticsEvent = typeof analyticsEventsTable.$inferSelect;
 export type InsertAnalyticsEvent = typeof analyticsEventsTable.$inferInsert;
 export type LeadEngagement = typeof leadEngagementsTable.$inferSelect;
 export type InsertLeadEngagement = typeof leadEngagementsTable.$inferInsert;
+export type CaseMessage = typeof caseMessagesTable.$inferSelect;
+export type InsertCaseMessage = typeof caseMessagesTable.$inferInsert;

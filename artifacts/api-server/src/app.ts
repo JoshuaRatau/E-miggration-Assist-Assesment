@@ -26,7 +26,19 @@ app.use(
   }),
 );
 app.use(cors());
-app.use(express.json());
+// Capture the raw request body during JSON parsing so the WhatsApp
+// webhook handler (and any future webhook) can verify Meta's
+// `X-Hub-Signature-256` HMAC against the EXACT bytes Meta signed.
+// JSON.stringify(req.body) would re-serialize and produce a different
+// byte sequence — verification would always fail. The raw buffer is
+// attached to the request and is GC'd when the request ends.
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      (req as express.Request & { rawBody?: Buffer }).rawBody = buf;
+    },
+  }),
+);
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);

@@ -8,6 +8,8 @@ import publicStatusRouter from "./publicStatus";
 import adminEmailRouter from "./adminEmail";
 import adminLeadsRouter from "./adminLeads";
 import adminEngagementsRouter from "./adminEngagements";
+import adminMessagesRouter from "./adminMessages";
+import whatsappWebhookRouter from "./whatsappWebhook";
 
 const router: IRouter = Router();
 
@@ -20,5 +22,7 @@ router.use(publicStatusRouter);
 router.use(adminEmailRouter);
 router.use(adminLeadsRouter);
 router.use(adminEngagementsRouter);
+router.use(adminMessagesRouter);
+router.use(whatsappWebhookRouter);
 
 export default router;

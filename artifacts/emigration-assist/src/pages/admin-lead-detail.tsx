@@ -381,9 +381,144 @@ export function AdminLeadDetail() {
           </CardContent>
         </Card>
 
+        <InboundMessages leadId={id} />
+
         <EngagementHistory leadId={id} />
       </div>
     </div>
+  );
+}
+
+interface InboundMessageRow {
+  id: string;
+  leadId: string;
+  direction: string;
+  message: string;
+  intent: string | null;
+  matchedKeyword: string | null;
+  waMessageId: string | null;
+  createdAt: string;
+}
+
+/**
+ * Inbound replies received from a lead (initially WhatsApp). Newest first.
+ *
+ * Mirrors `EngagementHistory` (same auth pattern, same focus-refetch
+ * behaviour) but reads `case_messages` via a separate admin endpoint —
+ * inbound message bodies are user-typed PII and live in their own table
+ * rather than being conflated with outbound delivery audit rows.
+ *
+ * Phase 1 keyword detection runs server-side; if a message matched a
+ * completion-signal keyword, we surface the matched keyword inline as a
+ * badge so the operator can quickly scan for "the user said done".
+ */
+function InboundMessages({ leadId }: { leadId: string }) {
+  const [rows, setRows] = useState<InboundMessageRow[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const token = getAdminToken();
+      if (!token) {
+        if (!cancelled) {
+          setError("Admin token required");
+          setLoading(false);
+        }
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(
+          `${import.meta.env.BASE_URL}api/admin/leads/${leadId}/messages`,
+          { headers: { "x-admin-token": token } },
+        );
+        if (res.status === 401) {
+          clearAdminToken();
+          throw new Error("Admin token rejected");
+        }
+        if (!res.ok) throw new Error(`Server returned ${res.status}`);
+        const body = (await res.json()) as InboundMessageRow[];
+        if (!cancelled) setRows(body);
+      } catch (err) {
+        if (!cancelled)
+          setError(err instanceof Error ? err.message : "Unknown error");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void load();
+    const onFocus = () => void load();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [leadId]);
+
+  return (
+    <Card data-testid="card-inbound-messages">
+      <CardHeader>
+        <CardTitle>Inbound replies</CardTitle>
+        <CardDescription>
+          Messages we've received from this lead, newest first.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+          </div>
+        ) : error ? (
+          <div
+            className="text-sm text-muted-foreground"
+            data-testid="text-inbound-error"
+          >
+            Could not load inbound messages: {error}
+          </div>
+        ) : !rows || rows.length === 0 ? (
+          <div
+            className="text-sm text-muted-foreground"
+            data-testid="text-inbound-empty"
+          >
+            No replies received yet.
+          </div>
+        ) : (
+          <ul className="divide-y">
+            {rows.map((row) => (
+              <li
+                key={row.id}
+                className="flex flex-col gap-1 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+                data-testid={`row-inbound-${row.id}`}
+              >
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline">{row.direction}</Badge>
+                    {row.intent === "task_complete_signal" ? (
+                      <Badge className="bg-emerald-600 text-white border-transparent">
+                        completion signal
+                        {row.matchedKeyword
+                          ? ` · "${row.matchedKeyword}"`
+                          : ""}
+                      </Badge>
+                    ) : null}
+                  </div>
+                  <div className="text-sm whitespace-pre-wrap">
+                    {row.message}
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground whitespace-nowrap">
+                  {format(new Date(row.createdAt), "PPp")}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
