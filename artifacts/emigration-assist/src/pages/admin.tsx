@@ -798,14 +798,18 @@ function SendUpdateDialog({
         // everything else falls through to the raw server reason.
         const description =
           body.reason === "not_configured"
-            ? "WhatsApp is not configured. Add WHATSAPP_PHONE_NUMBER_ID and WHATSAPP_TOKEN secrets, then re-send."
-            : body.reason === "missing_permission"
-              ? "The WhatsApp token is missing the 'whatsapp_business_messaging' permission. Update the token's scopes in Meta and re-send."
-              : body.reason === "invalid_credentials"
-                ? "WhatsApp rejected the token. Check WHATSAPP_TOKEN (it may be expired or revoked) and re-send."
-                : body.reason === "invalid_recipient"
-                  ? "The lead's WhatsApp number is not a valid E.164 phone number."
-                  : (body.reason ?? "Engagement saved but the send failed.");
+            ? "WhatsApp is not configured. Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_WHATSAPP_FROM secrets, then re-send."
+            : body.reason === "invalid_credentials"
+              ? "Twilio rejected the credentials. Check TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN (they may be wrong or rotated) and re-send."
+              : body.reason === "recipient_not_joined_sandbox"
+                ? "The lead has not joined the Twilio WhatsApp Sandbox. Ask them to send 'join <your-sandbox-keyword>' to the sandbox number, then re-send."
+                : body.reason === "outside_session_window"
+                  ? "More than 24 hours have passed since the lead's last reply. WhatsApp requires a pre-approved Content Template to message outside this window."
+                  : body.reason === "recipient_unsubscribed"
+                    ? "The lead has replied STOP and is unsubscribed from WhatsApp. They must re-opt-in before you can send again."
+                    : body.reason === "invalid_recipient"
+                      ? "The lead's WhatsApp number is not a valid E.164 phone number."
+                      : (body.reason ?? "Engagement saved but the send failed.");
         toast({
           title: "Send failed",
           description,

@@ -35,8 +35,10 @@ export interface SendMessageArgs {
  *   - email: transient by default, permanent for known categories
  *     (forbidden_phrase, invalid recipient).
  *   - whatsapp: PERMANENT failure when secrets are missing (`not_configured`)
- *     per spec — operator must add WHATSAPP_PHONE_NUMBER_ID + WHATSAPP_TOKEN
- *     and re-send. 5xx / 429 / network errors are transient (retryable).
+ *     per spec — operator must add TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN +
+ *     TWILIO_WHATSAPP_FROM and re-send. 5xx / 429 / network errors are
+ *     transient (retryable). (Provider switched from Meta Cloud API to
+ *     Twilio — see lib/whatsappClient.ts.)
  */
 export async function sendMessage(
   args: SendMessageArgs,

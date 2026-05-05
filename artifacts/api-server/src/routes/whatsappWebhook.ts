@@ -1,5 +1,4 @@
-import { Router, type IRouter, type Request } from "express";
-import { timingSafeEqual } from "node:crypto";
+import { Router, type IRouter } from "express";
 import type { Logger } from "pino";
 import {
   db,
@@ -9,8 +8,8 @@ import {
 } from "@workspace/db";
 import { desc, eq } from "drizzle-orm";
 import {
-  verifyMetaSignature,
-  extractInboundMessages,
+  verifyTwilioSignature,
+  extractInboundMessage,
   detectIntent,
   type ParsedInboundMessage,
 } from "../lib/whatsappWebhook";
@@ -19,132 +18,110 @@ import { normalizeWhatsapp } from "../lib/whatsapp";
 const router: IRouter = Router();
 
 /**
- * GET /api/webhooks/whatsapp
- *
- * Meta verification handshake. When you configure (or rotate) the webhook
- * subscription in the Meta App Dashboard, Meta hits this URL with:
- *   ?hub.mode=subscribe
- *   &hub.verify_token=<the token YOU set in the dashboard>
- *   &hub.challenge=<random string>
- *
- * We compare the supplied token against `WHATSAPP_VERIFY_TOKEN` in
- * constant time and echo back the challenge VERBATIM AS PLAIN TEXT on
- * match, or 403 on mismatch. Meta will not activate the subscription
- * without a successful handshake.
- */
-router.get("/webhooks/whatsapp", (req, res) => {
-  const expected = (process.env["WHATSAPP_VERIFY_TOKEN"] ?? "").trim();
-  if (!expected) {
-    req.log.error(
-      "WHATSAPP_VERIFY_TOKEN env var is not set; refusing handshake",
-    );
-    return res.status(503).end();
-  }
-
-  const mode = String(req.query["hub.mode"] ?? "");
-  const token = String(req.query["hub.verify_token"] ?? "");
-  const challenge = String(req.query["hub.challenge"] ?? "");
-
-  if (mode !== "subscribe") {
-    return res.status(403).end();
-  }
-
-  const ab = Buffer.from(token);
-  const bb = Buffer.from(expected);
-  if (ab.length !== bb.length || !timingSafeEqual(ab, bb)) {
-    req.log.warn(
-      { ip: req.ip },
-      "WhatsApp webhook handshake rejected — bad verify token",
-    );
-    return res.status(403).end();
-  }
-
-  return res.status(200).type("text/plain").send(challenge);
-});
-
-/**
  * POST /api/webhooks/whatsapp
  *
- * Receive inbound messages and status callbacks from Meta.
+ * Inbound WhatsApp messages from Twilio. Configure in Twilio Console →
+ * Messaging → Settings → WhatsApp Sandbox (or your registered sender):
+ *   "When a message comes in"  →  https://<your-domain>/api/webhooks/whatsapp
+ *   Method                     →  HTTP POST
+ *
+ * Twilio does NOT use a GET verification handshake — it just starts
+ * POSTing once the URL is saved. There is no equivalent of Meta's
+ * `hub.challenge`.
  *
  * Critical operational rules:
  *
- *  1. **ALWAYS respond 200.** Meta retries non-2xx responses with
- *     exponential backoff for up to 24 hours; that means an app-level bug
- *     would drown the API in retries. We ack first, then process. Errors
- *     during processing are logged but never bubbled.
+ *  1. **ALWAYS respond 200.** Twilio retries non-2xx with backoff; an
+ *     app-level bug would drown the API in retries. We ack first, then
+ *     process. Any error during processing is logged but never bubbled.
+ *     We respond with an empty TwiML `<Response/>` so Twilio also
+ *     understands "do not auto-reply on my behalf".
  *
- *  2. **Verify signature against the RAW body.** The body has to be
- *     compared byte-for-byte to Meta's HMAC. `app.ts` captures the raw
- *     buffer via `express.json({ verify })`; if it's missing we drop the
- *     event with an error log (still 200ing to Meta).
+ *  2. **Verify signature using Twilio's official helper.** The signature
+ *     scheme is `X-Twilio-Signature` = base64(HMAC-SHA1(URL +
+ *     sortedConcat(key,value), authToken)). We delegate to the official
+ *     SDK rather than reimplement. Failure → log + drop, still 200.
  *
- *  3. **Idempotent storage.** Meta may deliver the same message twice
- *     (cross-region failover, retry on prior 5xx, etc). The
- *     `case_messages.wa_message_id` UNIQUE constraint + ON CONFLICT DO
- *     NOTHING ensures the same wamid is never stored twice.
+ *  3. **Reconstruct the URL Twilio signed.** Behind Replit's reverse
+ *     proxy, `req.protocol` may be `http`. Twilio always calls our
+ *     public HTTPS URL, so we force `https://` and use the
+ *     `X-Forwarded-Host` header (or `Host` fallback) for the host.
  *
- *  4. **Fire-and-forget per message.** Each parsed message is processed
- *     independently so a DB error on one doesn't prevent storing the
- *     others in the same batch.
+ *  4. **Idempotent storage.** Twilio may deliver the same message twice
+ *     (network blip, retry). The `case_messages.wa_message_id` UNIQUE
+ *     constraint + ON CONFLICT DO NOTHING ensures the same MessageSid
+ *     is never stored twice.
  *
- *  5. **No PII in logs.** Phone number digits and message bodies are
- *     never logged — only the wamid (an opaque Meta id) and the leadId.
+ *  5. **No PII in logs.** Phone digits and message bodies never logged
+ *     — only the MessageSid (opaque) and the leadId.
  */
 router.post("/webhooks/whatsapp", async (req, res) => {
-  // Ack helper: Meta MUST get a 200 from us regardless of internal state.
-  const ack = () => res.status(200).end();
+  // Empty TwiML response — 200 + "do not auto-reply".
+  const ack = () =>
+    res
+      .status(200)
+      .set("Content-Type", "text/xml")
+      .send("<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response/>");
 
   try {
-    const appSecret = (process.env["WHATSAPP_APP_SECRET"] ?? "").trim();
-    const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
-
-    if (!appSecret) {
+    const authToken = (process.env["TWILIO_AUTH_TOKEN"] ?? "").trim();
+    if (!authToken) {
       req.log.error(
-        "WHATSAPP_APP_SECRET env var is not set; dropping webhook event " +
+        "TWILIO_AUTH_TOKEN env var is not set; dropping webhook event " +
           "(cannot verify authenticity)",
       );
       return ack();
     }
-    if (!rawBody) {
-      req.log.error(
-        "Raw request body is missing; cannot verify Meta signature " +
-          "(check express.json `verify` callback in app.ts)",
-      );
+
+    // Reconstruct the URL Twilio signed. `originalUrl` includes the
+    // mounted `/api` prefix and any query string.
+    const forwardedHost = req.header("x-forwarded-host");
+    const host =
+      typeof forwardedHost === "string" && forwardedHost.length > 0
+        ? forwardedHost.split(",")[0]?.trim()
+        : req.header("host");
+    if (!host) {
+      req.log.error("No Host header on webhook request; cannot verify");
       return ack();
     }
+    const url = `https://${host}${req.originalUrl}`;
 
-    const sig = req.header("x-hub-signature-256");
-    const ok = verifyMetaSignature({
+    const sig = req.header("x-twilio-signature");
+    const params: Record<string, string> = {};
+    if (req.body && typeof req.body === "object") {
+      for (const [k, v] of Object.entries(req.body as Record<string, unknown>)) {
+        if (typeof v === "string") params[k] = v;
+      }
+    }
+
+    const ok = verifyTwilioSignature({
       signatureHeader: sig,
-      appSecret,
-      rawBody,
+      authToken,
+      url,
+      params,
     });
     if (!ok) {
       req.log.warn(
         { ip: req.ip },
-        "WhatsApp webhook signature verification failed — dropping event",
+        "Twilio webhook signature verification failed — dropping event",
       );
       return ack();
     }
 
-    const messages = extractInboundMessages(req.body);
-    if (messages.length === 0) {
-      // Status callbacks (delivered/read receipts) and non-text message
-      // types land here. Nothing to do — Meta still gets a 200.
+    const msg = extractInboundMessage(params);
+    if (!msg) {
+      // Status callbacks, non-text MMS, or unparseable payloads — Twilio
+      // still gets a 200.
       return ack();
     }
 
-    // Process each message independently so a single failure doesn't
-    // cascade. We don't await — handler errors are caught inside.
-    for (const msg of messages) {
-      void handleInboundMessage(msg, req.log).catch((err) =>
-        req.log.warn(
-          { err: err instanceof Error ? err.message : String(err) },
-          "Inbound WhatsApp processing error (silent)",
-        ),
-      );
-    }
+    // Fire-and-forget so a slow DB never delays the ack to Twilio.
+    void handleInboundMessage(msg, req.log).catch((err) =>
+      req.log.warn(
+        { err: err instanceof Error ? err.message : String(err) },
+        "Inbound WhatsApp processing error (silent)",
+      ),
+    );
 
     return ack();
   } catch (err) {
@@ -152,7 +129,10 @@ router.post("/webhooks/whatsapp", async (req, res) => {
       { err: err instanceof Error ? err.message : String(err) },
       "Webhook handler outer error (acked)",
     );
-    return res.status(200).end();
+    return res
+      .status(200)
+      .set("Content-Type", "text/xml")
+      .send("<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response/>");
   }
 });
 
@@ -165,11 +145,11 @@ async function handleInboundMessage(
   msg: ParsedInboundMessage,
   log: Logger,
 ): Promise<void> {
-  // Meta sends `from` as digits-only (no `+`). Re-add the prefix so it
-  // round-trips through our canonical normalizer (which is the same one
-  // used when leads are stored — guarantees a match if the lead exists).
-  const candidate = msg.from.startsWith("+") ? msg.from : `+${msg.from}`;
-  const normalized = normalizeWhatsapp(candidate);
+  // Twilio gives us "+E164" already (after we stripped the whatsapp:
+  // prefix in extractInboundMessage). normalizeWhatsapp is the same
+  // canonicaliser used at lead-submission time → guarantees a match if
+  // the lead exists.
+  const normalized = normalizeWhatsapp(msg.from);
   if (!normalized) {
     log.info(
       { waMessageId: msg.id },
@@ -198,8 +178,8 @@ async function handleInboundMessage(
 
   const { intent, matchedKeyword } = detectIntent(msg.body);
 
-  // Idempotent store: if Meta retries the same wamid, ON CONFLICT DO
-  // NOTHING returns no row and we skip the downstream side effects.
+  // Idempotent store: if Twilio retries the same MessageSid, ON CONFLICT
+  // DO NOTHING returns no row and we skip the downstream side effects.
   const inserted = await db
     .insert(caseMessagesTable)
     .values({
@@ -216,7 +196,7 @@ async function handleInboundMessage(
   if (inserted.length === 0) {
     log.info(
       { waMessageId: msg.id, leadId: lead.id },
-      "Inbound WhatsApp duplicate (Meta retry) — already stored",
+      "Inbound WhatsApp duplicate (Twilio retry) — already stored",
     );
     return;
   }
@@ -226,7 +206,6 @@ async function handleInboundMessage(
     "Inbound WhatsApp stored",
   );
 
-  // Analytics — never blocks downstream processing.
   await db
     .insert(analyticsEventsTable)
     .values({
@@ -259,13 +238,14 @@ async function handleInboundMessage(
 /**
  * STUB — task reconciliation hook.
  *
- * Spec calls for: "after marking task complete → run
+ * Spec calls for "after marking task complete → run
  * reconcileNextActionsForCase()". This codebase does NOT yet have a
  * tasks / next-actions data model, so the actual mutation cannot run.
  *
  * What this stub guarantees today:
  *   * the inbound message is already stored with intent='task_complete_signal'
- *     and the matched keyword — that's the durable record of the user's signal,
+ *     and the matched keyword — that's the durable record of the user's
+ *     signal,
  *   * an info-level log line is emitted so operators see the signal in
  *     the live console / log explorer,
  *   * the function is async-safe and never throws.
