@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { BrandHeader } from "@/components/brand-header";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -562,8 +563,9 @@ export function Admin() {
     stats?.byStatus?.find((c) => c.category === key)?.count ?? 0;
 
   return (
-    <div className="min-h-screen bg-muted/20 p-6 md:p-12">
+    <div className="min-h-screen bg-background p-6 md:p-12">
       <div className="max-w-7xl mx-auto space-y-8">
+        <BrandHeader variant="compact" />
         <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-display font-bold">Lead Dashboard</h1>

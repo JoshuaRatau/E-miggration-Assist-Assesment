@@ -15,6 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Disclaimer } from "@/components/disclaimer";
+import { BrandHeader } from "@/components/brand-header";
 import { trackEvent } from "@/lib/analytics";
 import { DocumentUploader } from "@/components/DocumentUploader";
 
@@ -169,8 +170,9 @@ export function Assessment() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-background py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto space-y-8">
+        <BrandHeader variant="compact" />
         <div className="space-y-4">
           <h1 className="text-3xl font-display font-semibold text-center">Your Preliminary Assessment</h1>
           <Progress value={(step / totalSteps) * 100} className="h-2" />

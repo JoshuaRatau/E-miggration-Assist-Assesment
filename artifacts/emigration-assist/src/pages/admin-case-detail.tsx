@@ -10,9 +10,22 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { getAdminToken, clearAdminToken } from "@/lib/adminToken";
 import { statusLabel } from "@/lib/leadStatus";
+import {
+  CASE_STATUS_ORDER,
+  canAdvanceCaseStatus,
+  caseStatusLabel,
+} from "@/lib/caseStatus";
+import { BrandHeader } from "@/components/brand-header";
 
 type CaseDetail = {
   id: string;
@@ -49,6 +62,71 @@ export function AdminCaseDetail() {
   const [caseRow, setCaseRow] = useState<CaseDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [savingStatus, setSavingStatus] = useState(false);
+
+  // Forward-only PATCH for the case lifecycle.  Optimistically updates
+  // local state, then PATCHes; on 409 (regression) or other failure the
+  // previous status is restored and a toast surfaces the server message.
+  const updateCaseStatus = async (next: string) => {
+    if (!caseRow || savingStatus) return;
+    if (next === caseRow.status) return;
+    if (!canAdvanceCaseStatus(caseRow.status, next)) {
+      toast({
+        title: "Backwards move blocked",
+        description: "Case lifecycle is forward-only.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const token = getAdminToken();
+    if (!token) {
+      toast({
+        title: "Admin token required",
+        variant: "destructive",
+      });
+      return;
+    }
+    const previous = caseRow;
+    setSavingStatus(true);
+    setCaseRow({ ...caseRow, status: next });
+    try {
+      const res = await fetch(`${apiBase}/api/admin/cases/${caseRow.id}`, {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+          "x-admin-token": token,
+        },
+        body: JSON.stringify({ status: next }),
+      });
+      if (!res.ok) {
+        if (res.status === 401) clearAdminToken();
+        const body = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(body.error ?? `Server returned ${res.status}`);
+      }
+      const updated = (await res.json()) as {
+        id: string;
+        status: string;
+        updatedAt: string;
+      };
+      setCaseRow({
+        ...previous,
+        status: updated.status,
+        updatedAt: updated.updatedAt,
+      });
+      toast({ title: `Case status: ${caseStatusLabel(updated.status)}` });
+    } catch (err) {
+      setCaseRow(previous);
+      toast({
+        title: "Could not update case status",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingStatus(false);
+    }
+  };
 
   useEffect(() => {
     const token = getAdminToken();
@@ -100,30 +178,38 @@ export function AdminCaseDetail() {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-8" data-testid="case-loading">
-        Loading case…
+      <div className="min-h-screen bg-background p-6 md:p-12">
+        <div className="container mx-auto max-w-4xl">
+          <BrandHeader variant="compact" />
+          <div data-testid="case-loading">Loading case…</div>
+        </div>
       </div>
     );
   }
 
   if (error || !caseRow) {
     return (
-      <div className="container mx-auto p-8 space-y-4">
-        <p className="text-destructive" data-testid="case-error">
-          {error ?? "Case unavailable"}
-        </p>
-        <Link href="/admin">
-          <Button variant="outline">Back to dashboard</Button>
-        </Link>
+      <div className="min-h-screen bg-background p-6 md:p-12">
+        <div className="container mx-auto max-w-4xl space-y-4">
+          <BrandHeader variant="compact" />
+          <p className="text-destructive" data-testid="case-error">
+            {error ?? "Case unavailable"}
+          </p>
+          <Link href="/admin">
+            <Button variant="outline">Back to dashboard</Button>
+          </Link>
+        </div>
       </div>
     );
   }
 
   return (
+    <div className="min-h-screen bg-background p-6 md:p-12">
     <div
-      className="container mx-auto p-6 space-y-6 max-w-4xl"
+      className="container mx-auto space-y-6 max-w-4xl"
       data-testid="case-detail"
     >
+      <BrandHeader variant="compact" />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">
@@ -162,9 +248,43 @@ export function AdminCaseDetail() {
           </div>
           <div>
             <div className="text-muted-foreground">Case status</div>
-            <Badge variant="secondary" data-testid="case-status">
-              {statusLabel(caseRow.status)}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" data-testid="case-status">
+                {caseStatusLabel(caseRow.status)}
+              </Badge>
+              <Select
+                value={caseRow.status}
+                onValueChange={updateCaseStatus}
+                disabled={savingStatus}
+              >
+                <SelectTrigger
+                  className="h-8 w-[200px]"
+                  data-testid="select-case-status"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CASE_STATUS_ORDER.map((s) => {
+                    const allowed = canAdvanceCaseStatus(caseRow.status, s);
+                    return (
+                      <SelectItem
+                        key={s}
+                        value={s}
+                        disabled={!allowed}
+                        data-testid={`select-case-status-option-${s}`}
+                        title={
+                          allowed
+                            ? undefined
+                            : "Forward-only lifecycle — cannot regress"
+                        }
+                      >
+                        {caseStatusLabel(s)}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div>
             <div className="text-muted-foreground">Lead status</div>
@@ -252,6 +372,7 @@ export function AdminCaseDetail() {
           </p>
         </CardContent>
       </Card>
+    </div>
     </div>
   );
 }

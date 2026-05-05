@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle2, FileText, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { Disclaimer } from "@/components/disclaimer";
+import { BrandHeader } from "@/components/brand-header";
 
 export function Status() {
   useEffect(() => {
@@ -58,8 +59,9 @@ export function Status() {
   const isRateLimited = errorStatus === 429;
 
   return (
-    <div className="min-h-screen bg-muted/30 flex flex-col items-center py-12 px-6">
+    <div className="min-h-screen bg-background flex flex-col items-center py-12 px-6">
       <div className="w-full max-w-lg space-y-8">
+        <BrandHeader variant="compact" />
         <div className="text-center space-y-3">
           <h1 className="text-3xl font-display font-bold">Check Your Status</h1>
           <p className="text-muted-foreground">

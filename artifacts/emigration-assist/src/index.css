@@ -68,64 +68,70 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* LIGHT MODE */
+/* eRide Technologies — E-Migration Assist brand palette
+ * Deep navy surface + teal accent.  Sourced from the eRide brand
+ * screenshot (mobile sign-in shot) attached by the operator.  The app
+ * is now mono-mode (always dark navy); the legacy `.dark` selector
+ * below is kept as an alias so any explicit `<html class="dark">` use
+ * still resolves to the same palette.
+ */
 :root {
-  --button-outline: rgba(0,0,0, .10);
-  --badge-outline: rgba(0,0,0, .05);
+  --button-outline: rgba(255,255,255, .08);
+  --badge-outline: rgba(255,255,255, .06);
 
-  --opaque-button-border-intensity: -8;
+  --opaque-button-border-intensity: 9;
 
-  --elevate-1: rgba(0,0,0, .03);
-  --elevate-2: rgba(0,0,0, .08);
+  --elevate-1: rgba(255,255,255, .04);
+  --elevate-2: rgba(255,255,255, .09);
 
-  /* Warm, calm ivory background */
-  --background: 40 30% 98%;
-  --foreground: 150 20% 15%;
+  /* Deep navy page background, off-white text */
+  --background: 213 60% 9%;
+  --foreground: 210 25% 96%;
 
-  --border: 40 20% 90%;
+  --border: 213 35% 22%;
 
-  --card: 0 0% 100%;
-  --card-foreground: 150 20% 15%;
-  --card-border: 40 20% 92%;
+  --card: 213 50% 13%;
+  --card-foreground: 210 25% 96%;
+  --card-border: 213 35% 22%;
 
-  --sidebar: 40 30% 98%;
-  --sidebar-foreground: 150 20% 15%;
-  --sidebar-border: 40 20% 90%;
-  --sidebar-primary: 150 25% 23%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 40 20% 92%;
-  --sidebar-accent-foreground: 150 20% 15%;
-  --sidebar-ring: 150 25% 23%;
+  --sidebar: 213 60% 9%;
+  --sidebar-foreground: 210 25% 96%;
+  --sidebar-border: 213 35% 22%;
+  --sidebar-primary: 187 38% 52%;
+  --sidebar-primary-foreground: 213 60% 9%;
+  --sidebar-accent: 213 45% 17%;
+  --sidebar-accent-foreground: 210 25% 96%;
+  --sidebar-ring: 187 38% 52%;
 
-  --popover: 0 0% 100%;
-  --popover-foreground: 150 20% 15%;
-  --popover-border: 40 20% 90%;
+  --popover: 213 50% 13%;
+  --popover-foreground: 210 25% 96%;
+  --popover-border: 213 35% 22%;
 
-  /* Deep sage green */
-  --primary: 150 25% 23%;
-  --primary-foreground: 0 0% 100%;
+  /* eRide teal — primary action colour */
+  --primary: 187 38% 52%;
+  --primary-foreground: 213 60% 9%;
 
-  /* Soft sandy gold */
-  --secondary: 35 30% 88%;
-  --secondary-foreground: 150 25% 23%;
+  /* Subtle navy surface for chips, cards, inputs */
+  --secondary: 213 40% 18%;
+  --secondary-foreground: 210 25% 96%;
 
-  --muted: 40 20% 94%;
-  --muted-foreground: 150 10% 45%;
+  --muted: 213 35% 18%;
+  --muted-foreground: 213 15% 70%;
 
-  --accent: 40 20% 94%;
-  --accent-foreground: 150 20% 15%;
+  --accent: 187 38% 52%;
+  --accent-foreground: 213 60% 9%;
 
-  --destructive: 0 60% 50%;
+  --destructive: 0 70% 55%;
   --destructive-foreground: 0 0% 100%;
 
-  --input: 40 20% 85%;
-  --ring: 150 25% 23%;
+  --input: 213 40% 22%;
+  --ring: 187 38% 52%;
 
-  --chart-1: 150 25% 23%;
-  --chart-2: 35 40% 60%;
-  --chart-3: 200 20% 40%;
-  --chart-4: 30 30% 45%;
-  --chart-5: 180 15% 30%;
+  --chart-1: 187 38% 52%;
+  --chart-2: 187 50% 70%;
+  --chart-3: 213 30% 55%;
+  --chart-4: 30 65% 60%;
+  --chart-5: 0 60% 60%;
 
   --app-font-sans: 'Inter', sans-serif;
   --app-font-display: 'Plus Jakarta Sans', sans-serif;
@@ -176,60 +182,60 @@
 }
 
 .dark {
-  --button-outline: rgba(255,255,255, .10);
-  --badge-outline: rgba(255,255,255, .05);
+  /* Alias of :root — the eRide palette is mono-mode (always dark navy) */
+  --button-outline: rgba(255,255,255, .08);
+  --badge-outline: rgba(255,255,255, .06);
 
-  --opaque-button-border-intensity: 9;  /* In terms of percentages */
+  --opaque-button-border-intensity: 9;
 
-  /* Backgrounds applied on top of other backgrounds when hovered/active */
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
 
-  --background: 150 20% 12%;
-  --foreground: 40 30% 98%;
+  --background: 213 60% 9%;
+  --foreground: 210 25% 96%;
 
-  --border: 150 20% 20%;
+  --border: 213 35% 22%;
 
-  --card: 150 20% 15%;
-  --card-foreground: 40 30% 98%;
-  --card-border: 150 20% 22%;
+  --card: 213 50% 13%;
+  --card-foreground: 210 25% 96%;
+  --card-border: 213 35% 22%;
 
-  --sidebar: 150 20% 12%;
-  --sidebar-foreground: 40 30% 98%;
-  --sidebar-border: 150 20% 20%;
-  --sidebar-primary: 150 25% 30%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 150 20% 20%;
-  --sidebar-accent-foreground: 40 30% 98%;
-  --sidebar-ring: 150 25% 30%;
+  --sidebar: 213 60% 9%;
+  --sidebar-foreground: 210 25% 96%;
+  --sidebar-border: 213 35% 22%;
+  --sidebar-primary: 187 38% 52%;
+  --sidebar-primary-foreground: 213 60% 9%;
+  --sidebar-accent: 213 45% 17%;
+  --sidebar-accent-foreground: 210 25% 96%;
+  --sidebar-ring: 187 38% 52%;
 
-  --popover: 150 20% 15%;
-  --popover-foreground: 40 30% 98%;
-  --popover-border: 150 20% 22%;
+  --popover: 213 50% 13%;
+  --popover-foreground: 210 25% 96%;
+  --popover-border: 213 35% 22%;
 
-  --primary: 150 25% 40%;
-  --primary-foreground: 0 0% 100%;
+  --primary: 187 38% 52%;
+  --primary-foreground: 213 60% 9%;
 
-  --secondary: 150 20% 20%;
-  --secondary-foreground: 40 30% 98%;
+  --secondary: 213 40% 18%;
+  --secondary-foreground: 210 25% 96%;
 
-  --muted: 150 20% 20%;
-  --muted-foreground: 150 10% 65%;
+  --muted: 213 35% 18%;
+  --muted-foreground: 213 15% 70%;
 
-  --accent: 150 20% 20%;
-  --accent-foreground: 40 30% 98%;
+  --accent: 187 38% 52%;
+  --accent-foreground: 213 60% 9%;
 
-  --destructive: 0 60% 50%;
+  --destructive: 0 70% 55%;
   --destructive-foreground: 0 0% 100%;
 
-  --input: 150 20% 25%;
-  --ring: 150 25% 40%;
-  
-  --chart-1: 150 25% 40%;
-  --chart-2: 35 40% 60%;
-  --chart-3: 200 20% 40%;
-  --chart-4: 30 30% 45%;
-  --chart-5: 180 15% 30%;
+  --input: 213 40% 22%;
+  --ring: 187 38% 52%;
+
+  --chart-1: 187 38% 52%;
+  --chart-2: 187 50% 70%;
+  --chart-3: 213 30% 55%;
+  --chart-4: 30 65% 60%;
+  --chart-5: 0 60% 60%;
 
   --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.5);
   --shadow-xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.5);

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Disclaimer } from "@/components/disclaimer";
+import { BrandHeader } from "@/components/brand-header";
 
 export function Home() {
   useEffect(() => {
@@ -14,9 +15,10 @@ export function Home() {
   const { data: stats, isLoading } = useGetStatsSummary();
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 lg:p-12">
+    <div className="min-h-screen bg-background flex flex-col items-center p-6 lg:p-12">
       <div className="w-full max-w-4xl mx-auto space-y-12">
-        <header className="text-center space-y-4">
+        <BrandHeader />
+        <header className="text-center space-y-4 pt-8">
           <h1 className="text-4xl lg:text-6xl font-display font-bold text-foreground tracking-tight">
             Check your South African immigration status.
           </h1>
