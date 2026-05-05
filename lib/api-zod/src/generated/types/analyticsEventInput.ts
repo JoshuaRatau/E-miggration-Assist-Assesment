@@ -8,7 +8,7 @@
 import type { AnalyticsEventInputPayload } from "./analyticsEventInputPayload";
 
 export interface AnalyticsEventInput {
-  /** assessment_started | assessment_completed | classification_result | document_upload */
+  /** assessment_started | assessment_completed | classification_result | document_upload | lead_contact_clicked */
   eventName: string;
   referenceNumber?: string | null;
   payload?: AnalyticsEventInputPayload;

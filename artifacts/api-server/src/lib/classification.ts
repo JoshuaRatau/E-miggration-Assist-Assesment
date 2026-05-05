@@ -11,13 +11,8 @@ export interface ClassificationResult {
 }
 
 export type LeadPriority = "high" | "medium" | "low";
-export type LeadStatus =
-  | "new"
-  | "reviewing"
-  | "contacted"
-  | "qualified"
-  | "converted"
-  | "closed";
+// `LeadStatus` is exported below, derived from `LEAD_STATUS_VALUES` so the
+// type and the runtime allowlist can never drift.
 
 const STRONG_CONTEXT_REASONS = new Set([
   "medical",
@@ -131,14 +126,45 @@ export function deriveAutoPriority(
   return "low";
 }
 
+// Canonical lead-status enum AND funnel order.  The array order is the
+// forward-only progression operators must follow:
+//   new → reviewing → contacted → qualified → ready_for_case → converted → closed
+//
+// `ready_for_case` was added in V2: it sits between "qualified" (operator
+// has prepared the case docs) and "converted" (case has been opened in the
+// case system).  Semantically: "all checks passed, awaiting handover".
+//
+// Funnel-regression guard: every status PATCH is validated against this
+// order (see `canAdvanceStatus` + the PATCH /api/admin/leads/:id route).
 export const LEAD_STATUS_VALUES = [
   "new",
   "reviewing",
   "contacted",
   "qualified",
+  "ready_for_case",
   "converted",
   "closed",
 ] as const;
+
+export type LeadStatus = (typeof LEAD_STATUS_VALUES)[number];
+
+/**
+ * Forward-only transition guard.  Returns true when moving from `from` to
+ * `to` is either a no-op (same status) or a forward step in the funnel.
+ *
+ * Permissive on unknown values so legacy/unrecognised statuses in the DB
+ * never accidentally lock a lead — the value-allowlist check in the route
+ * still rejects unknown TARGET statuses before this guard runs.
+ */
+export function canAdvanceStatus(
+  from: string | null | undefined,
+  to: string,
+): boolean {
+  const fromIdx = from ? LEAD_STATUS_VALUES.indexOf(from as LeadStatus) : -1;
+  const toIdx = LEAD_STATUS_VALUES.indexOf(to as LeadStatus);
+  if (fromIdx === -1 || toIdx === -1) return true;
+  return toIdx >= fromIdx;
+}
 
 /**
  * Conversion-funnel hint shown to operators in the dashboard.  Pure derivation
@@ -153,6 +179,7 @@ const NEXT_STEP_BY_STATUS: Record<string, string> = {
   reviewing: "Contact lead",
   contacted: "Await response",
   qualified: "Prepare case conversion",
+  ready_for_case: "Initiate case handover",
   converted: "Move to case system",
 };
 

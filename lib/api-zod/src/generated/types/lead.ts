@@ -29,9 +29,9 @@ export interface Lead {
   leadCategory?: string | null;
   /** high | medium | low */
   leadPriority?: string | null;
-  /** new | reviewing | contacted | qualified | converted | closed */
+  /** new | reviewing | contacted | qualified | ready_for_case | converted | closed. Forward-only — PATCH /admin/leads/{id} returns 409 on regression. */
   leadStatus: string;
-  /** Conversion-funnel hint derived from leadStatus. Values: "Review lead" (new), "Contact lead" (reviewing), "Await response" (contacted), "Prepare case conversion" (qualified), "Move to case system" (converted), null (closed/unknown). */
+  /** Conversion-funnel hint derived from leadStatus. Values: "Review lead" (new), "Contact lead" (reviewing), "Await response" (contacted), "Prepare case conversion" (qualified), "Initiate case handover" (ready_for_case), "Move to case system" (converted), null (closed/unknown). */
   nextStep?: string | null;
   adminNotes?: string | null;
   /** True if the lead has a stored canonical WhatsApp number. */

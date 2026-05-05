@@ -10,6 +10,11 @@ import { useToast } from "@/hooks/use-toast";
 import { getAdminToken, clearAdminToken } from "@/lib/adminToken";
 import { trackEvent } from "@/lib/analytics";
 import {
+  canAdvanceStatus,
+  isStrictlyUpstreamOf,
+  statusLabel,
+} from "@/lib/leadStatus";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -44,12 +49,16 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-// Lowercase canonical enums shared with the server (see classification.ts).
+// Lowercase canonical enums shared with the server (see classification.ts
+// and lib/leadStatus.ts).  V2 added `ready_for_case` between qualified
+// and converted; the funnel is forward-only (server returns 409 on
+// regression, dropdown disables backward options).
 const STATUS_VALUES = [
   "new",
   "reviewing",
   "contacted",
   "qualified",
+  "ready_for_case",
   "converted",
   "closed",
 ] as const;
@@ -68,6 +77,7 @@ const STATUS_OPTIONS = [
   { value: "reviewing", label: "Reviewing" },
   { value: "contacted", label: "Contacted" },
   { value: "qualified", label: "Qualified" },
+  { value: "ready_for_case", label: "Ready for case" },
   { value: "converted", label: "Converted" },
   { value: "closed", label: "Closed" },
 ];
@@ -143,6 +153,7 @@ const NEXT_STEP_BY_STATUS: Record<string, string> = {
   reviewing: "Contact lead",
   contacted: "Await response",
   qualified: "Prepare case conversion",
+  ready_for_case: "Initiate case handover",
   converted: "Move to case system",
 };
 
@@ -216,15 +227,9 @@ function contactHref(
   return null;
 }
 
-// Statuses that already represent "contacted or further along the funnel".
-// Clicking the Contact button on these leads will NOT downgrade their
-// status back to "contacted" — we only auto-advance from new/reviewing.
-const CONTACTED_OR_LATER = new Set([
-  "contacted",
-  "qualified",
-  "converted",
-  "closed",
-]);
+// (Funnel-regression guard for the Contact button is now derived from the
+// shared `isStrictlyUpstreamOf(status, "contacted")` helper in
+// lib/leadStatus.ts — keeps a single source of truth as the funnel grows.)
 
 // "Visa Type" surfaces the lead's `immigrationSituation` (the canonical
 // enum captured in the funnel: valid / expired / overstay / undesirable /
@@ -816,15 +821,32 @@ export function Admin() {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                {STATUS_VALUES.map((s) => (
-                                  <SelectItem
-                                    key={s}
-                                    value={s}
-                                    className="capitalize"
-                                  >
-                                    {s}
-                                  </SelectItem>
-                                ))}
+                                {STATUS_VALUES.map((s) => {
+                                  // Funnel-regression guard: disable any
+                                  // option that would move this lead
+                                  // BACKWARD.  The current status itself
+                                  // stays enabled so the dropdown can
+                                  // render its selected value normally.
+                                  const allowed = canAdvanceStatus(
+                                    lead.leadStatus,
+                                    s,
+                                  );
+                                  return (
+                                    <SelectItem
+                                      key={s}
+                                      value={s}
+                                      disabled={!allowed}
+                                      title={
+                                        allowed
+                                          ? undefined
+                                          : "Forward-only funnel — cannot regress"
+                                      }
+                                      data-testid={`status-option-${lead.referenceNumber}-${s}`}
+                                    >
+                                      {statusLabel(s)}
+                                    </SelectItem>
+                                  );
+                                })}
                               </SelectContent>
                             </Select>
                           </TableCell>
@@ -918,15 +940,22 @@ export function Admin() {
                                     });
 
                                     // 3) Auto-advance status only when the
-                                    //    lead is still upstream of "contacted".
-                                    //    Skipping later statuses prevents the
-                                    //    funnel from regressing (qualified →
-                                    //    contacted would be a downgrade).
+                                    //    lead is STRICTLY upstream of
+                                    //    "contacted".  Same-or-later leads
+                                    //    skip the PATCH so the funnel
+                                    //    cannot regress (the server would
+                                    //    reject regressions with 409
+                                    //    anyway, but skipping client-side
+                                    //    avoids the failed-request noise
+                                    //    in the toast/log streams).
                                     //    A short toast keeps the UX honest
                                     //    about the skip so operators aren't
                                     //    confused by silence.
                                     if (
-                                      !CONTACTED_OR_LATER.has(lead.leadStatus)
+                                      isStrictlyUpstreamOf(
+                                        lead.leadStatus,
+                                        "contacted",
+                                      )
                                     ) {
                                       void patchLead(lead.id, {
                                         status: "contacted",
@@ -941,7 +970,7 @@ export function Admin() {
                                       toast({
                                         title: "Status unchanged",
                                         description:
-                                          "Lead is already past “contacted” — no funnel regression applied.",
+                                          "Lead is already at or past “contacted” — no funnel regression applied.",
                                       });
                                     }
                                   }}

@@ -74,12 +74,14 @@ export const CreateLeadResponse = zod.object({
   leadPriority: zod.string().nullish().describe("high | medium | low"),
   leadStatus: zod
     .string()
-    .describe("new | reviewing | contacted | qualified | converted | closed"),
+    .describe(
+      "new | reviewing | contacted | qualified | ready_for_case | converted | closed. Forward-only — PATCH \/admin\/leads\/{id} returns 409 on regression.",
+    ),
   nextStep: zod
     .string()
     .nullish()
     .describe(
-      'Conversion-funnel hint derived from leadStatus. Values: \"Review lead\" (new), \"Contact lead\" (reviewing), \"Await response\" (contacted), \"Prepare case conversion\" (qualified), \"Move to case system\" (converted), null (closed\/unknown).',
+      'Conversion-funnel hint derived from leadStatus. Values: \"Review lead\" (new), \"Contact lead\" (reviewing), \"Await response\" (contacted), \"Prepare case conversion\" (qualified), \"Initiate case handover\" (ready_for_case), \"Move to case system\" (converted), null (closed\/unknown).',
     ),
   adminNotes: zod.string().nullish(),
   hasWhatsapp: zod
@@ -144,12 +146,14 @@ export const ListLeadsResponseItem = zod.object({
   leadPriority: zod.string().nullish().describe("high | medium | low"),
   leadStatus: zod
     .string()
-    .describe("new | reviewing | contacted | qualified | converted | closed"),
+    .describe(
+      "new | reviewing | contacted | qualified | ready_for_case | converted | closed. Forward-only — PATCH \/admin\/leads\/{id} returns 409 on regression.",
+    ),
   nextStep: zod
     .string()
     .nullish()
     .describe(
-      'Conversion-funnel hint derived from leadStatus. Values: \"Review lead\" (new), \"Contact lead\" (reviewing), \"Await response\" (contacted), \"Prepare case conversion\" (qualified), \"Move to case system\" (converted), null (closed\/unknown).',
+      'Conversion-funnel hint derived from leadStatus. Values: \"Review lead\" (new), \"Contact lead\" (reviewing), \"Await response\" (contacted), \"Prepare case conversion\" (qualified), \"Initiate case handover\" (ready_for_case), \"Move to case system\" (converted), null (closed\/unknown).',
     ),
   adminNotes: zod.string().nullish(),
   hasWhatsapp: zod
@@ -195,12 +199,14 @@ export const GetLeadByReferenceResponse = zod.object({
   leadPriority: zod.string().nullish().describe("high | medium | low"),
   leadStatus: zod
     .string()
-    .describe("new | reviewing | contacted | qualified | converted | closed"),
+    .describe(
+      "new | reviewing | contacted | qualified | ready_for_case | converted | closed. Forward-only — PATCH \/admin\/leads\/{id} returns 409 on regression.",
+    ),
   nextStep: zod
     .string()
     .nullish()
     .describe(
-      'Conversion-funnel hint derived from leadStatus. Values: \"Review lead\" (new), \"Contact lead\" (reviewing), \"Await response\" (contacted), \"Prepare case conversion\" (qualified), \"Move to case system\" (converted), null (closed\/unknown).',
+      'Conversion-funnel hint derived from leadStatus. Values: \"Review lead\" (new), \"Contact lead\" (reviewing), \"Await response\" (contacted), \"Prepare case conversion\" (qualified), \"Initiate case handover\" (ready_for_case), \"Move to case system\" (converted), null (closed\/unknown).',
     ),
   adminNotes: zod.string().nullish(),
   hasWhatsapp: zod
@@ -245,12 +251,14 @@ export const GetLeadByIdResponse = zod.object({
   leadPriority: zod.string().nullish().describe("high | medium | low"),
   leadStatus: zod
     .string()
-    .describe("new | reviewing | contacted | qualified | converted | closed"),
+    .describe(
+      "new | reviewing | contacted | qualified | ready_for_case | converted | closed. Forward-only — PATCH \/admin\/leads\/{id} returns 409 on regression.",
+    ),
   nextStep: zod
     .string()
     .nullish()
     .describe(
-      'Conversion-funnel hint derived from leadStatus. Values: \"Review lead\" (new), \"Contact lead\" (reviewing), \"Await response\" (contacted), \"Prepare case conversion\" (qualified), \"Move to case system\" (converted), null (closed\/unknown).',
+      'Conversion-funnel hint derived from leadStatus. Values: \"Review lead\" (new), \"Contact lead\" (reviewing), \"Await response\" (contacted), \"Prepare case conversion\" (qualified), \"Initiate case handover\" (ready_for_case), \"Move to case system\" (converted), null (closed\/unknown).',
     ),
   adminNotes: zod.string().nullish(),
   hasWhatsapp: zod
@@ -298,7 +306,7 @@ export const TrackAnalyticsEventBody = zod.object({
   eventName: zod
     .string()
     .describe(
-      "assessment_started | assessment_completed | classification_result | document_upload",
+      "assessment_started | assessment_completed | classification_result | document_upload | lead_contact_clicked",
     ),
   referenceNumber: zod.string().nullish(),
   payload: zod.record(zod.string(), zod.unknown()).nullish(),

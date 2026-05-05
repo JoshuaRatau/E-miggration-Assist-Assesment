@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, prelaunchLeadsTable, analyticsEventsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, notInArray, or } from "drizzle-orm";
 import {
   LEAD_STATUS_VALUES,
   LEAD_PRIORITY_VALUES,
@@ -37,9 +37,17 @@ function serializeLead(row: typeof prelaunchLeadsTable.$inferSelect) {
  *       The endpoint fails closed (503) if the env var is unset.
  *
  * Body: any subset of { status, priority, notes } — at least one required.
- *   - status   ∈ new | reviewing | contacted | converted | closed
+ *   - status   ∈ new | reviewing | contacted | qualified |
+ *               ready_for_case | converted | closed
+ *               (forward-only — regression rejected with 409, see below)
  *   - priority ∈ high | medium | low
  *   - notes    ∈ string | null
+ *
+ * Funnel-regression guard: when `status` is in the patch, the requested
+ * value is compared to the lead's CURRENT status using `canAdvanceStatus`.
+ * Any backwards transition is rejected with HTTP 409 so the funnel can
+ * never regress (e.g. "qualified" → "contacted" is blocked).  Same-status
+ * PATCHes are allowed as no-ops so retries from optimistic UI are safe.
  *
  * Analytics: emits a server-side `admin.lead_updated` event with NO PII —
  * only `{ leadId, fieldsUpdated: [...] }`.
@@ -52,6 +60,7 @@ router.patch("/admin/leads/:id", async (req, res) => {
 
   const updates: Partial<typeof prelaunchLeadsTable.$inferInsert> = {};
   const fieldsUpdated: string[] = [];
+  let requestedStatus: string | null = null;
 
   if (Object.prototype.hasOwnProperty.call(body, "status")) {
     const v = body.status;
@@ -62,6 +71,7 @@ router.patch("/admin/leads/:id", async (req, res) => {
     }
     updates.leadStatus = v;
     fieldsUpdated.push("status");
+    requestedStatus = v;
   }
 
   if (Object.prototype.hasOwnProperty.call(body, "priority")) {
@@ -94,13 +104,60 @@ router.patch("/admin/leads/:id", async (req, res) => {
 
   updates.updatedAt = new Date();
 
+  // Funnel-regression guard — enforced ATOMICALLY in the UPDATE's WHERE
+  // clause to close the TOCTOU race where two concurrent operators could
+  // each pass a separate read-then-update check and the second write
+  // could regress what the first set.  We restrict the predicate to:
+  //   leadStatus IN <allowed predecessors>  OR  leadStatus is legacy
+  // The legacy branch (status not in the canonical enum) preserves the
+  // permissive behavior of `canAdvanceStatus`: legacy DB values are
+  // never locked out by the funnel.  When status isn't in the patch,
+  // no extra predicate is added so priority/notes-only updates skip the
+  // check entirely.
+  const whereParts = [eq(prelaunchLeadsTable.id, id)];
+  if (requestedStatus !== null) {
+    const requestedIdx = LEAD_STATUS_VALUES.indexOf(
+      requestedStatus as (typeof LEAD_STATUS_VALUES)[number],
+    );
+    const allowedPredecessors = LEAD_STATUS_VALUES.slice(0, requestedIdx + 1);
+    const allKnown = [...LEAD_STATUS_VALUES];
+    whereParts.push(
+      or(
+        inArray(prelaunchLeadsTable.leadStatus, allowedPredecessors),
+        notInArray(prelaunchLeadsTable.leadStatus, allKnown),
+      )!,
+    );
+  }
+
   const [updated] = await db
     .update(prelaunchLeadsTable)
     .set(updates)
-    .where(eq(prelaunchLeadsTable.id, id))
+    .where(and(...whereParts))
     .returning();
 
   if (!updated) {
+    // Zero rows updated — disambiguate 404 (no such lead) from 409
+    // (funnel-regression blocked) with a single follow-up read.  The
+    // disambiguation read is racy w.r.t. deletion, but that's a benign
+    // misclassification (a deleted-mid-PATCH row would surface as 409
+    // instead of 404), not a correctness violation.
+    if (requestedStatus !== null) {
+      const [existing] = await db
+        .select({ leadStatus: prelaunchLeadsTable.leadStatus })
+        .from(prelaunchLeadsTable)
+        .where(eq(prelaunchLeadsTable.id, id))
+        .limit(1);
+      if (!existing) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      return res.status(409).json({
+        error:
+          `Funnel regression blocked: cannot move lead from ` +
+          `"${existing.leadStatus}" back to "${requestedStatus}". ` +
+          `Status may only move forward in the funnel order: ` +
+          `${LEAD_STATUS_VALUES.join(" → ")}.`,
+      });
+    }
     return res.status(404).json({ error: "Lead not found" });
   }
 

@@ -24,12 +24,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { DocumentUploader } from "@/components/DocumentUploader";
 import { getAdminToken, clearAdminToken } from "@/lib/adminToken";
+import { canAdvanceStatus, statusLabel } from "@/lib/leadStatus";
 
 const STATUS_OPTIONS = [
   "new",
   "reviewing",
   "contacted",
   "qualified",
+  "ready_for_case",
   "converted",
   "closed",
 ] as const;
@@ -356,11 +358,32 @@ export function AdminLeadDetail() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {STATUS_OPTIONS.map((s) => (
-                      <SelectItem key={s} value={s} className="capitalize">
-                        {s}
-                      </SelectItem>
-                    ))}
+                    {STATUS_OPTIONS.map((s) => {
+                      // Disable options that would regress the funnel.
+                      // Compared against the lead's CURRENT (server-saved)
+                      // status — `lead?.leadStatus` — not the local draft,
+                      // so once a forward step is saved it becomes the new
+                      // floor for further edits.
+                      const allowed = canAdvanceStatus(
+                        lead?.leadStatus,
+                        s,
+                      );
+                      return (
+                        <SelectItem
+                          key={s}
+                          value={s}
+                          disabled={!allowed}
+                          title={
+                            allowed
+                              ? undefined
+                              : "Forward-only funnel — cannot regress"
+                          }
+                          data-testid={`status-option-${s}`}
+                        >
+                          {statusLabel(s)}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
