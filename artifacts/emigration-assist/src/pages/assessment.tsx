@@ -50,7 +50,22 @@ const assessmentSchema = z.object({
   // Step 4
   fullName: z.string().min(2, "Full name is required"),
   email: z.string().email("Invalid email address"),
-  whatsapp: z.string().optional(),
+  whatsapp: z
+    .string()
+    .optional()
+    .refine(
+      (val) => {
+        if (!val || val.trim() === "") return true;
+        const stripped = val.replace(/[\s()/.\-]/g, "");
+        if (stripped.startsWith("+")) return /^\+\d{10,15}$/.test(stripped);
+        if (/^0\d{9}$/.test(stripped)) return true;
+        return false;
+      },
+      {
+        message:
+          "Enter a valid WhatsApp number, e.g. 0821234567 or +27821234567.",
+      },
+    ),
   preferredContactMethod: z.enum(["email", "whatsapp", "phone"]).default("email"),
   consentAccepted: z.boolean().refine((val) => val === true, "You must accept the terms"),
 });
@@ -433,7 +448,10 @@ export function Assessment() {
               )}
 
               {step === 4 && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div
+                  className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500"
+                  data-testid="step-contact"
+                >
                   <h2 className="text-xl font-medium border-b pb-2">Contact Details</h2>
                   <p className="text-sm text-muted-foreground">
                     Your reference number will be sent here. We may also notify you when fuller assessment capabilities become available.
@@ -470,12 +488,22 @@ export function Assessment() {
                   <FormField
                     control={form.control}
                     name="whatsapp"
-                    render={({ field }) => (
+                    render={({ field, fieldState }) => (
                       <FormItem>
-                        <FormLabel>WhatsApp Number (optional)</FormLabel>
+                        <FormLabel>WhatsApp Number (Preferred)</FormLabel>
                         <FormControl>
-                          <Input type="tel" placeholder="+27..." {...field} />
+                          <Input
+                            type="tel"
+                            inputMode="tel"
+                            placeholder="0821234567 or +27821234567"
+                            aria-invalid={fieldState.invalid || undefined}
+                            data-testid="input-whatsapp"
+                            {...field}
+                          />
                         </FormControl>
+                        <FormDescription>
+                          We use WhatsApp for faster updates where possible.
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -562,7 +590,14 @@ export function Assessment() {
                   </Button>
                 )}
                 {step === 4 && (
-                  <Button type="submit" disabled={createLead.isPending}>
+                  <Button
+                    type="submit"
+                    disabled={
+                      createLead.isPending ||
+                      !!form.formState.errors.whatsapp
+                    }
+                    data-testid="button-submit-assessment"
+                  >
                     {createLead.isPending ? "Submitting..." : "Submit Assessment"}
                   </Button>
                 )}

@@ -58,6 +58,30 @@ There are no apply / pay / submit-for-review CTAs.
   (~122 bits of entropy) and never exposed publicly. If/when admin auth is
   added, mount it on the `/api/documents` router as well.
 
+### WhatsApp-first capture (added)
+
+- Public assessment field labelled **"WhatsApp Number (Preferred)"** with helper
+  text. Field is optional. Inline validation accepts empty, SA-local
+  `0XXXXXXXXX` (10 digits) or international `+...` numbers; `aria-invalid` is
+  set on bad input and the Submit button is disabled while the value is set
+  but invalid.
+- Server normalisation lives in `artifacts/api-server/src/lib/whatsapp.ts`
+  (`normalizeWhatsapp`). Strips spaces/brackets/slashes/dots/hyphens, converts
+  SA `0XXXXXXXXX` → `+27XXXXXXXXX`, validates `^\+\d{10,15}$`, returns `null`
+  on failure. Applied in BOTH the insert and duplicate-update branches of
+  `POST /api/leads`. The DB column only ever holds the canonical form or
+  `null` — raw invalid input is never persisted, and submission is NEVER
+  blocked on a bad number.
+- Duplicate detection uses the canonical value, so spacing/punctuation
+  variants cannot bypass it.
+- `serializeLead()` exposes a derived `hasWhatsapp` boolean. `serializeLeadPublic`
+  does NOT — public lookup remains PII-stripped.
+- Analytics event `lead.whatsapp_captured` is fired-and-forgotten on insert
+  with payload `{ inquiryId, hasWhatsapp }` (no PII).
+- Admin `/admin` shows a per-row green ✓ / grey badge and has a client-side
+  "WhatsApp: Any/Has/None" filter applied over the already-fetched list — no
+  OpenAPI/server change required.
+
 ### Public vs internal data
 
 `serializeLeadPublic` (in `artifacts/api-server/src/routes/leads.ts`) is the

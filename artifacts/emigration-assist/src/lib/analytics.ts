@@ -2,7 +2,8 @@ type EventName =
   | "assessment_started"
   | "assessment_completed"
   | "classification_result"
-  | "document_upload";
+  | "document_upload"
+  | "lead.whatsapp_captured";
 
 const ENDPOINT = `${import.meta.env.BASE_URL}api/analytics/events`;
 

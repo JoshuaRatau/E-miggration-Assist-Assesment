@@ -58,6 +58,34 @@ const SITUATION_OPTIONS = [
   { value: "unknown", label: "Unknown" },
 ];
 
+const WHATSAPP_OPTIONS = [
+  { value: "ANY", label: "WhatsApp: Any" },
+  { value: "HAS", label: "WhatsApp: Has" },
+  { value: "NONE", label: "WhatsApp: None" },
+];
+
+function whatsappBadge(hasWhatsapp: boolean) {
+  if (hasWhatsapp) {
+    return (
+      <Badge
+        className="bg-green-600 hover:bg-green-700 text-white border-transparent"
+        aria-label="Has WhatsApp"
+      >
+        ✓ WhatsApp
+      </Badge>
+    );
+  }
+  return (
+    <Badge
+      variant="outline"
+      className="text-muted-foreground"
+      aria-label="No WhatsApp"
+    >
+      —
+    </Badge>
+  );
+}
+
 function priorityBadge(priority: string | null | undefined) {
   if (priority === "HIGH_PRIORITY") {
     return (
@@ -108,6 +136,7 @@ export function Admin() {
   const [status, setStatus] = useState("ALL");
   const [situation, setSituation] = useState("ALL");
   const [nationality, setNationality] = useState("");
+  const [whatsappFilter, setWhatsappFilter] = useState("ANY");
 
   const queryParams = useMemo(() => {
     const p: Record<string, string | number> = { limit: 200 };
@@ -119,6 +148,20 @@ export function Admin() {
   }, [priority, status, situation, nationality]);
 
   const { data: leads, isLoading } = useListLeads(queryParams as never);
+
+  // Client-side WhatsApp filter — applied over the already-fetched list so the
+  // server contract is unchanged. `hasWhatsapp` comes from the serialized lead;
+  // we also fall back to checking the raw `whatsapp` field for resilience.
+  const filteredLeads = useMemo(() => {
+    if (!leads) return leads;
+    if (whatsappFilter === "ANY") return leads;
+    return leads.filter((l) => {
+      const has =
+        (l as { hasWhatsapp?: boolean }).hasWhatsapp ??
+        (typeof l.whatsapp === "string" && l.whatsapp.length > 0);
+      return whatsappFilter === "HAS" ? has : !has;
+    });
+  }, [leads, whatsappFilter]);
   const { data: stats } = useGetStatsSummary();
   const { toast } = useToast();
   const [sendingUpdate, setSendingUpdate] = useState(false);
@@ -281,7 +324,7 @@ export function Admin() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-3 md:grid-cols-4">
+            <div className="grid gap-3 md:grid-cols-5">
               <div>
                 <label className="text-xs font-medium text-muted-foreground">
                   Priority
@@ -346,6 +389,26 @@ export function Admin() {
                   data-testid="input-filter-nationality"
                 />
               </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">
+                  WhatsApp
+                </label>
+                <Select
+                  value={whatsappFilter}
+                  onValueChange={setWhatsappFilter}
+                >
+                  <SelectTrigger data-testid="select-filter-whatsapp">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WHATSAPP_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -366,7 +429,7 @@ export function Admin() {
                 <Skeleton className="h-16 w-full" />
                 <Skeleton className="h-16 w-full" />
               </div>
-            ) : !leads || leads.length === 0 ? (
+            ) : !filteredLeads || filteredLeads.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground border rounded-lg border-dashed">
                 No assessments match the current filters.
               </div>
@@ -379,6 +442,7 @@ export function Admin() {
                       <TableHead>Date</TableHead>
                       <TableHead>Nationality</TableHead>
                       <TableHead>Situation</TableHead>
+                      <TableHead>WhatsApp</TableHead>
                       <TableHead>Internal Category</TableHead>
                       <TableHead>Public Label</TableHead>
                       <TableHead>Priority</TableHead>
@@ -388,8 +452,17 @@ export function Admin() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {leads.map((lead) => (
-                      <TableRow key={lead.id}>
+                    {filteredLeads.map((lead) => {
+                      const hasWhatsapp =
+                        (lead as { hasWhatsapp?: boolean }).hasWhatsapp ??
+                        (typeof lead.whatsapp === "string" &&
+                          lead.whatsapp.length > 0);
+                      return (
+                      <TableRow
+                        key={lead.id}
+                        data-testid={`row-lead-${lead.referenceNumber}`}
+                        data-has-whatsapp={hasWhatsapp ? "true" : "false"}
+                      >
                         <TableCell className="font-mono text-xs font-medium">
                           {lead.referenceNumber}
                         </TableCell>
@@ -400,6 +473,7 @@ export function Admin() {
                         <TableCell className="capitalize">
                           {lead.immigrationSituation?.replace(/_/g, " ")}
                         </TableCell>
+                        <TableCell>{whatsappBadge(hasWhatsapp)}</TableCell>
                         <TableCell>
                           <code className="text-xs font-mono text-muted-foreground">
                             {lead.internalClassification || "—"}
@@ -427,7 +501,8 @@ export function Admin() {
                           </Link>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>

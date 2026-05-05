@@ -17,6 +17,7 @@ import {
   LEAD_STATUS_VALUES,
 } from "../lib/classification";
 import { sendConfirmationEmail } from "../lib/email";
+import { normalizeWhatsapp } from "../lib/whatsapp";
 
 const router: IRouter = Router();
 
@@ -30,6 +31,7 @@ function serializeLead(row: typeof prelaunchLeadsTable.$inferSelect) {
       : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    hasWhatsapp: typeof row.whatsapp === "string" && row.whatsapp.length > 0,
   };
 }
 
@@ -72,6 +74,11 @@ router.post("/leads", async (req, res) => {
     return res.status(400).json({ error: "Consent is required" });
   }
 
+  // WhatsApp: normalise to canonical +E.164. Invalid → store null. Submission
+  // is NEVER blocked on a bad number. Raw user input is intentionally not
+  // persisted (stored value is always either the canonical form or null).
+  const normalizedWhatsapp = normalizeWhatsapp(data.whatsapp);
+
   const result = classifyCase({
     immigrationSituation: data.immigrationSituation ?? null,
     overstayReason: data.overstayReason ?? null,
@@ -80,11 +87,11 @@ router.post("/leads", async (req, res) => {
   const priority = derivePriority(result.score);
   const now = new Date();
 
-  // Duplicate detection: same email OR same whatsapp → update existing
+  // Duplicate detection: same email OR same canonical whatsapp → update existing
   const dupConditions = [];
   if (data.email) dupConditions.push(eq(prelaunchLeadsTable.email, data.email));
-  if (data.whatsapp)
-    dupConditions.push(eq(prelaunchLeadsTable.whatsapp, data.whatsapp));
+  if (normalizedWhatsapp)
+    dupConditions.push(eq(prelaunchLeadsTable.whatsapp, normalizedWhatsapp));
 
   let existing: typeof prelaunchLeadsTable.$inferSelect | undefined;
   if (dupConditions.length > 0) {
@@ -103,7 +110,7 @@ router.post("/leads", async (req, res) => {
       .set({
         fullName: data.fullName,
         email: data.email,
-        whatsapp: data.whatsapp ?? existing.whatsapp,
+        whatsapp: normalizedWhatsapp ?? existing.whatsapp,
         nationality: data.nationality,
         countryOfResidence: data.countryOfResidence ?? existing.countryOfResidence,
         currentlyInSouthAfrica:
@@ -154,7 +161,7 @@ router.post("/leads", async (req, res) => {
       referenceNumber,
       fullName: data.fullName,
       email: data.email,
-      whatsapp: data.whatsapp ?? null,
+      whatsapp: normalizedWhatsapp,
       nationality: data.nationality,
       countryOfResidence: data.countryOfResidence ?? null,
       currentlyInSouthAfrica: data.currentlyInSouthAfrica ?? null,
@@ -196,6 +203,23 @@ router.post("/leads", async (req, res) => {
       },
     })
     .catch((err) => req.log.error({ err }, "Failed to log analytics event"));
+
+  // Fire-and-forget whatsapp capture analytics. NO PII — only the boolean
+  // flag and the inquiry id (lead id) are stored.
+  db.insert(analyticsEventsTable)
+    .values({
+      eventName: "lead.whatsapp_captured",
+      leadId: inserted.id,
+      referenceNumber: inserted.referenceNumber,
+      payload: {
+        inquiryId: inserted.id,
+        hasWhatsapp:
+          typeof inserted.whatsapp === "string" && inserted.whatsapp.length > 0,
+      },
+    })
+    .catch((err) =>
+      req.log.error({ err }, "Failed to log whatsapp_captured event"),
+    );
 
   // Fire-and-forget confirmation email + analytics. Email failures must NEVER
   // block submission, so we swallow all errors and log silently.
