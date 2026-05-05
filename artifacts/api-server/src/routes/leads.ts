@@ -16,6 +16,7 @@ import {
   generateReferenceNumber,
   LEAD_STATUS_VALUES,
 } from "../lib/classification";
+import { sendConfirmationEmail } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -195,6 +196,29 @@ router.post("/leads", async (req, res) => {
       },
     })
     .catch((err) => req.log.error({ err }, "Failed to log analytics event"));
+
+  // Fire-and-forget confirmation email + analytics. Email failures must NEVER
+  // block submission, so we swallow all errors and log silently.
+  if (inserted.email && inserted.consentAccepted) {
+    void (async () => {
+      try {
+        const sendResult = await sendConfirmationEmail({
+          to: inserted.email!,
+          referenceNumber: inserted.referenceNumber,
+        });
+        await db.insert(analyticsEventsTable).values({
+          eventName: "email_sent_confirmation",
+          leadId: inserted.id,
+          referenceNumber: inserted.referenceNumber,
+          payload: sendResult.ok
+            ? { success: true, messageId: sendResult.id }
+            : { success: false, reason: sendResult.reason },
+        });
+      } catch (err) {
+        req.log.warn({ err }, "Confirmation email pipeline error (silent)");
+      }
+    })();
+  }
 
   return res.status(201).json(serializeLead(inserted));
 });

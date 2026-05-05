@@ -516,7 +516,7 @@ export function Assessment() {
                         </FormControl>
                         <div className="space-y-1 leading-none">
                           <FormLabel>
-                            I understand this is a preliminary, system-generated assessment and consent to E-Migration Assist storing my information.
+                            I agree to receive updates about my assessment and platform availability.
                           </FormLabel>
                           <FormDescription>
                             Your information is held confidentially and is not shared with any government department.

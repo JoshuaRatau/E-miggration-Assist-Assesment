@@ -1,0 +1,140 @@
+Implement a silent engagement email system for E-Migration Assist (pre-launch mode).
+
+GOAL:
+Capture emails during assessment and send non-sales, informational updates to keep users engaged.
+
+-------------------------------------
+
+1. STORE EMAIL + CONSENT
+
+Ensure prelaunch_leads table has:
+
+- email (required)
+- consent boolean (true/false)
+- consent_timestamp
+
+Consent checkbox text:
+
+"I agree to receive updates about my assessment and platform availability."
+
+Consent must be required before submission.
+
+-------------------------------------
+
+2. EMAIL INFRASTRUCTURE (USE RESEND)
+
+Set up Resend integration:
+
+- Send from: no-reply@eridetech.africa
+- Environment variable: RESEND_API_KEY
+
+-------------------------------------
+
+3. EMAIL TYPES (NO SALES LANGUAGE)
+
+A. Submission Confirmation Email
+
+Trigger: After assessment completion
+
+Subject:
+"Your Assessment Has Been Received"
+
+Body:
+
+- Reference number
+- Explanation:
+  "Your information has been securely recorded."
+- Reminder:
+  "You can check your status anytime using your reference number."
+
+NO:
+- promises
+- outcomes
+- legal wording
+- sales CTA
+
+-------------------------------------
+
+B. Passive Update Email (Manual trigger later)
+
+Subject:
+"Update on Your Assessment"
+
+Body:
+
+- General platform update
+- Example:
+  "We are currently preparing the full system to better assist cases like yours."
+
+NO:
+- booking links
+- consultations
+- payment prompts
+
+-------------------------------------
+
+4. EMAIL SAFETY RULES
+
+Globally block:
+
+- "approved"
+- "rejected"
+- "guaranteed"
+- "you qualify"
+- "we will fix"
+- "Home Affairs will"
+
+-------------------------------------
+
+5. BACKEND EMAIL TRIGGER
+
+On POST /api/leads:
+
+After successful creation:
+
+- Send confirmation email
+- Log event in analytics_events:
+  event_name: "email_sent_confirmation"
+
+-------------------------------------
+
+6. ADMIN EMAIL CONTROL (BASIC)
+
+In /admin:
+
+Add simple button:
+
+"Send Update Email"
+
+This:
+- Sends batch email to all leads (or selected in future)
+- Logs event:
+  event_name: "email_sent_update"
+
+-------------------------------------
+
+7. FAILSAFE
+
+If email fails:
+- Do NOT block submission
+- Log error silently
+
+-------------------------------------
+
+8. NO CTA RULE
+
+Emails must NOT include:
+
+- Apply now
+- Book consultation
+- Pay now
+- Contact agent
+
+-------------------------------------
+
+OUTPUT:
+
+- Email system fully wired
+- Users receive confirmation email
+- Admin can send silent updates
+- Fully compliant with platform positioning

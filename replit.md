@@ -98,6 +98,53 @@ Returning users can check their case via reference number.
   contacted when the full platform becomes available." The thank-you page
   ends with a "Check Status" button and a save-your-reference instruction.
 
+### Silent engagement email (added)
+
+Pre-launch confirmation + manual update emails via Resend.
+
+- **Provider:** Resend, wired through the Replit integration
+  (`searchIntegrations("resend")`). Credentials are fetched at runtime from
+  `connectors.replit.com /api/v2/connection?connector_names=resend` — never
+  cached client-side, never stored in env vars. The `from_email` configured on
+  the connection is preferred; if absent we fall back to the spec value
+  `no-reply@eridetech.africa`. Display name is `E-Migration Assist`.
+- **Email module:** `artifacts/api-server/src/lib/email.ts` exposes
+  `sendConfirmationEmail` and `sendUpdateEmail`. Both go through the shared
+  `sendSafely()` helper which (a) screens the subject + body against the
+  forbidden-phrase regexes (`approved`, `rejected`, `guaranteed`,
+  `you qualify`, `we will fix`, `Home Affairs will`) **and** the no-CTA
+  phrases (`apply now`, `book consultation`, `pay now`, `contact agent`),
+  refusing to send if any match; (b) catches every Resend error and returns a
+  `{ ok: false, reason }` shape so callers never throw.
+- **Confirmation trigger:** Inside `POST /api/leads`, after the insert
+  succeeds, a fire-and-forget IIFE sends the confirmation when both
+  `inserted.email` and `inserted.consentAccepted` are truthy. **Lead
+  submission must never block on email**, so the IIFE swallows everything and
+  logs via `req.log.warn`. The duplicate-update branch deliberately does
+  **not** re-send a confirmation.
+- **Manual update batch:** `POST /api/admin/email/update`
+  (`artifacts/api-server/src/routes/adminEmail.ts`) selects every lead with
+  `consent_accepted = true` and a non-empty `email`, sends the
+  "Update on Your Assessment" body sequentially, and logs one
+  `email_sent_update` analytics row per recipient.
+- **Admin endpoint protection:** Unlike the rest of the admin surface this
+  endpoint has external blast radius (recipient inboxes / sender reputation),
+  so it is gated by an `ADMIN_EMAIL_TOKEN` secret. The handler **fails
+  closed** (503) when the env var is unset, and rejects with 401 when the
+  `x-admin-token` header is missing or wrong (constant-time compare). It also
+  applies a per-IP 5-minute rate limit. The admin button prompts for the
+  token on first use and caches it in `sessionStorage` (`ema-admin-token`);
+  it clears the cache on a 401 so a wrong paste self-corrects.
+- **Analytics events** (in `analytics_events`): `email_sent_confirmation` and
+  `email_sent_update`, each with payload `{ success, messageId? , reason? }`
+  and the originating `leadId` + `referenceNumber`. These are inserted
+  directly via Drizzle (the `/analytics/events` validator does not allow them
+  — they are server-internal events).
+- **Consent text** (`assessment.tsx` step 4):
+  "I agree to receive updates about my assessment and platform availability."
+  The submission still rejects without `consentAccepted=true` (zod refine on
+  the client; explicit 400 on the server).
+
 ### OpenAPI spec note
 
 Most endpoints are defined in `lib/api-spec/openapi.yaml` and consumed via

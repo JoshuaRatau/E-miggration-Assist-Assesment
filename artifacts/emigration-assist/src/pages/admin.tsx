@@ -5,6 +5,7 @@ import {
   useGetStatsSummary,
 } from "@workspace/api-client-react";
 import { format } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
 import {
   Card,
   CardContent,
@@ -119,8 +120,91 @@ export function Admin() {
 
   const { data: leads, isLoading } = useListLeads(queryParams as never);
   const { data: stats } = useGetStatsSummary();
+  const { toast } = useToast();
+  const [sendingUpdate, setSendingUpdate] = useState(false);
 
   const exportHref = `${import.meta.env.BASE_URL}api/leads/export.csv`;
+  const sendUpdateUrl = `${import.meta.env.BASE_URL}api/admin/email/update`;
+
+  const handleSendUpdateEmail = async () => {
+    if (sendingUpdate) return;
+
+    let token = sessionStorage.getItem("ema-admin-token") ?? "";
+    if (!token) {
+      const entered = window.prompt("Enter the admin email token");
+      if (!entered) return;
+      token = entered.trim();
+      if (!token) return;
+      sessionStorage.setItem("ema-admin-token", token);
+    }
+
+    const ok = window.confirm(
+      "Send the silent update email to every lead with consent and an email on file?",
+    );
+    if (!ok) return;
+
+    setSendingUpdate(true);
+    try {
+      const res = await fetch(sendUpdateUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-token": token,
+        },
+      });
+      if (!res.ok) {
+        if (res.status === 401) {
+          sessionStorage.removeItem("ema-admin-token");
+          toast({
+            title: "Invalid admin token",
+            description: "Please try again with the correct token.",
+            variant: "destructive",
+          });
+        } else if (res.status === 503) {
+          toast({
+            title: "Not configured",
+            description:
+              "ADMIN_EMAIL_TOKEN is not set on the server. Set it in environment secrets.",
+            variant: "destructive",
+          });
+        } else if (res.status === 429) {
+          const body = (await res.json().catch(() => ({}))) as {
+            retryAfterSeconds?: number;
+          };
+          toast({
+            title: "Rate limited",
+            description: `Please wait ${body.retryAfterSeconds ?? 300} seconds before sending again.`,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Failed",
+            description: `Server returned ${res.status}.`,
+            variant: "destructive",
+          });
+        }
+        return;
+      }
+      const body = (await res.json()) as {
+        eligibleRecipients: number;
+        attempted: number;
+        succeeded: number;
+        failed: number;
+      };
+      toast({
+        title: "Update email sent",
+        description: `Eligible: ${body.eligibleRecipients} • Sent: ${body.succeeded} • Failed: ${body.failed}`,
+      });
+    } catch (err) {
+      toast({
+        title: "Failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingUpdate(false);
+    }
+  };
 
   const priorityCount = (key: string) =>
     stats?.byPriority?.find((c) => c.category === key)?.count ?? 0;
@@ -137,11 +221,21 @@ export function Admin() {
               are not displayed to users.
             </p>
           </div>
-          <Button asChild data-testid="button-export-leads">
-            <a href={exportHref} download>
-              Export Leads (CSV)
-            </a>
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={handleSendUpdateEmail}
+              disabled={sendingUpdate}
+              data-testid="button-send-update-email"
+            >
+              {sendingUpdate ? "Sending..." : "Send Update Email"}
+            </Button>
+            <Button asChild data-testid="button-export-leads">
+              <a href={exportHref} download>
+                Export Leads (CSV)
+              </a>
+            </Button>
+          </div>
         </header>
 
         <div className="grid gap-4 md:grid-cols-4">
