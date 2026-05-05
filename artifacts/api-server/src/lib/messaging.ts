@@ -1,5 +1,7 @@
 import { sendUpdateEmail, type SendResult } from "./email";
 import { logger } from "./logger";
+import { normalizeWhatsapp } from "./whatsapp";
+import { sendWhatsAppText } from "./whatsappClient";
 
 export type MessagingChannel = "email" | "whatsapp";
 
@@ -22,16 +24,19 @@ export interface SendMessageArgs {
  *   - MUST NOT throw. Every error path returns a `{ ok: false, reason }`
  *     shape. Callers therefore never need a try/catch.
  *   - When the underlying provider is not configured (e.g. Resend connection
- *     missing, WhatsApp not yet wired up) the result is `{ ok: false,
- *     pending: true, reason: ... }`. The engagement layer interprets
- *     `pending: true` as "leave the engagement row in `pending` status — do
- *     NOT mark it failed", so the system stays async-friendly: a future
- *     retry/worker can pick it up.
- *   - WhatsApp is intentionally a no-op stub today. When the WhatsApp
- *     provider lands, only the `case 'whatsapp'` branch needs to change —
- *     no caller updates required.
+ *     missing) and the failure is recoverable by retry, the result is
+ *     `{ ok: false, pending: true, reason: ... }`. The engagement layer
+ *     interprets `pending: true` as "leave the engagement row in `pending`
+ *     status — do NOT mark it failed", so the system stays async-friendly.
  *   - PII discipline: `to` and `message` are NEVER logged; only the channel
  *     and a short reason code are.
+ *
+ * Channel-specific notes:
+ *   - email: transient by default, permanent for known categories
+ *     (forbidden_phrase, invalid recipient).
+ *   - whatsapp: PERMANENT failure when secrets are missing (`not_configured`)
+ *     per spec — operator must add WHATSAPP_PHONE_NUMBER_ID + WHATSAPP_TOKEN
+ *     and re-send. 5xx / 429 / network errors are transient (retryable).
  */
 export async function sendMessage(
   args: SendMessageArgs,
@@ -52,24 +57,61 @@ export async function sendMessage(
       });
 
     case "whatsapp":
-      // Future: plug into the WhatsApp Business Cloud API here. Until then,
-      // we deliberately do NOT mark the engagement failed — `pending: true`
-      // tells the caller to keep status='pending' so the row can be retried
-      // by a future worker once the provider is wired up.
-      logger.info(
-        { channel },
-        "WhatsApp send requested but provider is not yet implemented; engagement left pending",
-      );
-      return {
-        ok: false,
-        channel,
-        pending: true,
-        reason: "whatsapp_not_implemented",
-      };
+      return await sendViaWhatsApp({ to, message });
 
     default:
       return { ok: false, channel, reason: "unsupported_channel" };
   }
+}
+
+async function sendViaWhatsApp(args: {
+  to: string | null | undefined;
+  message: string;
+}): Promise<MessagingResult> {
+  if (!args.to || typeof args.to !== "string" || args.to.trim() === "") {
+    return { ok: false, channel: "whatsapp", reason: "no_recipient" };
+  }
+
+  // Re-normalise on the way out: leads were stored with a normalized
+  // E.164 number (lib/whatsapp.ts ran at submission time), but defending
+  // here is cheap and means the gateway is safe to call from any caller
+  // that hands us a raw string.
+  const normalized = normalizeWhatsapp(args.to);
+  if (!normalized) {
+    return { ok: false, channel: "whatsapp", reason: "invalid_recipient" };
+  }
+
+  let result;
+  try {
+    result = await sendWhatsAppText({
+      to: normalized,
+      message: args.message,
+    });
+  } catch (err) {
+    // The client wraps everything in try/catch internally, but belt + braces:
+    // the gateway's "must not throw" contract is unconditional.
+    logger.warn(
+      { err: err instanceof Error ? err.message : String(err) },
+      "sendWhatsAppText threw unexpectedly; treating as transient",
+    );
+    return {
+      ok: false,
+      channel: "whatsapp",
+      reason: "internal_error",
+      pending: true,
+    };
+  }
+
+  if (result.ok) {
+    return { ok: true, channel: "whatsapp", id: result.id };
+  }
+
+  return {
+    ok: false,
+    channel: "whatsapp",
+    reason: result.reason,
+    pending: result.transient,
+  };
 }
 
 async function sendViaEmail(args: {

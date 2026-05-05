@@ -8,7 +8,9 @@ import {
   type LeadEngagement,
 } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
-import { sendMessage } from "../lib/messaging";
+import { sendMessage, type MessagingChannel } from "../lib/messaging";
+
+const ALLOWED_CHANNELS: readonly MessagingChannel[] = ["email", "whatsapp"];
 
 const router: IRouter = Router();
 
@@ -101,10 +103,23 @@ router.post("/admin/leads/:id/send-update", async (req, res) => {
       .json({ error: "message must be 5000 characters or fewer" });
   }
 
+  // Channel: optional, defaults to 'email' for back-compat with existing
+  // callers. We never trust the client — only the small known-good set
+  // declared at module top is accepted.
+  const rawChannel =
+    typeof body.channel === "string" ? body.channel.toLowerCase() : "email";
+  if (!ALLOWED_CHANNELS.includes(rawChannel as MessagingChannel)) {
+    return res
+      .status(400)
+      .json({ error: "channel must be 'email' or 'whatsapp'" });
+  }
+  const channel = rawChannel as MessagingChannel;
+
   const [lead] = await db
     .select({
       id: prelaunchLeadsTable.id,
       email: prelaunchLeadsTable.email,
+      whatsapp: prelaunchLeadsTable.whatsapp,
       referenceNumber: prelaunchLeadsTable.referenceNumber,
     })
     .from(prelaunchLeadsTable)
@@ -113,6 +128,19 @@ router.post("/admin/leads/:id/send-update", async (req, res) => {
 
   if (!lead) {
     return res.status(404).json({ error: "Lead not found" });
+  }
+
+  // Resolve recipient up-front: if the lead has no contact for the chosen
+  // channel, refuse with 400 BEFORE inserting an engagement row. There is
+  // no point persisting a row that can never be delivered.
+  const recipient = channel === "whatsapp" ? lead.whatsapp : lead.email;
+  if (!recipient) {
+    return res.status(400).json({
+      error:
+        channel === "whatsapp"
+          ? "Lead has no WhatsApp number on file"
+          : "Lead has no email address on file",
+    });
   }
 
   // Insert the engagement row BEFORE the send. If the DB insert itself
@@ -124,7 +152,7 @@ router.post("/admin/leads/:id/send-update", async (req, res) => {
       .insert(leadEngagementsTable)
       .values({
         leadId: lead.id,
-        channel: "email",
+        channel,
         type: "manual",
         status: "pending",
         message,
@@ -144,8 +172,8 @@ router.post("/admin/leads/:id/send-update", async (req, res) => {
   // the failure is transient (provider not configured) and the row should
   // stay 'pending' for a future retry rather than be marked 'failed'.
   const result = await sendMessage({
-    channel: "email",
-    to: lead.email,
+    channel,
+    to: recipient,
     message,
     subject: "Update on Your Assessment",
     referenceNumber: lead.referenceNumber,
@@ -182,7 +210,7 @@ router.post("/admin/leads/:id/send-update", async (req, res) => {
       payload: {
         leadId: lead.id,
         engagementId: engagement.id,
-        channel: "email",
+        channel,
         type: "manual",
         status: nextStatus,
       },

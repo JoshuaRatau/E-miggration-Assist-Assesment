@@ -177,6 +177,7 @@ export function Admin() {
     id: string;
     referenceNumber: string;
     email: string | null;
+    whatsapp: string | null;
   } | null>(null);
 
   const exportHref = `${import.meta.env.BASE_URL}api/leads/export.csv`;
@@ -655,17 +656,22 @@ export function Admin() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                disabled={!lead.email}
+                                disabled={!lead.email && !hasWhatsapp}
                                 title={
-                                  lead.email
+                                  lead.email || hasWhatsapp
                                     ? "Send a one-off update to this lead"
-                                    : "No email on file"
+                                    : "No email or WhatsApp on file"
                                 }
                                 onClick={() =>
                                   setSendUpdateTarget({
                                     id: lead.id,
                                     referenceNumber: lead.referenceNumber,
                                     email: lead.email ?? null,
+                                    whatsapp:
+                                      typeof lead.whatsapp === "string" &&
+                                      lead.whatsapp.length > 0
+                                        ? lead.whatsapp
+                                        : null,
                                   })
                                 }
                                 data-testid={`button-send-update-${lead.referenceNumber}`}
@@ -716,23 +722,34 @@ function SendUpdateDialog({
     id: string;
     referenceNumber: string;
     email: string | null;
+    whatsapp: string | null;
   } | null;
   onClose: () => void;
   onUnauthorized: () => void;
 }) {
   const [message, setMessage] = useState("");
+  const [channel, setChannel] = useState<"email" | "whatsapp">("email");
   const [sending, setSending] = useState(false);
   const { toast } = useToast();
 
-  // Reset the textarea every time a new target opens so we don't leak the
-  // previous lead's draft message across rows.
+  // Reset the textarea + default channel every time a new target opens so
+  // we don't leak the previous lead's draft message or channel choice.
+  // Default channel = whichever the lead has on file (preferring email if
+  // both are available, since email is the long-established default).
   useEffect(() => {
-    if (target) setMessage("");
+    if (target) {
+      setMessage("");
+      setChannel(target.email ? "email" : target.whatsapp ? "whatsapp" : "email");
+    }
   }, [target?.id]);
 
   const open = target !== null;
   const trimmed = message.trim();
-  const canSend = open && trimmed.length > 0 && !sending;
+  const recipientAvailable =
+    !!target &&
+    ((channel === "email" && !!target.email) ||
+      (channel === "whatsapp" && !!target.whatsapp));
+  const canSend = open && trimmed.length > 0 && recipientAvailable && !sending;
 
   const handleSend = async () => {
     if (!target || !canSend) return;
@@ -748,7 +765,7 @@ function SendUpdateDialog({
             "Content-Type": "application/json",
             "x-admin-token": token,
           },
-          body: JSON.stringify({ message: trimmed }),
+          body: JSON.stringify({ message: trimmed, channel }),
         },
       );
       if (res.status === 401) {
@@ -764,21 +781,34 @@ function SendUpdateDialog({
       if (!res.ok) {
         throw new Error(body.error ?? `Server returned ${res.status}`);
       }
+      const channelLabel = channel === "whatsapp" ? "WhatsApp" : "Email";
       if (body.sent) {
         toast({
           title: "Update sent",
-          description: `Email delivered to lead ${target.referenceNumber}.`,
+          description: `${channelLabel} delivered to lead ${target.referenceNumber}.`,
         });
       } else if (body.engagement?.status === "pending") {
         toast({
           title: "Update queued",
-          description:
-            "Email provider is unavailable; the engagement is recorded as pending and will retry.",
+          description: `${channelLabel} provider is temporarily unavailable; the engagement is recorded as pending and can be retried.`,
         });
       } else {
+        // Permanent failure — surface the specific reason. The most common
+        // operator-actionable cases for whatsapp get explicit guidance;
+        // everything else falls through to the raw server reason.
+        const description =
+          body.reason === "not_configured"
+            ? "WhatsApp is not configured. Add WHATSAPP_PHONE_NUMBER_ID and WHATSAPP_TOKEN secrets, then re-send."
+            : body.reason === "missing_permission"
+              ? "The WhatsApp token is missing the 'whatsapp_business_messaging' permission. Update the token's scopes in Meta and re-send."
+              : body.reason === "invalid_credentials"
+                ? "WhatsApp rejected the token. Check WHATSAPP_TOKEN (it may be expired or revoked) and re-send."
+                : body.reason === "invalid_recipient"
+                  ? "The lead's WhatsApp number is not a valid E.164 phone number."
+                  : (body.reason ?? "Engagement saved but the send failed.");
         toast({
           title: "Send failed",
-          description: body.reason ?? "Engagement saved but the send failed.",
+          description,
           variant: "destructive",
         });
       }
@@ -807,20 +837,47 @@ function SendUpdateDialog({
           <DialogDescription>
             {target ? (
               <>
-                Sending to lead <strong>{target.referenceNumber}</strong>
-                {target.email ? <> via email.</> : <>.</>}
+                Sending to lead <strong>{target.referenceNumber}</strong> via{" "}
+                {channel === "whatsapp" ? "WhatsApp" : "email"}.
               </>
             ) : null}
           </DialogDescription>
         </DialogHeader>
-        <Textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="Type the update message you want to send to this lead…"
-          rows={6}
-          disabled={sending}
-          data-testid="textarea-send-update-message"
-        />
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">
+              Channel
+            </label>
+            <Select
+              value={channel}
+              onValueChange={(v) => setChannel(v as "email" | "whatsapp")}
+              disabled={sending}
+            >
+              <SelectTrigger
+                className="h-9 text-sm"
+                data-testid="select-send-update-channel"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="email" disabled={!target?.email}>
+                  Email{target?.email ? "" : " (no address on file)"}
+                </SelectItem>
+                <SelectItem value="whatsapp" disabled={!target?.whatsapp}>
+                  WhatsApp{target?.whatsapp ? "" : " (no number on file)"}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Type the update message you want to send to this lead…"
+            rows={6}
+            disabled={sending}
+            data-testid="textarea-send-update-message"
+          />
+        </div>
         <DialogFooter>
           <Button
             variant="ghost"

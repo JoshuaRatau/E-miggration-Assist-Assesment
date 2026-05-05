@@ -32,7 +32,7 @@ The project is structured as a pnpm monorepo using Node.js 24 and TypeScript 5.9
     *   Optimistic UI updates for inline editing in the admin interface.
 *   **Lead Engagement Tracking:** A `lead_engagements` table records all outbound communication attempts (email, WhatsApp).
     *   Guarantees: non-blocking on lead submission, auditable send attempts (pending/sent/failed statuses), no PII in logs.
-    *   Channel-agnostic `sendMessage` gateway with structured results for success, transient failure, or permanent failure. WhatsApp channel is currently a stub.
+    *   Channel-agnostic `sendMessage` gateway with structured results for success, transient failure, or permanent failure. The WhatsApp channel posts to the WhatsApp Business Cloud API (Meta Graph `v21.0/{PHONE_NUMBER_ID}/messages`) and lazy-reads `WHATSAPP_PHONE_NUMBER_ID` + `WHATSAPP_TOKEN` on every call (no startup caching). When either secret is missing the engagement is marked `failed` with reason `not_configured`. HTTP 5xx/429/network errors are transient (engagement → `pending`); 4xx are permanent (`failed`). Free-form text only — pre-approved Message Templates are a future-only addition to `lib/whatsappClient.ts`.
     *   Admin endpoints to send manual updates (`POST /api/admin/leads/:id/send-update`) and view engagement history (`GET /api/admin/leads/:id/engagements`), both token-gated.
 *   **Security:** UUIDs are used for document access with sufficient entropy. Admin endpoints are secured using an `x-admin-token` header and constant-time comparisons. Rate limiting is applied to public status lookup and admin email endpoints. PII is minimized in logs and public API responses.
 
