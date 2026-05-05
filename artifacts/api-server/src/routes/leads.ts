@@ -270,7 +270,7 @@ router.post("/leads", async (req, res) => {
     const channel = confirmChannel;
     const recipient = confirmRecipient;
     const referenceNumber = inserted.referenceNumber;
-    const leadCategory = inserted.leadCategory;
+    const fullName = inserted.fullName;
 
     void (async () => {
       let engagementId: string | null = null;
@@ -303,7 +303,7 @@ router.post("/leads", async (req, res) => {
             to: recipient,
             message: composeConfirmationBody({
               referenceNumber,
-              leadCategory,
+              fullName,
             }),
             referenceNumber,
           });
@@ -322,7 +322,7 @@ router.post("/leads", async (req, res) => {
           const sendResult = await sendConfirmationEmail({
             to: recipient,
             referenceNumber,
-            leadCategory,
+            fullName,
           });
           nextStatus = sendResult.ok ? "sent" : "failed";
           analyticsPayload = sendResult.ok

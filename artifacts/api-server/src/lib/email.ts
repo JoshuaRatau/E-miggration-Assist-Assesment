@@ -139,45 +139,47 @@ async function sendSafely(args: {
 /**
  * Shared confirmation body used by BOTH the email path (sendConfirmationEmail)
  * and the WhatsApp path in routes/leads.ts. Centralised so the lead always
- * sees the same message regardless of which channel they preferred.
+ * sees the same client-facing message regardless of which channel they
+ * preferred.
  *
- * `leadCategory` is the human-readable assessment category (e.g.
- * "Further Review Required") — strictly more useful to the lead than the
- * internal `leadStatus` value ("new"). Optional: omitted lines simply do
- * not appear, keeping the message clean for partial data.
+ * Tone: friendly, addressed to the client by name, with a clear action
+ * promise ("a consultant will be in touch"). Reference number is kept at
+ * the bottom so the lead — or our team in follow-up — can use it for
+ * status lookup, but it is intentionally not the headline.
+ *
+ * `fullName` is optional so the helper degrades gracefully to a generic
+ * "Hello," if the lead row somehow lacks a name.
  */
 export function composeConfirmationBody(args: {
   referenceNumber: string;
-  leadCategory?: string | null;
+  fullName?: string | null;
 }): string {
-  const lines = [
-    "Hello,",
+  const greetName =
+    typeof args.fullName === "string" && args.fullName.trim().length > 0
+      ? args.fullName.trim()
+      : null;
+  return [
+    greetName ? `Hello ${greetName},` : "Hello,",
     "",
-    "Your information has been securely recorded with E-Migration Assist.",
+    "Thank you — your submission has been received.",
+    "",
+    "One of our consultants will be in touch with you shortly.",
     "",
     `Reference: ${args.referenceNumber}`,
-  ];
-  if (args.leadCategory && args.leadCategory.trim().length > 0) {
-    lines.push(`Initial assessment: ${args.leadCategory}`);
-  }
-  lines.push(
-    "",
-    "You can check your status anytime using your reference number.",
     "",
     "— E-Migration Assist",
-  );
-  return lines.join("\n");
+  ].join("\n");
 }
 
 export async function sendConfirmationEmail(args: {
   to: string;
   referenceNumber: string;
-  leadCategory?: string | null;
+  fullName?: string | null;
 }): Promise<SendResult> {
   const subject = "Your Assessment Has Been Received";
   const text = composeConfirmationBody({
     referenceNumber: args.referenceNumber,
-    leadCategory: args.leadCategory,
+    fullName: args.fullName,
   });
 
   return sendSafely({ to: args.to, subject, text });
