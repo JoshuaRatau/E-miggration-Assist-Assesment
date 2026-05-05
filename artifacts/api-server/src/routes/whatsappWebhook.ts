@@ -31,11 +31,16 @@ const router: IRouter = Router();
  *
  * Critical operational rules:
  *
- *  1. **ALWAYS respond 200.** Twilio retries non-2xx with backoff; an
- *     app-level bug would drown the API in retries. We ack first, then
- *     process. Any error during processing is logged but never bubbled.
- *     We respond with an empty TwiML `<Response/>` so Twilio also
- *     understands "do not auto-reply on my behalf".
+ *  1. **ALWAYS respond 200, but PERSIST FIRST.** Twilio retries non-2xx
+ *     with backoff; an app-level bug would drown the API in retries, and
+ *     once we ack a 200 Twilio will *not* retry. So the rule is:
+ *     synchronously persist the durable record (the `case_messages` row)
+ *     BEFORE acking. Non-critical side effects (analytics insert,
+ *     downstream reconciliation) stay fire-and-forget so a slow side
+ *     effect can't delay the ack and Twilio's 15s deadline. Any error
+ *     during processing is logged but never bubbled. We respond with an
+ *     empty TwiML `<Response/>` so Twilio also understands "do not
+ *     auto-reply on my behalf".
  *
  *  2. **Verify signature using Twilio's official helper.** The signature
  *     scheme is `X-Twilio-Signature` = base64(HMAC-SHA1(URL +
@@ -115,13 +120,19 @@ router.post("/webhooks/whatsapp", async (req, res) => {
       return ack();
     }
 
-    // Fire-and-forget so a slow DB never delays the ack to Twilio.
-    void handleInboundMessage(msg, req.log).catch((err) =>
+    // Persist BEFORE ack — if we acked first and crashed before the DB
+    // write, Twilio would not retry and the message would be silently
+    // lost. The handler does 2-4 simple PG queries (well under Twilio's
+    // 15s webhook deadline) and traps its own errors so this await is
+    // safe to chain into the ack path.
+    try {
+      await handleInboundMessage(msg, req.log);
+    } catch (err) {
       req.log.warn(
         { err: err instanceof Error ? err.message : String(err) },
-        "Inbound WhatsApp processing error (silent)",
-      ),
-    );
+        "Inbound WhatsApp processing error (acked anyway to prevent retry storm)",
+      );
+    }
 
     return ack();
   } catch (err) {
@@ -206,7 +217,13 @@ async function handleInboundMessage(
     "Inbound WhatsApp stored",
   );
 
-  await db
+  // Side effects below are NON-DURABLE — they can be fire-and-forget
+  // because losing them does not lose the user's signal (the
+  // case_messages row above is the source of truth and can be
+  // re-derived). Keeping them off the ack-critical path also means a
+  // slow analytics write or a bug in reconcileNextActionsForCase can
+  // never block returning 200 to Twilio.
+  void db
     .insert(analyticsEventsTable)
     .values({
       eventName: "whatsapp_inbound_received",
@@ -226,7 +243,7 @@ async function handleInboundMessage(
     );
 
   if (intent === "task_complete_signal") {
-    await reconcileNextActionsForCase(lead.id, log).catch((err) =>
+    void reconcileNextActionsForCase(lead.id, log).catch((err) =>
       log.warn(
         { err: err instanceof Error ? err.message : String(err) },
         "reconcileNextActionsForCase threw (silent)",
