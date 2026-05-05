@@ -116,6 +116,29 @@ export interface Document {
   createdAt: string;
 }
 
+export type PublicStatusPublicLabel =
+  (typeof PublicStatusPublicLabel)[keyof typeof PublicStatusPublicLabel];
+
+export const PublicStatusPublicLabel = {
+  Assessment_Received: "Assessment Received",
+  Supporting_Circumstances_Present: "Supporting Circumstances Present",
+  Requires_Further_Review: "Requires Further Review",
+  High_Complexity_Case: "High Complexity Case",
+} as const;
+
+/**
+ * Public-safe status payload returned by GET /api/public/status/:ref.
+Intentionally excludes contact PII and every internal CRM field
+(score, priority, internalClassification, leadStatus, adminNotes).
+
+ */
+export interface PublicStatus {
+  referenceNumber: string;
+  publicLabel: PublicStatusPublicLabel;
+  createdAt: string;
+  documentsUploaded: boolean;
+}
+
 export type ListLeadsParams = {
   /**
    * @minimum 1

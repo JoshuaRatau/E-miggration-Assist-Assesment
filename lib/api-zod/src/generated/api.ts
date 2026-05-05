@@ -330,6 +330,34 @@ export const TrackAnalyticsEventBody = zod.object({
 });
 
 /**
+ * Public-safe status lookup for users returning with their reference
+number. Rate limited per IP. Returns the same generic 404 for both
+unknown references and malformed references to prevent enumeration.
+The response body intentionally excludes every internal CRM field.
+
+ * @summary Look up a lead's public status by reference number
+ */
+export const GetPublicStatusParams = zod.object({
+  referenceNumber: zod.coerce.string(),
+});
+
+export const GetPublicStatusResponse = zod
+  .object({
+    referenceNumber: zod.string(),
+    publicLabel: zod.enum([
+      "Assessment Received",
+      "Supporting Circumstances Present",
+      "Requires Further Review",
+      "High Complexity Case",
+    ]),
+    createdAt: zod.string(),
+    documentsUploaded: zod.boolean(),
+  })
+  .describe(
+    "Public-safe status payload returned by GET \/api\/public\/status\/:ref.\nIntentionally excludes contact PII and every internal CRM field\n(score, priority, internalClassification, leadStatus, adminNotes).\n",
+  );
+
+/**
  * Returns the documents previously uploaded for a lead.
 
 Two related document endpoints are intentionally NOT defined in this

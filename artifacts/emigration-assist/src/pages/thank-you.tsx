@@ -74,10 +74,19 @@ export function ThankYou() {
 
             <Disclaimer />
           </CardContent>
-          <CardFooter className="flex justify-center border-t bg-muted/20 pt-6">
-            <Link href="/">
-              <Button variant="outline">Return Home</Button>
-            </Link>
+          <CardFooter className="flex flex-col gap-4 border-t bg-muted/20 pt-6">
+            <p className="text-sm text-center text-muted-foreground max-w-md">
+              Save your reference number. You can return anytime to check your
+              status.
+            </p>
+            <div className="flex flex-wrap justify-center gap-3">
+              <Link href="/status">
+                <Button data-testid="button-check-status">Check Status</Button>
+              </Link>
+              <Link href="/">
+                <Button variant="outline">Return Home</Button>
+              </Link>
+            </div>
           </CardFooter>
         </Card>
       </div>

@@ -59,6 +59,7 @@ function rateLimit(req: Request, res: Response, next: NextFunction) {
   recent.push(now);
   ipHits.set(ip, recent);
   next();
+  return;
 }
 
 // Periodic eviction so the map doesn't grow unbounded

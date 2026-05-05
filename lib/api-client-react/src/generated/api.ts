@@ -25,6 +25,7 @@ import type {
   Lead,
   ListDocumentsParams,
   ListLeadsParams,
+  PublicStatus,
   StatsSummary,
   UpdateLeadInput,
 } from "./api.schemas";
@@ -719,6 +720,99 @@ export const useTrackAnalyticsEvent = <
 > => {
   return useMutation(getTrackAnalyticsEventMutationOptions(options));
 };
+
+/**
+ * Public-safe status lookup for users returning with their reference
+number. Rate limited per IP. Returns the same generic 404 for both
+unknown references and malformed references to prevent enumeration.
+The response body intentionally excludes every internal CRM field.
+
+ * @summary Look up a lead's public status by reference number
+ */
+export const getGetPublicStatusUrl = (referenceNumber: string) => {
+  return `/api/public/status/${referenceNumber}`;
+};
+
+export const getPublicStatus = async (
+  referenceNumber: string,
+  options?: RequestInit,
+): Promise<PublicStatus> => {
+  return customFetch<PublicStatus>(getGetPublicStatusUrl(referenceNumber), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPublicStatusQueryKey = (referenceNumber: string) => {
+  return [`/api/public/status/${referenceNumber}`] as const;
+};
+
+export const getGetPublicStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPublicStatus>>,
+  TError = ErrorType<void>,
+>(
+  referenceNumber: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPublicStatus>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPublicStatusQueryKey(referenceNumber);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getPublicStatus>>> = ({
+    signal,
+  }) => getPublicStatus(referenceNumber, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!referenceNumber,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPublicStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPublicStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPublicStatus>>
+>;
+export type GetPublicStatusQueryError = ErrorType<void>;
+
+/**
+ * @summary Look up a lead's public status by reference number
+ */
+
+export function useGetPublicStatus<
+  TData = Awaited<ReturnType<typeof getPublicStatus>>,
+  TError = ErrorType<void>,
+>(
+  referenceNumber: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPublicStatus>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPublicStatusQueryOptions(referenceNumber, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * Returns the documents previously uploaded for a lead.

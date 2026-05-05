@@ -66,6 +66,38 @@ deliberately excludes every internal CRM field (`leadStatus`, `leadScore`,
 `leadPriority`, `internalClassification`, `adminNotes`) and contact PII the
 lookup page does not need. Do not add new fields to it without legal review.
 
+### Public status lookup (added)
+
+Returning users can check their case via reference number.
+
+- **Endpoint:** `GET /api/public/status/:referenceNumber` (router file
+  `artifacts/api-server/src/routes/publicStatus.ts`).
+- **Response shape** (locked, see `PublicStatus` schema in OpenAPI):
+  `{ referenceNumber, publicLabel, createdAt, documentsUploaded }`. Every
+  internal CRM field, score, priority, classification and contact PII is
+  intentionally excluded.
+- **publicLabel** is one of four neutral strings, mapped from the internal
+  classification:
+   - `VALID_STATUS_GENERAL_INTEREST` → "Assessment Received"
+   - `OVERSTAY_STRONG_CONTEXT`, `OVERSTAY_MODERATE_CONTEXT` → "Supporting Circumstances Present"
+   - `VISA_EXPIRING_OR_EXPIRED`, `OVERSTAY_LIMITED_CONTEXT`, `UNKNOWN_REQUIRES_REVIEW` → "Requires Further Review"
+   - `DECLARED_UNDESIRABLE`, `POSSIBLE_PROHIBITED_PERSON` → "High Complexity Case"
+- **Format validation:** the route accepts only references matching
+  `^EMA-[A-Z0-9]{2,16}-[A-Z0-9]{2,8}$` (case insensitive — the path is
+  uppercased before lookup).
+- **Enumeration defence:** malformed references and unknown references both
+  return the identical generic 404 `{"error":"Reference not found"}` so a
+  caller cannot tell them apart.
+- **Rate limit:** in-memory sliding window, 10 requests / 60s per IP, with
+  `Retry-After` header on 429. Implemented inline (no extra deps); a periodic
+  `setInterval(...).unref()` evicts stale entries.
+- **UI:** `/status` calls the new `useGetPublicStatus` hook and renders the
+  case status, the date, a documents indicator
+  ("Supporting documents received" or "No documents uploaded yet"), and the
+  fixed sentence "This is your current assessment status. You may be
+  contacted when the full platform becomes available." The thank-you page
+  ends with a "Check Status" button and a save-your-reference instruction.
+
 ### OpenAPI spec note
 
 Most endpoints are defined in `lib/api-spec/openapi.yaml` and consumed via

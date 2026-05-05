@@ -488,3 +488,24 @@ components:
         createdAt:
           type: string
       required: [id, leadId, documentType, fileUrl, uploadStatus, createdAt]
+    PublicStatus:
+      type: object
+      description: |
+        Public-safe status payload returned by GET /api/public/status/:ref.
+        Intentionally excludes contact PII and every internal CRM field
+        (score, priority, internalClassification, leadStatus, adminNotes).
+      properties:
+        referenceNumber:
+          type: string
+        publicLabel:
+          type: string
+          enum:
+            - Assessment Received
+            - Supporting Circumstances Present
+            - Requires Further Review
+            - High Complexity Case
+        createdAt:
+          type: string
+        documentsUploaded:
+          type: boolean
+      required: [referenceNumber, publicLabel, createdAt, documentsUploaded]
