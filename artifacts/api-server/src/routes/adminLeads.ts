@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import {
   LEAD_STATUS_VALUES,
   LEAD_PRIORITY_VALUES,
+  deriveNextStep,
 } from "../lib/classification";
 import { requireAdminToken } from "../lib/adminAuth";
 
@@ -20,6 +21,9 @@ function serializeLead(row: typeof prelaunchLeadsTable.$inferSelect) {
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     hasWhatsapp: typeof row.whatsapp === "string" && row.whatsapp.length > 0,
+    // Conversion-funnel hint mirrored from leads.ts so PATCH responses stay
+    // consistent with GET — see deriveNextStep().
+    nextStep: deriveNextStep(row.leadStatus),
   };
 }
 

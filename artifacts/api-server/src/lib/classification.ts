@@ -140,6 +140,29 @@ export const LEAD_STATUS_VALUES = [
   "closed",
 ] as const;
 
+/**
+ * Conversion-funnel hint shown to operators in the dashboard.  Pure derivation
+ * from `leadStatus` — there is no separate `nextStep` column in the database;
+ * the value is computed on read so it always reflects the current status.
+ *
+ * Returns `null` for `closed` (and any unknown status) so the UI can render an
+ * empty cell rather than a misleading suggestion for terminal/unknown rows.
+ */
+const NEXT_STEP_BY_STATUS: Record<string, string> = {
+  new: "Review lead",
+  reviewing: "Contact lead",
+  contacted: "Await response",
+  qualified: "Prepare case conversion",
+  converted: "Move to case system",
+};
+
+export function deriveNextStep(
+  status: string | null | undefined,
+): string | null {
+  if (!status) return null;
+  return NEXT_STEP_BY_STATUS[status] ?? null;
+}
+
 export const LEAD_PRIORITY_VALUES = ["high", "medium", "low"] as const;
 
 export function generateReferenceNumber(): string {

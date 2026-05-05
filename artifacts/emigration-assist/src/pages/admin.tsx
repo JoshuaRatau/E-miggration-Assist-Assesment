@@ -134,6 +134,55 @@ function priorityRank(p: string | null | undefined): number {
   return p && p in PRIORITY_RANK ? PRIORITY_RANK[p]! : 99;
 }
 
+// Next-step hint per status.  Server also derives this in `deriveNextStep`
+// (see classification.ts) — the client recomputes locally so the column
+// updates instantly on inline status edits without waiting for a refetch.
+const NEXT_STEP_BY_STATUS: Record<string, string> = {
+  new: "Review lead",
+  reviewing: "Contact lead",
+  contacted: "Await response",
+  qualified: "Prepare case conversion",
+  converted: "Move to case system",
+};
+
+function nextStepFor(status: string | null | undefined): string | null {
+  if (!status) return null;
+  return NEXT_STEP_BY_STATUS[status] ?? null;
+}
+
+// Subtle row highlight for actionable statuses.  "new" leads need triage,
+// "reviewing" leads are mid-triage and need to be contacted next — both
+// represent inbox work the operator should clear.  We use a very light
+// blue tint so it reads as "needs your attention" without overpowering the
+// table's color cues (priority badges still pop).
+function rowHighlightClass(status: string | null | undefined): string {
+  if (status === "new" || status === "reviewing") {
+    return "bg-blue-50/60 hover:bg-blue-100/60";
+  }
+  return "";
+}
+
+// Build the best-available "Contact" deeplink for a lead.  Prefers WhatsApp
+// when a number is on file (single-tap from desktop browsers via wa.me),
+// falls back to email.  Returns null when neither is available so the
+// button can be disabled with an explanatory tooltip.
+function contactHref(
+  email: string | null | undefined,
+  whatsapp: string | null | undefined,
+): { href: string; channel: "whatsapp" | "email" } | null {
+  if (typeof whatsapp === "string" && whatsapp.length > 0) {
+    // wa.me requires a digits-only phone (no leading +).
+    const digits = whatsapp.replace(/[^0-9]/g, "");
+    if (digits.length > 0) {
+      return { href: `https://wa.me/${digits}`, channel: "whatsapp" };
+    }
+  }
+  if (typeof email === "string" && email.length > 0) {
+    return { href: `mailto:${email}`, channel: "email" };
+  }
+  return null;
+}
+
 // "Visa Type" surfaces the lead's `immigrationSituation` (the canonical
 // enum captured in the funnel: valid / expired / overstay / undesirable /
 // prohibited / unknown).  Free-form `visaHistory` is operator-only and
@@ -449,8 +498,12 @@ export function Admin() {
     }
   };
 
-  const priorityCount = (key: string) =>
-    stats?.byPriority?.find((c) => c.category === key)?.count ?? 0;
+  // Status counts for the top summary cards.  The /stats/summary endpoint
+  // returns lowercase canonical statuses in `byStatus`, so we look those up
+  // directly — no priority counts are surfaced as cards in V1 of the
+  // conversion engine (priority is still visible per row via the badge).
+  const statusCount = (key: string) =>
+    stats?.byStatus?.find((c) => c.category === key)?.count ?? 0;
 
   return (
     <div className="min-h-screen bg-muted/20 p-6 md:p-12">
@@ -485,42 +538,42 @@ export function Admin() {
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Total leads</CardDescription>
-              <CardTitle className="text-3xl">
+              <CardDescription>Total Leads</CardDescription>
+              <CardTitle className="text-3xl" data-testid="stat-total-leads">
                 {stats?.totalAssessments ?? 0}
               </CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>High priority</CardDescription>
+              <CardDescription>New Leads</CardDescription>
               <CardTitle
-                className="text-3xl text-red-600"
-                data-testid="stat-priority-high"
+                className="text-3xl text-blue-600"
+                data-testid="stat-status-new"
               >
-                {priorityCount("high")}
+                {statusCount("new")}
               </CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Medium priority</CardDescription>
+              <CardDescription>Contacted</CardDescription>
               <CardTitle
-                className="text-3xl text-orange-500"
-                data-testid="stat-priority-medium"
+                className="text-3xl text-amber-600"
+                data-testid="stat-status-contacted"
               >
-                {priorityCount("medium")}
+                {statusCount("contacted")}
               </CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Low priority</CardDescription>
+              <CardDescription>Qualified</CardDescription>
               <CardTitle
-                className="text-3xl text-gray-500"
-                data-testid="stat-priority-low"
+                className="text-3xl text-green-600"
+                data-testid="stat-status-qualified"
               >
-                {priorityCount("low")}
+                {statusCount("qualified")}
               </CardTitle>
             </CardHeader>
           </Card>
@@ -661,6 +714,7 @@ export function Admin() {
                       <TableHead className="text-center">WhatsApp</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Priority</TableHead>
+                      <TableHead>Next Step</TableHead>
                       <TableHead>Created</TableHead>
                       <TableHead className="text-right"></TableHead>
                     </TableRow>
@@ -671,11 +725,20 @@ export function Admin() {
                         (lead as { hasWhatsapp?: boolean }).hasWhatsapp ??
                         (typeof lead.whatsapp === "string" &&
                           lead.whatsapp.length > 0);
+                      // Always recompute locally so the column reflects the
+                      // current optimistic status without a server round-trip.
+                      const nextStep = nextStepFor(lead.leadStatus);
+                      const contact = contactHref(
+                        lead.email,
+                        typeof lead.whatsapp === "string" ? lead.whatsapp : null,
+                      );
                       return (
                         <TableRow
                           key={lead.id}
                           data-testid={`row-lead-${lead.referenceNumber}`}
                           data-has-whatsapp={hasWhatsapp ? "true" : "false"}
+                          data-status={lead.leadStatus}
+                          className={rowHighlightClass(lead.leadStatus)}
                         >
                           <TableCell>
                             <div className="font-medium">
@@ -745,11 +808,66 @@ export function Admin() {
                               </SelectContent>
                             </Select>
                           </TableCell>
+                          <TableCell>
+                            {nextStep ? (
+                              <Badge
+                                variant="outline"
+                                className="font-normal text-xs whitespace-nowrap"
+                                data-testid={`next-step-${lead.referenceNumber}`}
+                              >
+                                {nextStep}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">
+                                —
+                              </span>
+                            )}
+                          </TableCell>
                           <TableCell className="text-muted-foreground whitespace-nowrap text-xs">
                             {format(new Date(lead.createdAt), "MMM d, HH:mm")}
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center justify-end gap-1">
+                              {contact ? (
+                                <Button
+                                  asChild
+                                  variant="default"
+                                  size="sm"
+                                  data-testid={`button-contact-${lead.referenceNumber}`}
+                                  data-channel={contact.channel}
+                                >
+                                  <a
+                                    href={contact.href}
+                                    target={
+                                      contact.channel === "whatsapp"
+                                        ? "_blank"
+                                        : undefined
+                                    }
+                                    rel={
+                                      contact.channel === "whatsapp"
+                                        ? "noopener noreferrer"
+                                        : undefined
+                                    }
+                                    title={
+                                      contact.channel === "whatsapp"
+                                        ? "Open WhatsApp chat"
+                                        : "Compose email"
+                                    }
+                                  >
+                                    Contact
+                                  </a>
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  disabled
+                                  title="No email or WhatsApp on file"
+                                  data-testid={`button-contact-${lead.referenceNumber}`}
+                                >
+                                  Contact
+                                </Button>
+                              )}
                               <Link href={`/admin/lead/${lead.id}`}>
                                 <Button
                                   variant="ghost"

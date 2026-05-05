@@ -10,6 +10,7 @@ import { and, desc, eq, gt, or, sql } from "drizzle-orm";
 import {
   classifyCase,
   deriveAutoPriority,
+  deriveNextStep,
   generateReferenceNumber,
 } from "../lib/classification";
 import { composeConfirmationBody, sendConfirmationEmail } from "../lib/email";
@@ -30,6 +31,7 @@ function serializeLead(row: typeof prelaunchLeadsTable.$inferSelect) {
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     hasWhatsapp: typeof row.whatsapp === "string" && row.whatsapp.length > 0,
+    nextStep: deriveNextStep(row.leadStatus),
   };
 }
 
@@ -50,6 +52,8 @@ function serializeLeadAdminList(row: typeof prelaunchLeadsTable.$inferSelect) {
     leadPriority: row.leadPriority,
     hasWhatsapp: typeof row.whatsapp === "string" && row.whatsapp.length > 0,
     createdAt: row.createdAt.toISOString(),
+    // Conversion-funnel hint derived from leadStatus.  See `deriveNextStep`.
+    nextStep: deriveNextStep(row.leadStatus),
   };
 }
 

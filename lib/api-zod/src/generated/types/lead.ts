@@ -29,8 +29,10 @@ export interface Lead {
   leadCategory?: string | null;
   /** high | medium | low */
   leadPriority?: string | null;
-  /** new | reviewing | contacted | converted | closed */
+  /** new | reviewing | contacted | qualified | converted | closed */
   leadStatus: string;
+  /** Conversion-funnel hint derived from leadStatus. Values: "Review lead" (new), "Contact lead" (reviewing), "Await response" (contacted), "Prepare case conversion" (qualified), "Move to case system" (converted), null (closed/unknown). */
+  nextStep?: string | null;
   adminNotes?: string | null;
   /** True if the lead has a stored canonical WhatsApp number. */
   hasWhatsapp?: boolean;

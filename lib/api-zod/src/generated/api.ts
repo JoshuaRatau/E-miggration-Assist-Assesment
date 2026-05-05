@@ -74,7 +74,13 @@ export const CreateLeadResponse = zod.object({
   leadPriority: zod.string().nullish().describe("high | medium | low"),
   leadStatus: zod
     .string()
-    .describe("new | reviewing | contacted | converted | closed"),
+    .describe("new | reviewing | contacted | qualified | converted | closed"),
+  nextStep: zod
+    .string()
+    .nullish()
+    .describe(
+      'Conversion-funnel hint derived from leadStatus. Values: \"Review lead\" (new), \"Contact lead\" (reviewing), \"Await response\" (contacted), \"Prepare case conversion\" (qualified), \"Move to case system\" (converted), null (closed\/unknown).',
+    ),
   adminNotes: zod.string().nullish(),
   hasWhatsapp: zod
     .boolean()
@@ -138,7 +144,13 @@ export const ListLeadsResponseItem = zod.object({
   leadPriority: zod.string().nullish().describe("high | medium | low"),
   leadStatus: zod
     .string()
-    .describe("new | reviewing | contacted | converted | closed"),
+    .describe("new | reviewing | contacted | qualified | converted | closed"),
+  nextStep: zod
+    .string()
+    .nullish()
+    .describe(
+      'Conversion-funnel hint derived from leadStatus. Values: \"Review lead\" (new), \"Contact lead\" (reviewing), \"Await response\" (contacted), \"Prepare case conversion\" (qualified), \"Move to case system\" (converted), null (closed\/unknown).',
+    ),
   adminNotes: zod.string().nullish(),
   hasWhatsapp: zod
     .boolean()
@@ -183,7 +195,13 @@ export const GetLeadByReferenceResponse = zod.object({
   leadPriority: zod.string().nullish().describe("high | medium | low"),
   leadStatus: zod
     .string()
-    .describe("new | reviewing | contacted | converted | closed"),
+    .describe("new | reviewing | contacted | qualified | converted | closed"),
+  nextStep: zod
+    .string()
+    .nullish()
+    .describe(
+      'Conversion-funnel hint derived from leadStatus. Values: \"Review lead\" (new), \"Contact lead\" (reviewing), \"Await response\" (contacted), \"Prepare case conversion\" (qualified), \"Move to case system\" (converted), null (closed\/unknown).',
+    ),
   adminNotes: zod.string().nullish(),
   hasWhatsapp: zod
     .boolean()
@@ -227,7 +245,13 @@ export const GetLeadByIdResponse = zod.object({
   leadPriority: zod.string().nullish().describe("high | medium | low"),
   leadStatus: zod
     .string()
-    .describe("new | reviewing | contacted | converted | closed"),
+    .describe("new | reviewing | contacted | qualified | converted | closed"),
+  nextStep: zod
+    .string()
+    .nullish()
+    .describe(
+      'Conversion-funnel hint derived from leadStatus. Values: \"Review lead\" (new), \"Contact lead\" (reviewing), \"Await response\" (contacted), \"Prepare case conversion\" (qualified), \"Move to case system\" (converted), null (closed\/unknown).',
+    ),
   adminNotes: zod.string().nullish(),
   hasWhatsapp: zod
     .boolean()

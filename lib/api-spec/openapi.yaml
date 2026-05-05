@@ -356,6 +356,14 @@ components:
         leadStatus:
           type: string
           description: 'new | reviewing | contacted | qualified | converted | closed'
+        nextStep:
+          type: string
+          nullable: true
+          description: >-
+            Conversion-funnel hint derived from leadStatus. Values:
+            "Review lead" (new), "Contact lead" (reviewing),
+            "Await response" (contacted), "Prepare case conversion" (qualified),
+            "Move to case system" (converted), null (closed/unknown).
         adminNotes:
           type: string
           nullable: true
