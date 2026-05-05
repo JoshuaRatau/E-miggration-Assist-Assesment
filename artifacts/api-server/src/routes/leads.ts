@@ -1,8 +1,21 @@
 import { Router, type IRouter } from "express";
-import { db, prelaunchLeadsTable } from "@workspace/db";
-import { CreateLeadBody, ListLeadsQueryParams } from "@workspace/api-zod";
-import { desc, eq } from "drizzle-orm";
-import { classifyCase, generateReferenceNumber } from "../lib/classification";
+import {
+  db,
+  prelaunchLeadsTable,
+  analyticsEventsTable,
+} from "@workspace/db";
+import {
+  CreateLeadBody,
+  ListLeadsQueryParams,
+  UpdateLeadBody,
+} from "@workspace/api-zod";
+import { and, desc, eq, or, sql } from "drizzle-orm";
+import {
+  classifyCase,
+  derivePriority,
+  generateReferenceNumber,
+  LEAD_STATUS_VALUES,
+} from "../lib/classification";
 
 const router: IRouter = Router();
 
@@ -15,8 +28,35 @@ function serializeLead(row: typeof prelaunchLeadsTable.$inferSelect) {
       ? row.consentTimestamp.toISOString()
       : null,
     createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
   };
 }
+
+// Public-safe view of a lead for the user-facing reference lookup. Strips out
+// internal CRM fields (score, priority, internalClassification, leadStatus,
+// adminNotes) and contact PII that the lookup page does not need to render.
+function serializeLeadPublic(row: typeof prelaunchLeadsTable.$inferSelect) {
+  return {
+    id: row.id,
+    referenceNumber: row.referenceNumber,
+    fullName: row.fullName,
+    nationality: row.nationality,
+    immigrationSituation: row.immigrationSituation,
+    leadCategory: row.leadCategory,
+    consentAccepted: row.consentAccepted,
+    consentTimestamp: row.consentTimestamp
+      ? row.consentTimestamp.toISOString()
+      : null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    leadStatus: row.leadStatus,
+  };
+}
+
+const toDateString = (d: Date | undefined): string | null =>
+  d instanceof Date && !Number.isNaN(d.getTime())
+    ? d.toISOString().slice(0, 10)
+    : null;
 
 router.post("/leads", async (req, res) => {
   const parsed = CreateLeadBody.safeParse(req.body);
@@ -36,14 +76,76 @@ router.post("/leads", async (req, res) => {
     overstayReason: data.overstayReason ?? null,
     hasSupportingDocuments: data.hasSupportingDocuments ?? null,
   });
-
-  const referenceNumber = generateReferenceNumber();
+  const priority = derivePriority(result.score);
   const now = new Date();
 
-  const toDateString = (d: Date | undefined): string | null =>
-    d instanceof Date && !Number.isNaN(d.getTime())
-      ? d.toISOString().slice(0, 10)
-      : null;
+  // Duplicate detection: same email OR same whatsapp → update existing
+  const dupConditions = [];
+  if (data.email) dupConditions.push(eq(prelaunchLeadsTable.email, data.email));
+  if (data.whatsapp)
+    dupConditions.push(eq(prelaunchLeadsTable.whatsapp, data.whatsapp));
+
+  let existing: typeof prelaunchLeadsTable.$inferSelect | undefined;
+  if (dupConditions.length > 0) {
+    const rows = await db
+      .select()
+      .from(prelaunchLeadsTable)
+      .where(or(...dupConditions))
+      .orderBy(desc(prelaunchLeadsTable.createdAt))
+      .limit(1);
+    existing = rows[0];
+  }
+
+  if (existing) {
+    const [updated] = await db
+      .update(prelaunchLeadsTable)
+      .set({
+        fullName: data.fullName,
+        email: data.email,
+        whatsapp: data.whatsapp ?? existing.whatsapp,
+        nationality: data.nationality,
+        countryOfResidence: data.countryOfResidence ?? existing.countryOfResidence,
+        currentlyInSouthAfrica:
+          data.currentlyInSouthAfrica ?? existing.currentlyInSouthAfrica,
+        passportStatus: data.passportStatus ?? existing.passportStatus,
+        visaHistory: data.visaHistory ?? existing.visaHistory,
+        immigrationSituation: data.immigrationSituation,
+        visaExpiryDate:
+          toDateString(data.visaExpiryDate) ?? existing.visaExpiryDate,
+        exitDate: toDateString(data.exitDate) ?? existing.exitDate,
+        borderDocumentIssued:
+          data.borderDocumentIssued ?? existing.borderDocumentIssued,
+        overstayReason: data.overstayReason ?? existing.overstayReason,
+        hasSupportingDocuments:
+          data.hasSupportingDocuments ?? existing.hasSupportingDocuments,
+        previousOverstay: data.previousOverstay ?? existing.previousOverstay,
+        preferredContactMethod:
+          data.preferredContactMethod ?? existing.preferredContactMethod,
+        consentAccepted: data.consentAccepted,
+        consentTimestamp: now,
+        internalClassification: result.category,
+        leadScore: result.score,
+        leadCategory: result.label,
+        leadPriority: priority,
+        // Preserve existing leadStatus and adminNotes; do not reset
+        updatedAt: now,
+      })
+      .where(eq(prelaunchLeadsTable.id, existing.id))
+      .returning();
+
+    if (!updated) {
+      return res.status(500).json({ error: "Failed to update existing lead" });
+    }
+
+    req.log.info(
+      { leadId: updated.id, referenceNumber: updated.referenceNumber },
+      "Duplicate detected — updated existing lead",
+    );
+
+    return res.status(200).json(serializeLead(updated));
+  }
+
+  const referenceNumber = generateReferenceNumber();
 
   const [inserted] = await db
     .insert(prelaunchLeadsTable)
@@ -67,17 +169,32 @@ router.post("/leads", async (req, res) => {
       preferredContactMethod: data.preferredContactMethod ?? null,
       consentAccepted: data.consentAccepted,
       consentTimestamp: now,
-      // Internal-only fields
       internalClassification: result.category,
       leadScore: result.score,
-      // Safe public-facing label
       leadCategory: result.label,
+      leadPriority: priority,
+      leadStatus: "NEW",
     })
     .returning();
 
   if (!inserted) {
     return res.status(500).json({ error: "Failed to create lead" });
   }
+
+  // Fire-and-forget classification_result analytics event
+  db.insert(analyticsEventsTable)
+    .values({
+      eventName: "classification_result",
+      leadId: inserted.id,
+      referenceNumber: inserted.referenceNumber,
+      payload: {
+        category: result.category,
+        label: result.label,
+        score: result.score,
+        priority,
+      },
+    })
+    .catch((err) => req.log.error({ err }, "Failed to log analytics event"));
 
   return res.status(201).json(serializeLead(inserted));
 });
@@ -89,15 +206,137 @@ router.get("/leads", async (req, res) => {
       .status(400)
       .json({ error: "Invalid query", details: parsed.error.issues });
   }
-  const limit = parsed.data.limit ?? 20;
+  const { limit = 50, priority, status, nationality, situation } = parsed.data;
+
+  const filters = [];
+  if (priority) filters.push(eq(prelaunchLeadsTable.leadPriority, priority));
+  if (status) filters.push(eq(prelaunchLeadsTable.leadStatus, status));
+  if (nationality)
+    filters.push(eq(prelaunchLeadsTable.nationality, nationality));
+  if (situation)
+    filters.push(eq(prelaunchLeadsTable.immigrationSituation, situation));
 
   const rows = await db
     .select()
     .from(prelaunchLeadsTable)
+    .where(filters.length ? and(...filters) : undefined)
     .orderBy(desc(prelaunchLeadsTable.createdAt))
     .limit(limit);
 
   return res.json(rows.map(serializeLead));
+});
+
+router.get("/leads/export.csv", async (_req, res) => {
+  const rows = await db
+    .select()
+    .from(prelaunchLeadsTable)
+    .orderBy(desc(prelaunchLeadsTable.createdAt));
+
+  const escape = (val: unknown): string => {
+    if (val === null || val === undefined) return "";
+    const s = String(val);
+    if (s.includes('"') || s.includes(",") || s.includes("\n")) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  };
+
+  const header = [
+    "referenceNumber",
+    "name",
+    "email",
+    "phone",
+    "nationality",
+    "classification",
+    "score",
+    "priority",
+    "publicLabel",
+    "status",
+    "createdAt",
+  ];
+
+  const lines = [header.join(",")];
+  for (const r of rows) {
+    lines.push(
+      [
+        r.referenceNumber,
+        r.fullName,
+        r.email,
+        r.whatsapp,
+        r.nationality,
+        r.internalClassification,
+        r.leadScore,
+        r.leadPriority,
+        r.leadCategory,
+        r.leadStatus,
+        r.createdAt.toISOString(),
+      ]
+        .map(escape)
+        .join(","),
+    );
+  }
+
+  const csv = lines.join("\n");
+  const filename = `ema-leads-${new Date().toISOString().slice(0, 10)}.csv`;
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${filename}"`,
+  );
+  return res.send(csv);
+});
+
+router.get("/leads/by-id/:id", async (req, res) => {
+  const { id } = req.params;
+  const rows = await db
+    .select()
+    .from(prelaunchLeadsTable)
+    .where(eq(prelaunchLeadsTable.id, id))
+    .limit(1);
+
+  if (rows.length === 0 || !rows[0]) {
+    return res.status(404).json({ error: "Lead not found" });
+  }
+
+  return res.json(serializeLead(rows[0]));
+});
+
+router.patch("/leads/by-id/:id", async (req, res) => {
+  const { id } = req.params;
+  const parsed = UpdateLeadBody.safeParse(req.body);
+  if (!parsed.success) {
+    return res
+      .status(400)
+      .json({ error: "Invalid input", details: parsed.error.issues });
+  }
+  const data = parsed.data;
+
+  if (
+    data.leadStatus !== undefined &&
+    !LEAD_STATUS_VALUES.includes(data.leadStatus as never)
+  ) {
+    return res
+      .status(400)
+      .json({ error: `leadStatus must be one of ${LEAD_STATUS_VALUES.join(", ")}` });
+  }
+
+  const updates: Partial<typeof prelaunchLeadsTable.$inferInsert> = {
+    updatedAt: new Date(),
+  };
+  if (data.leadStatus !== undefined) updates.leadStatus = data.leadStatus;
+  if (data.adminNotes !== undefined) updates.adminNotes = data.adminNotes;
+
+  const [updated] = await db
+    .update(prelaunchLeadsTable)
+    .set(updates)
+    .where(eq(prelaunchLeadsTable.id, id))
+    .returning();
+
+  if (!updated) {
+    return res.status(404).json({ error: "Lead not found" });
+  }
+
+  return res.json(serializeLead(updated));
 });
 
 router.get("/leads/:referenceNumber", async (req, res) => {
@@ -112,7 +351,11 @@ router.get("/leads/:referenceNumber", async (req, res) => {
     return res.status(404).json({ error: "Lead not found" });
   }
 
-  return res.json(serializeLead(rows[0]));
+  // Public lookup → strip internal CRM fields
+  return res.json(serializeLeadPublic(rows[0]));
 });
 
 export default router;
+
+// Keep sql import used for analytics; quiet TS unused warning
+void sql;

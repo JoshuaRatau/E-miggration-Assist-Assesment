@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * E-Migration Assist API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 import * as zod from "zod";
 
@@ -32,16 +32,16 @@ export const CreateLeadBody = zod.object({
   immigrationSituation: zod
     .string()
     .describe(
-      "visa_holder | overstayed | undocumented | rejected | first_time | other",
+      "valid | expired | overstay | undesirable | prohibited | unknown",
     ),
   visaExpiryDate: zod.coerce.date().optional(),
   exitDate: zod.coerce.date().optional(),
   borderDocumentIssued: zod.string().optional(),
-  overstayReason: zod.string().optional(),
-  hasSupportingDocuments: zod
+  overstayReason: zod
     .string()
     .optional()
-    .describe("yes | partial | no"),
+    .describe("medical | accident | family_emergency | admin_delay | other"),
+  hasSupportingDocuments: zod.string().optional().describe("yes | some | no"),
   previousOverstay: zod.string().optional(),
   preferredContactMethod: zod
     .string()
@@ -50,11 +50,47 @@ export const CreateLeadBody = zod.object({
   consentAccepted: zod.boolean(),
 });
 
+export const CreateLeadResponse = zod.object({
+  id: zod.string(),
+  referenceNumber: zod.string(),
+  fullName: zod.string().nullish(),
+  email: zod.string().nullish(),
+  whatsapp: zod.string().nullish(),
+  nationality: zod.string().nullish(),
+  countryOfResidence: zod.string().nullish(),
+  currentlyInSouthAfrica: zod.boolean().nullish(),
+  passportStatus: zod.string().nullish(),
+  visaHistory: zod.string().nullish(),
+  immigrationSituation: zod.string().nullish(),
+  visaExpiryDate: zod.string().nullish(),
+  exitDate: zod.string().nullish(),
+  borderDocumentIssued: zod.string().nullish(),
+  overstayReason: zod.string().nullish(),
+  hasSupportingDocuments: zod.string().nullish(),
+  previousOverstay: zod.string().nullish(),
+  internalClassification: zod.string().nullish(),
+  leadScore: zod.number().nullish(),
+  leadCategory: zod.string().nullish(),
+  leadPriority: zod
+    .string()
+    .nullish()
+    .describe("HIGH_PRIORITY | MEDIUM_PRIORITY | LOW_PRIORITY"),
+  leadStatus: zod
+    .string()
+    .describe("NEW | REVIEWED | NEEDS_FOLLOW_UP | WAITLISTED | NOT_RELEVANT"),
+  adminNotes: zod.string().nullish(),
+  preferredContactMethod: zod.string().nullish(),
+  consentAccepted: zod.boolean(),
+  consentTimestamp: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+
 /**
- * @summary List recent leads (admin overview)
+ * @summary List recent leads (admin overview) with optional filters
  */
-export const listLeadsQueryLimitDefault = 20;
-export const listLeadsQueryLimitMax = 100;
+export const listLeadsQueryLimitDefault = 50;
+export const listLeadsQueryLimitMax = 500;
 
 export const ListLeadsQueryParams = zod.object({
   limit: zod.coerce
@@ -62,6 +98,21 @@ export const ListLeadsQueryParams = zod.object({
     .min(1)
     .max(listLeadsQueryLimitMax)
     .default(listLeadsQueryLimitDefault),
+  priority: zod.coerce
+    .string()
+    .optional()
+    .describe("Filter by HIGH_PRIORITY | MEDIUM_PRIORITY | LOW_PRIORITY"),
+  status: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      "Filter by NEW | REVIEWED | NEEDS_FOLLOW_UP | WAITLISTED | NOT_RELEVANT",
+    ),
+  nationality: zod.coerce.string().optional(),
+  situation: zod.coerce
+    .string()
+    .optional()
+    .describe("Filter by immigrationSituation enum value"),
 });
 
 export const ListLeadsResponseItem = zod.object({
@@ -85,10 +136,19 @@ export const ListLeadsResponseItem = zod.object({
   internalClassification: zod.string().nullish(),
   leadScore: zod.number().nullish(),
   leadCategory: zod.string().nullish(),
+  leadPriority: zod
+    .string()
+    .nullish()
+    .describe("HIGH_PRIORITY | MEDIUM_PRIORITY | LOW_PRIORITY"),
+  leadStatus: zod
+    .string()
+    .describe("NEW | REVIEWED | NEEDS_FOLLOW_UP | WAITLISTED | NOT_RELEVANT"),
+  adminNotes: zod.string().nullish(),
   preferredContactMethod: zod.string().nullish(),
   consentAccepted: zod.boolean(),
   consentTimestamp: zod.string().nullish(),
   createdAt: zod.string(),
+  updatedAt: zod.string(),
 });
 export const ListLeadsResponse = zod.array(ListLeadsResponseItem);
 
@@ -120,14 +180,117 @@ export const GetLeadByReferenceResponse = zod.object({
   internalClassification: zod.string().nullish(),
   leadScore: zod.number().nullish(),
   leadCategory: zod.string().nullish(),
+  leadPriority: zod
+    .string()
+    .nullish()
+    .describe("HIGH_PRIORITY | MEDIUM_PRIORITY | LOW_PRIORITY"),
+  leadStatus: zod
+    .string()
+    .describe("NEW | REVIEWED | NEEDS_FOLLOW_UP | WAITLISTED | NOT_RELEVANT"),
+  adminNotes: zod.string().nullish(),
   preferredContactMethod: zod.string().nullish(),
   consentAccepted: zod.boolean(),
   consentTimestamp: zod.string().nullish(),
   createdAt: zod.string(),
+  updatedAt: zod.string(),
 });
 
 /**
- * @summary Aggregate stats for the landing page (total assessments, category breakdown)
+ * @summary Look up a lead by internal UUID (admin)
+ */
+export const GetLeadByIdParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const GetLeadByIdResponse = zod.object({
+  id: zod.string(),
+  referenceNumber: zod.string(),
+  fullName: zod.string().nullish(),
+  email: zod.string().nullish(),
+  whatsapp: zod.string().nullish(),
+  nationality: zod.string().nullish(),
+  countryOfResidence: zod.string().nullish(),
+  currentlyInSouthAfrica: zod.boolean().nullish(),
+  passportStatus: zod.string().nullish(),
+  visaHistory: zod.string().nullish(),
+  immigrationSituation: zod.string().nullish(),
+  visaExpiryDate: zod.string().nullish(),
+  exitDate: zod.string().nullish(),
+  borderDocumentIssued: zod.string().nullish(),
+  overstayReason: zod.string().nullish(),
+  hasSupportingDocuments: zod.string().nullish(),
+  previousOverstay: zod.string().nullish(),
+  internalClassification: zod.string().nullish(),
+  leadScore: zod.number().nullish(),
+  leadCategory: zod.string().nullish(),
+  leadPriority: zod
+    .string()
+    .nullish()
+    .describe("HIGH_PRIORITY | MEDIUM_PRIORITY | LOW_PRIORITY"),
+  leadStatus: zod
+    .string()
+    .describe("NEW | REVIEWED | NEEDS_FOLLOW_UP | WAITLISTED | NOT_RELEVANT"),
+  adminNotes: zod.string().nullish(),
+  preferredContactMethod: zod.string().nullish(),
+  consentAccepted: zod.boolean(),
+  consentTimestamp: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+
+/**
+ * @summary Update admin-only fields (status, notes)
+ */
+export const UpdateLeadParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const UpdateLeadBody = zod.object({
+  leadStatus: zod
+    .string()
+    .optional()
+    .describe("NEW | REVIEWED | NEEDS_FOLLOW_UP | WAITLISTED | NOT_RELEVANT"),
+  adminNotes: zod.string().nullish(),
+});
+
+export const UpdateLeadResponse = zod.object({
+  id: zod.string(),
+  referenceNumber: zod.string(),
+  fullName: zod.string().nullish(),
+  email: zod.string().nullish(),
+  whatsapp: zod.string().nullish(),
+  nationality: zod.string().nullish(),
+  countryOfResidence: zod.string().nullish(),
+  currentlyInSouthAfrica: zod.boolean().nullish(),
+  passportStatus: zod.string().nullish(),
+  visaHistory: zod.string().nullish(),
+  immigrationSituation: zod.string().nullish(),
+  visaExpiryDate: zod.string().nullish(),
+  exitDate: zod.string().nullish(),
+  borderDocumentIssued: zod.string().nullish(),
+  overstayReason: zod.string().nullish(),
+  hasSupportingDocuments: zod.string().nullish(),
+  previousOverstay: zod.string().nullish(),
+  internalClassification: zod.string().nullish(),
+  leadScore: zod.number().nullish(),
+  leadCategory: zod.string().nullish(),
+  leadPriority: zod
+    .string()
+    .nullish()
+    .describe("HIGH_PRIORITY | MEDIUM_PRIORITY | LOW_PRIORITY"),
+  leadStatus: zod
+    .string()
+    .describe("NEW | REVIEWED | NEEDS_FOLLOW_UP | WAITLISTED | NOT_RELEVANT"),
+  adminNotes: zod.string().nullish(),
+  preferredContactMethod: zod.string().nullish(),
+  consentAccepted: zod.boolean(),
+  consentTimestamp: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+
+/**
+ * @summary Aggregate stats (totals, priority breakdown)
  */
 export const GetStatsSummaryResponse = zod.object({
   totalAssessments: zod.number(),
@@ -139,4 +302,29 @@ export const GetStatsSummaryResponse = zod.object({
       count: zod.number(),
     }),
   ),
+  byPriority: zod.array(
+    zod.object({
+      category: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+  byStatus: zod.array(
+    zod.object({
+      category: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Record a funnel analytics event
+ */
+export const TrackAnalyticsEventBody = zod.object({
+  eventName: zod
+    .string()
+    .describe(
+      "assessment_started | assessment_completed | classification_result | document_upload",
+    ),
+  referenceNumber: zod.string().nullish(),
+  payload: zod.record(zod.string(), zod.unknown()).nullish(),
 });

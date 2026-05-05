@@ -3,12 +3,16 @@
  * Do not edit manually.
  * Api
  * E-Migration Assist API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 
+export * from "./analyticsEventInput";
+export * from "./analyticsEventInputPayload";
+export * from "./analyticsEventResponse";
 export * from "./categoryCount";
 export * from "./createLeadInput";
 export * from "./healthStatus";
 export * from "./lead";
 export * from "./listLeadsParams";
 export * from "./statsSummary";
+export * from "./updateLeadInput";

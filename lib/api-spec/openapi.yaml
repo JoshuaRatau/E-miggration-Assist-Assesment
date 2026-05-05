@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
-  version: 0.1.0
+  version: 0.2.0
   description: E-Migration Assist API
 servers:
   - url: /api
@@ -14,6 +14,8 @@ tags:
     description: Pre-launch immigration assessment leads
   - name: stats
     description: Aggregate stats
+  - name: analytics
+    description: Funnel analytics events
 paths:
   /healthz:
     get:
@@ -45,10 +47,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Lead"
+        "200":
+          description: Existing lead updated (duplicate email or whatsapp detected)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
     get:
       operationId: listLeads
       tags: [leads]
-      summary: List recent leads (admin overview)
+      summary: List recent leads (admin overview) with optional filters
       parameters:
         - name: limit
           in: query
@@ -56,8 +64,31 @@ paths:
           schema:
             type: integer
             minimum: 1
-            maximum: 100
-            default: 20
+            maximum: 500
+            default: 50
+        - name: priority
+          in: query
+          required: false
+          description: Filter by HIGH_PRIORITY | MEDIUM_PRIORITY | LOW_PRIORITY
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          description: Filter by NEW | REVIEWED | NEEDS_FOLLOW_UP | WAITLISTED | NOT_RELEVANT
+          schema:
+            type: string
+        - name: nationality
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: situation
+          in: query
+          required: false
+          description: Filter by immigrationSituation enum value
+          schema:
+            type: string
       responses:
         "200":
           description: List of leads
@@ -87,11 +118,56 @@ paths:
                 $ref: "#/components/schemas/Lead"
         "404":
           description: Not found
+  /leads/by-id/{id}:
+    get:
+      operationId: getLeadById
+      tags: [leads]
+      summary: Look up a lead by internal UUID (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Lead found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateLead
+      tags: [leads]
+      summary: Update admin-only fields (status, notes)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLeadInput"
+      responses:
+        "200":
+          description: Lead updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+        "404":
+          description: Not found
   /stats/summary:
     get:
       operationId: getStatsSummary
       tags: [stats]
-      summary: Aggregate stats for the landing page (total assessments, category breakdown)
+      summary: Aggregate stats (totals, priority breakdown)
       responses:
         "200":
           description: Stats summary
@@ -99,6 +175,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StatsSummary"
+  /analytics/events:
+    post:
+      operationId: trackAnalyticsEvent
+      tags: [analytics]
+      summary: Record a funnel analytics event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalyticsEventInput"
+      responses:
+        "201":
+          description: Event recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsEventResponse"
 components:
   schemas:
     HealthStatus:
@@ -129,7 +223,7 @@ components:
           type: string
         immigrationSituation:
           type: string
-          description: 'visa_holder | overstayed | undocumented | rejected | first_time | other'
+          description: 'valid | expired | overstay | undesirable | prohibited | unknown'
         visaExpiryDate:
           type: string
           format: date
@@ -140,9 +234,10 @@ components:
           type: string
         overstayReason:
           type: string
+          description: 'medical | accident | family_emergency | admin_delay | other'
         hasSupportingDocuments:
           type: string
-          description: 'yes | partial | no'
+          description: 'yes | some | no'
         previousOverstay:
           type: string
         preferredContactMethod:
@@ -156,6 +251,15 @@ components:
         - nationality
         - immigrationSituation
         - consentAccepted
+    UpdateLeadInput:
+      type: object
+      properties:
+        leadStatus:
+          type: string
+          description: 'NEW | REVIEWED | NEEDS_FOLLOW_UP | WAITLISTED | NOT_RELEVANT'
+        adminNotes:
+          type: string
+          nullable: true
     Lead:
       type: object
       properties:
@@ -217,6 +321,16 @@ components:
         leadCategory:
           type: string
           nullable: true
+        leadPriority:
+          type: string
+          nullable: true
+          description: 'HIGH_PRIORITY | MEDIUM_PRIORITY | LOW_PRIORITY'
+        leadStatus:
+          type: string
+          description: 'NEW | REVIEWED | NEEDS_FOLLOW_UP | WAITLISTED | NOT_RELEVANT'
+        adminNotes:
+          type: string
+          nullable: true
         preferredContactMethod:
           type: string
           nullable: true
@@ -227,11 +341,15 @@ components:
           nullable: true
         createdAt:
           type: string
+        updatedAt:
+          type: string
       required:
         - id
         - referenceNumber
         - consentAccepted
+        - leadStatus
         - createdAt
+        - updatedAt
     CategoryCount:
       type: object
       properties:
@@ -253,4 +371,36 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CategoryCount"
-      required: [totalAssessments, last24Hours, avgScore, byCategory]
+        byPriority:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryCount"
+        byStatus:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryCount"
+      required: [totalAssessments, last24Hours, avgScore, byCategory, byPriority, byStatus]
+    AnalyticsEventInput:
+      type: object
+      properties:
+        eventName:
+          type: string
+          description: 'assessment_started | assessment_completed | classification_result | document_upload'
+        referenceNumber:
+          type: string
+          nullable: true
+        payload:
+          type: object
+          nullable: true
+          additionalProperties: true
+      required: [eventName]
+    AnalyticsEventResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        eventName:
+          type: string
+        createdAt:
+          type: string
+      required: [id, eventName, createdAt]

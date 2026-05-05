@@ -15,6 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Disclaimer } from "@/components/disclaimer";
+import { trackEvent } from "@/lib/analytics";
 
 const assessmentSchema = z.object({
   // Step 1
@@ -65,6 +66,7 @@ export function Assessment() {
 
   useEffect(() => {
     document.title = "Immigration Assessment | E-Migration Assist";
+    trackEvent("assessment_started");
   }, []);
 
   const form = useForm<AssessmentFormValues>({
@@ -119,6 +121,15 @@ export function Assessment() {
       { data: submitData },
       {
         onSuccess: (result) => {
+          trackEvent("assessment_completed", {
+            referenceNumber: result.referenceNumber,
+          });
+          if (data.hasSupportingDocuments && data.hasSupportingDocuments !== "no") {
+            trackEvent("document_upload", {
+              referenceNumber: result.referenceNumber,
+              payload: { hasSupportingDocuments: data.hasSupportingDocuments },
+            });
+          }
           setLocation(`/thank-you/${result.referenceNumber}`);
         },
         onError: () => {

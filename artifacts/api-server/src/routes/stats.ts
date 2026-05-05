@@ -21,11 +21,35 @@ router.get("/stats/summary", async (_req, res) => {
     .from(prelaunchLeadsTable)
     .groupBy(prelaunchLeadsTable.leadCategory);
 
+  const byPriorityRows = await db
+    .select({
+      category: sql<string>`COALESCE(${prelaunchLeadsTable.leadPriority}, 'UNCLASSIFIED')`,
+      count: sql<number>`COUNT(*)::int`,
+    })
+    .from(prelaunchLeadsTable)
+    .groupBy(prelaunchLeadsTable.leadPriority);
+
+  const byStatusRows = await db
+    .select({
+      category: sql<string>`COALESCE(${prelaunchLeadsTable.leadStatus}, 'NEW')`,
+      count: sql<number>`COUNT(*)::int`,
+    })
+    .from(prelaunchLeadsTable)
+    .groupBy(prelaunchLeadsTable.leadStatus);
+
   return res.json({
     totalAssessments: totals?.totalAssessments ?? 0,
     last24Hours: totals?.last24Hours ?? 0,
     avgScore: Math.round((totals?.avgScore ?? 0) * 10) / 10,
     byCategory: byCategoryRows.map((r) => ({
+      category: r.category,
+      count: r.count,
+    })),
+    byPriority: byPriorityRows.map((r) => ({
+      category: r.category,
+      count: r.count,
+    })),
+    byStatus: byStatusRows.map((r) => ({
       category: r.category,
       count: r.count,
     })),

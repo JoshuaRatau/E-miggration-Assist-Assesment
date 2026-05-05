@@ -10,6 +10,8 @@ export interface ClassificationResult {
   label: string;
 }
 
+export type LeadPriority = "HIGH_PRIORITY" | "MEDIUM_PRIORITY" | "LOW_PRIORITY";
+
 const STRONG_CONTEXT_REASONS = new Set([
   "medical",
   "accident",
@@ -86,6 +88,22 @@ export function classifyCase(input: ClassificationInput): ClassificationResult {
     label: "Further Review Required",
   };
 }
+
+export function derivePriority(score: number | null | undefined): LeadPriority {
+  const s = typeof score === "number" ? score : 0;
+  if (s >= 80) return "HIGH_PRIORITY";
+  if (s >= 60) return "MEDIUM_PRIORITY";
+  return "LOW_PRIORITY";
+}
+
+export const LEAD_STATUS_VALUES = [
+  "NEW",
+  "REVIEWED",
+  "NEEDS_FOLLOW_UP",
+  "WAITLISTED",
+  "NOT_RELEVANT",
+] as const;
+export type LeadStatus = (typeof LEAD_STATUS_VALUES)[number];
 
 export function generateReferenceNumber(): string {
   const ts = Date.now().toString(36).toUpperCase();

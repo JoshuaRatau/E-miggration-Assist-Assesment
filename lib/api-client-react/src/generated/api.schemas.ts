@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * E-Migration Assist API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 export interface HealthStatus {
   status: string;
@@ -19,18 +19,25 @@ export interface CreateLeadInput {
   /** valid | expired | lost | none */
   passportStatus?: string;
   visaHistory?: string;
-  /** visa_holder | overstayed | undocumented | rejected | first_time | other */
+  /** valid | expired | overstay | undesirable | prohibited | unknown */
   immigrationSituation: string;
   visaExpiryDate?: string;
   exitDate?: string;
   borderDocumentIssued?: string;
+  /** medical | accident | family_emergency | admin_delay | other */
   overstayReason?: string;
-  /** yes | partial | no */
+  /** yes | some | no */
   hasSupportingDocuments?: string;
   previousOverstay?: string;
   /** email | whatsapp | phone */
   preferredContactMethod?: string;
   consentAccepted: boolean;
+}
+
+export interface UpdateLeadInput {
+  /** NEW | REVIEWED | NEEDS_FOLLOW_UP | WAITLISTED | NOT_RELEVANT */
+  leadStatus?: string;
+  adminNotes?: string | null;
 }
 
 export interface Lead {
@@ -54,10 +61,16 @@ export interface Lead {
   internalClassification?: string | null;
   leadScore?: number | null;
   leadCategory?: string | null;
+  /** HIGH_PRIORITY | MEDIUM_PRIORITY | LOW_PRIORITY */
+  leadPriority?: string | null;
+  /** NEW | REVIEWED | NEEDS_FOLLOW_UP | WAITLISTED | NOT_RELEVANT */
+  leadStatus: string;
+  adminNotes?: string | null;
   preferredContactMethod?: string | null;
   consentAccepted: boolean;
   consentTimestamp?: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface CategoryCount {
@@ -70,12 +83,42 @@ export interface StatsSummary {
   last24Hours: number;
   avgScore: number;
   byCategory: CategoryCount[];
+  byPriority: CategoryCount[];
+  byStatus: CategoryCount[];
+}
+
+export type AnalyticsEventInputPayload = { [key: string]: unknown } | null;
+
+export interface AnalyticsEventInput {
+  /** assessment_started | assessment_completed | classification_result | document_upload */
+  eventName: string;
+  referenceNumber?: string | null;
+  payload?: AnalyticsEventInputPayload;
+}
+
+export interface AnalyticsEventResponse {
+  id: string;
+  eventName: string;
+  createdAt: string;
 }
 
 export type ListLeadsParams = {
   /**
    * @minimum 1
-   * @maximum 100
+   * @maximum 500
    */
   limit?: number;
+  /**
+   * Filter by HIGH_PRIORITY | MEDIUM_PRIORITY | LOW_PRIORITY
+   */
+  priority?: string;
+  /**
+   * Filter by NEW | REVIEWED | NEEDS_FOLLOW_UP | WAITLISTED | NOT_RELEVANT
+   */
+  status?: string;
+  nationality?: string;
+  /**
+   * Filter by immigrationSituation enum value
+   */
+  situation?: string;
 };

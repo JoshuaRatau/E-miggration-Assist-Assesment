@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * E-Migration Assist API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 
 export interface CreateLeadInput {
@@ -16,13 +16,14 @@ export interface CreateLeadInput {
   /** valid | expired | lost | none */
   passportStatus?: string;
   visaHistory?: string;
-  /** visa_holder | overstayed | undocumented | rejected | first_time | other */
+  /** valid | expired | overstay | undesirable | prohibited | unknown */
   immigrationSituation: string;
   visaExpiryDate?: Date;
   exitDate?: Date;
   borderDocumentIssued?: string;
+  /** medical | accident | family_emergency | admin_delay | other */
   overstayReason?: string;
-  /** yes | partial | no */
+  /** yes | some | no */
   hasSupportingDocuments?: string;
   previousOverstay?: string;
   /** email | whatsapp | phone */

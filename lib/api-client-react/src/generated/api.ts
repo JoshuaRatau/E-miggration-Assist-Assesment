@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * E-Migration Assist API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
@@ -17,11 +17,14 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AnalyticsEventInput,
+  AnalyticsEventResponse,
   CreateLeadInput,
   HealthStatus,
   Lead,
   ListLeadsParams,
   StatsSummary,
+  UpdateLeadInput,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -195,7 +198,7 @@ export const useCreateLead = <
 };
 
 /**
- * @summary List recent leads (admin overview)
+ * @summary List recent leads (admin overview) with optional filters
  */
 export const getListLeadsUrl = (params?: ListLeadsParams) => {
   const normalizedParams = new URLSearchParams();
@@ -262,7 +265,7 @@ export type ListLeadsQueryResult = NonNullable<
 export type ListLeadsQueryError = ErrorType<unknown>;
 
 /**
- * @summary List recent leads (admin overview)
+ * @summary List recent leads (admin overview) with optional filters
  */
 
 export function useListLeads<
@@ -381,7 +384,181 @@ export function useGetLeadByReference<
 }
 
 /**
- * @summary Aggregate stats for the landing page (total assessments, category breakdown)
+ * @summary Look up a lead by internal UUID (admin)
+ */
+export const getGetLeadByIdUrl = (id: string) => {
+  return `/api/leads/by-id/${id}`;
+};
+
+export const getLeadById = async (
+  id: string,
+  options?: RequestInit,
+): Promise<Lead> => {
+  return customFetch<Lead>(getGetLeadByIdUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetLeadByIdQueryKey = (id: string) => {
+  return [`/api/leads/by-id/${id}`] as const;
+};
+
+export const getGetLeadByIdQueryOptions = <
+  TData = Awaited<ReturnType<typeof getLeadById>>,
+  TError = ErrorType<void>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getLeadById>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetLeadByIdQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getLeadById>>> = ({
+    signal,
+  }) => getLeadById(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getLeadById>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetLeadByIdQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getLeadById>>
+>;
+export type GetLeadByIdQueryError = ErrorType<void>;
+
+/**
+ * @summary Look up a lead by internal UUID (admin)
+ */
+
+export function useGetLeadById<
+  TData = Awaited<ReturnType<typeof getLeadById>>,
+  TError = ErrorType<void>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getLeadById>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetLeadByIdQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update admin-only fields (status, notes)
+ */
+export const getUpdateLeadUrl = (id: string) => {
+  return `/api/leads/by-id/${id}`;
+};
+
+export const updateLead = async (
+  id: string,
+  updateLeadInput: UpdateLeadInput,
+  options?: RequestInit,
+): Promise<Lead> => {
+  return customFetch<Lead>(getUpdateLeadUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateLeadInput),
+  });
+};
+
+export const getUpdateLeadMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateLead>>,
+    TError,
+    { id: string; data: BodyType<UpdateLeadInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateLead>>,
+  TError,
+  { id: string; data: BodyType<UpdateLeadInput> },
+  TContext
+> => {
+  const mutationKey = ["updateLead"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateLead>>,
+    { id: string; data: BodyType<UpdateLeadInput> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateLead(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateLeadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateLead>>
+>;
+export type UpdateLeadMutationBody = BodyType<UpdateLeadInput>;
+export type UpdateLeadMutationError = ErrorType<void>;
+
+/**
+ * @summary Update admin-only fields (status, notes)
+ */
+export const useUpdateLead = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateLead>>,
+    TError,
+    { id: string; data: BodyType<UpdateLeadInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateLead>>,
+  TError,
+  { id: string; data: BodyType<UpdateLeadInput> },
+  TContext
+> => {
+  return useMutation(getUpdateLeadMutationOptions(options));
+};
+
+/**
+ * @summary Aggregate stats (totals, priority breakdown)
  */
 export const getGetStatsSummaryUrl = () => {
   return `/api/stats/summary`;
@@ -432,7 +609,7 @@ export type GetStatsSummaryQueryResult = NonNullable<
 export type GetStatsSummaryQueryError = ErrorType<unknown>;
 
 /**
- * @summary Aggregate stats for the landing page (total assessments, category breakdown)
+ * @summary Aggregate stats (totals, priority breakdown)
  */
 
 export function useGetStatsSummary<
@@ -454,3 +631,89 @@ export function useGetStatsSummary<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Record a funnel analytics event
+ */
+export const getTrackAnalyticsEventUrl = () => {
+  return `/api/analytics/events`;
+};
+
+export const trackAnalyticsEvent = async (
+  analyticsEventInput: AnalyticsEventInput,
+  options?: RequestInit,
+): Promise<AnalyticsEventResponse> => {
+  return customFetch<AnalyticsEventResponse>(getTrackAnalyticsEventUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(analyticsEventInput),
+  });
+};
+
+export const getTrackAnalyticsEventMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof trackAnalyticsEvent>>,
+    TError,
+    { data: BodyType<AnalyticsEventInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof trackAnalyticsEvent>>,
+  TError,
+  { data: BodyType<AnalyticsEventInput> },
+  TContext
+> => {
+  const mutationKey = ["trackAnalyticsEvent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof trackAnalyticsEvent>>,
+    { data: BodyType<AnalyticsEventInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return trackAnalyticsEvent(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type TrackAnalyticsEventMutationResult = NonNullable<
+  Awaited<ReturnType<typeof trackAnalyticsEvent>>
+>;
+export type TrackAnalyticsEventMutationBody = BodyType<AnalyticsEventInput>;
+export type TrackAnalyticsEventMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Record a funnel analytics event
+ */
+export const useTrackAnalyticsEvent = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof trackAnalyticsEvent>>,
+    TError,
+    { data: BodyType<AnalyticsEventInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof trackAnalyticsEvent>>,
+  TError,
+  { data: BodyType<AnalyticsEventInput> },
+  TContext
+> => {
+  return useMutation(getTrackAnalyticsEventMutationOptions(options));
+};

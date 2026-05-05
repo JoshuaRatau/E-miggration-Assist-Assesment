@@ -1,32 +1,268 @@
-import { useEffect } from "react";
-import { useListLeads } from "@workspace/api-client-react";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "wouter";
+import {
+  useListLeads,
+  useGetStatsSummary,
+} from "@workspace/api-client-react";
 import { format } from "date-fns";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+const PRIORITY_OPTIONS = [
+  { value: "ALL", label: "All priorities" },
+  { value: "HIGH_PRIORITY", label: "High" },
+  { value: "MEDIUM_PRIORITY", label: "Medium" },
+  { value: "LOW_PRIORITY", label: "Low" },
+];
+
+const STATUS_OPTIONS = [
+  { value: "ALL", label: "All statuses" },
+  { value: "NEW", label: "New" },
+  { value: "REVIEWED", label: "Reviewed" },
+  { value: "NEEDS_FOLLOW_UP", label: "Needs follow-up" },
+  { value: "WAITLISTED", label: "Waitlisted" },
+  { value: "NOT_RELEVANT", label: "Not relevant" },
+];
+
+const SITUATION_OPTIONS = [
+  { value: "ALL", label: "All situations" },
+  { value: "valid", label: "Valid visa" },
+  { value: "expired", label: "Expired visa" },
+  { value: "overstay", label: "Overstay" },
+  { value: "undesirable", label: "Undesirable" },
+  { value: "prohibited", label: "Prohibited" },
+  { value: "unknown", label: "Unknown" },
+];
+
+function priorityBadge(priority: string | null | undefined) {
+  if (priority === "HIGH_PRIORITY") {
+    return (
+      <Badge className="bg-red-600 hover:bg-red-700 text-white border-transparent">
+        HIGH
+      </Badge>
+    );
+  }
+  if (priority === "MEDIUM_PRIORITY") {
+    return (
+      <Badge className="bg-orange-500 hover:bg-orange-600 text-white border-transparent">
+        MEDIUM
+      </Badge>
+    );
+  }
+  if (priority === "LOW_PRIORITY") {
+    return (
+      <Badge className="bg-gray-400 hover:bg-gray-500 text-white border-transparent">
+        LOW
+      </Badge>
+    );
+  }
+  return <Badge variant="outline">—</Badge>;
+}
+
+function statusBadge(status: string | null | undefined) {
+  const s = status ?? "NEW";
+  const variantMap: Record<string, "default" | "secondary" | "outline"> = {
+    NEW: "default",
+    REVIEWED: "secondary",
+    NEEDS_FOLLOW_UP: "default",
+    WAITLISTED: "outline",
+    NOT_RELEVANT: "outline",
+  };
+  return (
+    <Badge variant={variantMap[s] ?? "outline"} className="whitespace-nowrap">
+      {s.replace(/_/g, " ")}
+    </Badge>
+  );
+}
 
 export function Admin() {
   useEffect(() => {
     document.title = "Admin Overview | E-Migration Assist";
   }, []);
 
-  const { data: leads, isLoading } = useListLeads({ limit: 50 });
+  const [priority, setPriority] = useState("ALL");
+  const [status, setStatus] = useState("ALL");
+  const [situation, setSituation] = useState("ALL");
+  const [nationality, setNationality] = useState("");
+
+  const queryParams = useMemo(() => {
+    const p: Record<string, string | number> = { limit: 200 };
+    if (priority !== "ALL") p.priority = priority;
+    if (status !== "ALL") p.status = status;
+    if (situation !== "ALL") p.situation = situation;
+    if (nationality.trim()) p.nationality = nationality.trim();
+    return p;
+  }, [priority, status, situation, nationality]);
+
+  const { data: leads, isLoading } = useListLeads(queryParams as never);
+  const { data: stats } = useGetStatsSummary();
+
+  const exportHref = `${import.meta.env.BASE_URL}api/leads/export.csv`;
+
+  const priorityCount = (key: string) =>
+    stats?.byPriority?.find((c) => c.category === key)?.count ?? 0;
 
   return (
     <div className="min-h-screen bg-muted/20 p-6 md:p-12">
-      <div className="max-w-6xl mx-auto space-y-8">
-        <header>
-          <h1 className="text-3xl font-display font-bold">Admin Overview</h1>
-          <p className="text-muted-foreground">
-            Pre-launch lead monitoring tool. Internal use only — categories and scores shown here are internal classifications and are not displayed to users.
-          </p>
+      <div className="max-w-7xl mx-auto space-y-8">
+        <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-display font-bold">Admin Overview</h1>
+            <p className="text-muted-foreground">
+              Pre-launch lead monitoring tool. Internal use only — categories,
+              scores and priorities shown here are internal classifications and
+              are not displayed to users.
+            </p>
+          </div>
+          <Button asChild data-testid="button-export-leads">
+            <a href={exportHref} download>
+              Export Leads (CSV)
+            </a>
+          </Button>
         </header>
+
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Total leads</CardDescription>
+              <CardTitle className="text-3xl">
+                {stats?.totalAssessments ?? 0}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>High priority</CardDescription>
+              <CardTitle className="text-3xl text-red-600">
+                {priorityCount("HIGH_PRIORITY")}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Medium priority</CardDescription>
+              <CardTitle className="text-3xl text-orange-500">
+                {priorityCount("MEDIUM_PRIORITY")}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Low priority</CardDescription>
+              <CardTitle className="text-3xl text-gray-500">
+                {priorityCount("LOW_PRIORITY")}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Filter</CardTitle>
+            <CardDescription>
+              Narrow the lead list by priority, status, nationality or situation.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 md:grid-cols-4">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">
+                  Priority
+                </label>
+                <Select value={priority} onValueChange={setPriority}>
+                  <SelectTrigger data-testid="select-filter-priority">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRIORITY_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">
+                  Status
+                </label>
+                <Select value={status} onValueChange={setStatus}>
+                  <SelectTrigger data-testid="select-filter-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUS_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">
+                  Situation
+                </label>
+                <Select value={situation} onValueChange={setSituation}>
+                  <SelectTrigger data-testid="select-filter-situation">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SITUATION_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">
+                  Nationality
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Zimbabwean"
+                  value={nationality}
+                  onChange={(e) => setNationality(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  data-testid="input-filter-nationality"
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
             <CardTitle>Recent Assessments</CardTitle>
-            <CardDescription>Internal classification, score and public-facing label per submission.</CardDescription>
+            <CardDescription>
+              Internal classification, score, priority, status and public-facing
+              label per submission.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -38,7 +274,7 @@ export function Admin() {
               </div>
             ) : !leads || leads.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground border rounded-lg border-dashed">
-                No assessments recorded yet.
+                No assessments match the current filters.
               </div>
             ) : (
               <div className="rounded-md border overflow-x-auto">
@@ -51,18 +287,25 @@ export function Admin() {
                       <TableHead>Situation</TableHead>
                       <TableHead>Internal Category</TableHead>
                       <TableHead>Public Label</TableHead>
+                      <TableHead>Priority</TableHead>
+                      <TableHead>Status</TableHead>
                       <TableHead className="text-right">Score</TableHead>
+                      <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {leads.map((lead) => (
                       <TableRow key={lead.id}>
-                        <TableCell className="font-mono text-xs font-medium">{lead.referenceNumber}</TableCell>
+                        <TableCell className="font-mono text-xs font-medium">
+                          {lead.referenceNumber}
+                        </TableCell>
                         <TableCell className="text-muted-foreground whitespace-nowrap">
                           {format(new Date(lead.createdAt), "MMM d, HH:mm")}
                         </TableCell>
                         <TableCell>{lead.nationality}</TableCell>
-                        <TableCell className="capitalize">{lead.immigrationSituation?.replace(/_/g, " ")}</TableCell>
+                        <TableCell className="capitalize">
+                          {lead.immigrationSituation?.replace(/_/g, " ")}
+                        </TableCell>
                         <TableCell>
                           <code className="text-xs font-mono text-muted-foreground">
                             {lead.internalClassification || "—"}
@@ -73,18 +316,21 @@ export function Admin() {
                             {lead.leadCategory || "Pending"}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right">
-                          <Badge
-                            variant={
-                              lead.leadScore && lead.leadScore >= 80
-                                ? "destructive"
-                                : lead.leadScore && lead.leadScore >= 60
-                                ? "default"
-                                : "secondary"
-                            }
-                          >
-                            {lead.leadScore ?? 0}
-                          </Badge>
+                        <TableCell>{priorityBadge(lead.leadPriority)}</TableCell>
+                        <TableCell>{statusBadge(lead.leadStatus)}</TableCell>
+                        <TableCell className="text-right font-mono">
+                          {lead.leadScore ?? 0}
+                        </TableCell>
+                        <TableCell>
+                          <Link href={`/admin/lead/${lead.id}`}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              data-testid={`link-lead-${lead.referenceNumber}`}
+                            >
+                              View
+                            </Button>
+                          </Link>
                         </TableCell>
                       </TableRow>
                     ))}

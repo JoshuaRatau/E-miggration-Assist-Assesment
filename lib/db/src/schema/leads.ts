@@ -6,6 +6,7 @@ import {
   boolean,
   timestamp,
   date,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 export const prelaunchLeadsTable = pgTable("prelaunch_leads", {
@@ -29,6 +30,10 @@ export const prelaunchLeadsTable = pgTable("prelaunch_leads", {
   internalClassification: text("internal_classification"),
   leadScore: integer("lead_score"),
   leadCategory: text("lead_category"),
+  // Business CRM fields
+  leadPriority: text("lead_priority"),
+  leadStatus: text("lead_status").notNull().default("NEW"),
+  adminNotes: text("admin_notes"),
   preferredContactMethod: text("preferred_contact_method"),
   consentAccepted: boolean("consent_accepted").notNull().default(false),
   consentTimestamp: timestamp("consent_timestamp", { withTimezone: true }),
@@ -50,6 +55,19 @@ export const prelaunchDocumentsTable = pgTable("prelaunch_documents", {
     .defaultNow(),
 });
 
+export const analyticsEventsTable = pgTable("analytics_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  eventName: text("event_name").notNull(),
+  leadId: uuid("lead_id"),
+  referenceNumber: text("reference_number"),
+  payload: jsonb("payload"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export type PrelaunchLead = typeof prelaunchLeadsTable.$inferSelect;
 export type InsertPrelaunchLead = typeof prelaunchLeadsTable.$inferInsert;
 export type PrelaunchDocument = typeof prelaunchDocumentsTable.$inferSelect;
+export type AnalyticsEvent = typeof analyticsEventsTable.$inferSelect;
+export type InsertAnalyticsEvent = typeof analyticsEventsTable.$inferInsert;

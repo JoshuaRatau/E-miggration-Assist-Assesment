@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * E-Migration Assist API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 import type { CategoryCount } from "./categoryCount";
 
@@ -12,4 +12,6 @@ export interface StatsSummary {
   last24Hours: number;
   avgScore: number;
   byCategory: CategoryCount[];
+  byPriority: CategoryCount[];
+  byStatus: CategoryCount[];
 }

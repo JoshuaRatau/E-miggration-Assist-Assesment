@@ -6,6 +6,4 @@
  * OpenAPI spec version: 0.2.0
  */
 
-export interface HealthStatus {
-  status: string;
-}
+export type AnalyticsEventInputPayload = { [key: string]: unknown } | null;

@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * E-Migration Assist API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 
 export interface Lead {
@@ -27,8 +27,14 @@ export interface Lead {
   internalClassification?: string | null;
   leadScore?: number | null;
   leadCategory?: string | null;
+  /** HIGH_PRIORITY | MEDIUM_PRIORITY | LOW_PRIORITY */
+  leadPriority?: string | null;
+  /** NEW | REVIEWED | NEEDS_FOLLOW_UP | WAITLISTED | NOT_RELEVANT */
+  leadStatus: string;
+  adminNotes?: string | null;
   preferredContactMethod?: string | null;
   consentAccepted: boolean;
   consentTimestamp?: string | null;
   createdAt: string;
+  updatedAt: string;
 }

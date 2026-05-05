@@ -1,0 +1,165 @@
+Upgrade the E-Migration Assist system to include structured lead management, CRM readiness, and business-level data control.
+
+GOAL:
+- Turn captured assessments into structured leads
+- Enable filtering, segmentation, and prioritisation
+- Prepare system for future sales/operations without adding CTAs
+
+------------------------------------
+
+1. STANDARDISE LEAD SCORING SYSTEM
+
+Create scoring tiers:
+
+IF score >= 80:
+  leadCategory = "HIGH_PRIORITY"
+
+IF score >= 60 AND score < 80:
+  leadCategory = "MEDIUM_PRIORITY"
+
+IF score < 60:
+  leadCategory = "LOW_PRIORITY"
+
+Store BOTH:
+- leadScore (number)
+- leadCategory (string)
+
+------------------------------------
+
+2. ADD BUSINESS STATUS FIELD
+
+Update database model PrelaunchLead:
+
+Add field:
+- leadStatus String
+
+Default value:
+"NEW"
+
+Allowed values:
+- NEW
+- REVIEWED
+- NEEDS_FOLLOW_UP
+- WAITLISTED
+- NOT_RELEVANT
+
+------------------------------------
+
+3. UPDATE ADMIN DASHBOARD
+
+Enhance /admin page:
+
+Add filters:
+- by leadCategory (HIGH / MEDIUM / LOW)
+- by leadStatus
+- by nationality
+- by immigrationSituation
+
+Add metrics:
+- total leads
+- high priority leads
+- medium priority leads
+- low priority leads
+
+Add visual badges:
+- HIGH → red
+- MEDIUM → orange
+- LOW → gray
+
+------------------------------------
+
+4. ADD LEAD DETAIL VIEW
+
+Create page:
+/admin/lead/[id]
+
+Show:
+- full user answers
+- classification label
+- score
+- category
+- uploaded documents
+- timestamps
+
+Add admin controls:
+- update leadStatus
+- add internal notes (text field)
+
+------------------------------------
+
+5. ADD INTERNAL NOTES FIELD
+
+Update database:
+
+Add:
+- adminNotes String? (optional)
+
+Only visible in admin panel
+
+------------------------------------
+
+6. ADD CSV EXPORT
+
+In admin dashboard:
+
+Add button:
+"Export Leads"
+
+Export:
+- name
+- email
+- phone
+- nationality
+- classification
+- score
+- category
+- status
+- createdAt
+
+------------------------------------
+
+7. ADD DUPLICATE DETECTION
+
+Before saving new lead:
+
+Check:
+- same email OR
+- same WhatsApp
+
+If duplicate:
+- do NOT create new lead
+- update existing record instead
+- append new timestamp
+
+------------------------------------
+
+8. ADD BASIC ANALYTICS TRACKING
+
+Track:
+
+- assessment_started
+- assessment_completed
+- classification_result
+- document_upload
+
+Store in simple table or log file
+
+------------------------------------
+
+9. DO NOT CHANGE USER EXPERIENCE
+
+Important:
+- No new CTAs
+- No new user prompts
+- No sales features
+
+Only backend + admin improvements
+
+------------------------------------
+
+OUTPUT:
+- structured lead engine
+- admin dashboard with filtering
+- lead detail page
+- export functionality
+- duplicate protection
