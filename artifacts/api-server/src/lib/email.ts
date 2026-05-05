@@ -136,22 +136,49 @@ async function sendSafely(args: {
   }
 }
 
-export async function sendConfirmationEmail(args: {
-  to: string;
+/**
+ * Shared confirmation body used by BOTH the email path (sendConfirmationEmail)
+ * and the WhatsApp path in routes/leads.ts. Centralised so the lead always
+ * sees the same message regardless of which channel they preferred.
+ *
+ * `leadCategory` is the human-readable assessment category (e.g.
+ * "Further Review Required") — strictly more useful to the lead than the
+ * internal `leadStatus` value ("new"). Optional: omitted lines simply do
+ * not appear, keeping the message clean for partial data.
+ */
+export function composeConfirmationBody(args: {
   referenceNumber: string;
-}): Promise<SendResult> {
-  const subject = "Your Assessment Has Been Received";
-  const text = [
+  leadCategory?: string | null;
+}): string {
+  const lines = [
     "Hello,",
     "",
-    "Your information has been securely recorded.",
+    "Your information has been securely recorded with E-Migration Assist.",
     "",
-    `Your reference number: ${args.referenceNumber}`,
+    `Reference: ${args.referenceNumber}`,
+  ];
+  if (args.leadCategory && args.leadCategory.trim().length > 0) {
+    lines.push(`Initial assessment: ${args.leadCategory}`);
+  }
+  lines.push(
     "",
     "You can check your status anytime using your reference number.",
     "",
     "— E-Migration Assist",
-  ].join("\n");
+  );
+  return lines.join("\n");
+}
+
+export async function sendConfirmationEmail(args: {
+  to: string;
+  referenceNumber: string;
+  leadCategory?: string | null;
+}): Promise<SendResult> {
+  const subject = "Your Assessment Has Been Received";
+  const text = composeConfirmationBody({
+    referenceNumber: args.referenceNumber,
+    leadCategory: args.leadCategory,
+  });
 
   return sendSafely({ to: args.to, subject, text });
 }

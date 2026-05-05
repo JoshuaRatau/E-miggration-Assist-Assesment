@@ -12,7 +12,8 @@ import {
   deriveAutoPriority,
   generateReferenceNumber,
 } from "../lib/classification";
-import { sendConfirmationEmail } from "../lib/email";
+import { composeConfirmationBody, sendConfirmationEmail } from "../lib/email";
+import { sendMessage } from "../lib/messaging";
 import { normalizeWhatsapp } from "../lib/whatsapp";
 
 const router: IRouter = Router();
@@ -226,18 +227,51 @@ router.post("/leads", async (req, res) => {
 
   // Confirmation engagement row + fire-and-forget send.
   //
+  // Channel is chosen from the lead's preferred contact method:
+  //   * preferredContactMethod === "whatsapp"  AND has whatsapp → WhatsApp
+  //   * otherwise (including "email", "phone", or unset)        → Email
+  //   * fallback: if no email is on file but a whatsapp number is, fall
+  //     through to whatsapp regardless of preference — better to reach
+  //     the lead via the only contact we have than to silently skip.
+  //
   // The engagement record is created with status='pending' BEFORE the send is
   // attempted, so that:
   //   * even if the process crashes mid-send, the operator still sees a
   //     "pending" row in the engagement history (not a silent black hole),
-  //   * the send pipeline can update the row to 'sent' / 'failed' atomically
+  //   * the send pipeline can update the row to 'sent' / 'failed' / leave
+  //     as 'pending' for transient failures (e.g. WhatsApp 5xx) atomically
   //     with the analytics event,
   //   * and lead submission is NEVER blocked: the whole block is async and
   //     errors are swallowed (logged with no PII).
   //
-  // No email on file? We skip the engagement row entirely — there is nothing
-  // to deliver and nothing to retry.
-  if (inserted.email && inserted.consentAccepted) {
+  // No contact on file at all? We skip the engagement row entirely — there
+  // is nothing to deliver and nothing to retry.
+  const hasWhatsApp =
+    typeof inserted.whatsapp === "string" && inserted.whatsapp.length > 0;
+  const hasEmail =
+    typeof inserted.email === "string" && inserted.email.length > 0;
+  const wantsWhatsApp = inserted.preferredContactMethod === "whatsapp";
+
+  let confirmChannel: "email" | "whatsapp" | null = null;
+  let confirmRecipient: string | null = null;
+  if (wantsWhatsApp && hasWhatsApp) {
+    confirmChannel = "whatsapp";
+    confirmRecipient = inserted.whatsapp!;
+  } else if (hasEmail) {
+    confirmChannel = "email";
+    confirmRecipient = inserted.email!;
+  } else if (hasWhatsApp) {
+    // No email, but a whatsapp number is available — use it.
+    confirmChannel = "whatsapp";
+    confirmRecipient = inserted.whatsapp!;
+  }
+
+  if (confirmChannel && confirmRecipient && inserted.consentAccepted) {
+    const channel = confirmChannel;
+    const recipient = confirmRecipient;
+    const referenceNumber = inserted.referenceNumber;
+    const leadCategory = inserted.leadCategory;
+
     void (async () => {
       let engagementId: string | null = null;
       try {
@@ -245,7 +279,7 @@ router.post("/leads", async (req, res) => {
           .insert(leadEngagementsTable)
           .values({
             leadId: inserted.id,
-            channel: "email",
+            channel,
             type: "confirmation",
             status: "pending",
           })
@@ -256,15 +290,50 @@ router.post("/leads", async (req, res) => {
       }
 
       try {
-        const sendResult = await sendConfirmationEmail({
-          to: inserted.email!,
-          referenceNumber: inserted.referenceNumber,
-        });
+        let nextStatus: "sent" | "failed" | "pending" = "pending";
+        let analyticsPayload: Record<string, unknown>;
+
+        if (channel === "whatsapp") {
+          // Route through the channel-agnostic gateway so transient
+          // failures (5xx / 429 / network) leave the row as 'pending' for
+          // a future retry, while permanent failures (not_configured,
+          // missing_permission, invalid_recipient) move it to 'failed'.
+          const result = await sendMessage({
+            channel: "whatsapp",
+            to: recipient,
+            message: composeConfirmationBody({
+              referenceNumber,
+              leadCategory,
+            }),
+            referenceNumber,
+          });
+          if (result.ok) nextStatus = "sent";
+          else if (result.pending) nextStatus = "pending";
+          else nextStatus = "failed";
+
+          analyticsPayload = result.ok
+            ? { success: true, channel, messageId: result.id }
+            : { success: false, channel, reason: result.reason };
+        } else {
+          // Email path — keep the legacy subject by going through
+          // sendConfirmationEmail directly. Email failures default to
+          // 'failed' here (the gateway's transient/pending classification
+          // is only applied via sendMessage on this codepath today).
+          const sendResult = await sendConfirmationEmail({
+            to: recipient,
+            referenceNumber,
+            leadCategory,
+          });
+          nextStatus = sendResult.ok ? "sent" : "failed";
+          analyticsPayload = sendResult.ok
+            ? { success: true, channel, messageId: sendResult.id }
+            : { success: false, channel, reason: sendResult.reason };
+        }
 
         if (engagementId) {
           await db
             .update(leadEngagementsTable)
-            .set({ status: sendResult.ok ? "sent" : "failed" })
+            .set({ status: nextStatus })
             .where(eq(leadEngagementsTable.id, engagementId))
             .catch((err) =>
               req.log.warn(
@@ -275,15 +344,16 @@ router.post("/leads", async (req, res) => {
         }
 
         await db.insert(analyticsEventsTable).values({
-          eventName: "email_sent_confirmation",
+          eventName:
+            channel === "whatsapp"
+              ? "whatsapp_sent_confirmation"
+              : "email_sent_confirmation",
           leadId: inserted.id,
-          referenceNumber: inserted.referenceNumber,
-          payload: sendResult.ok
-            ? { success: true, messageId: sendResult.id }
-            : { success: false, reason: sendResult.reason },
+          referenceNumber,
+          payload: analyticsPayload,
         });
       } catch (err) {
-        req.log.warn({ err }, "Confirmation email pipeline error (silent)");
+        req.log.warn({ err }, "Confirmation pipeline error (silent)");
       }
     })();
   }
