@@ -6,7 +6,7 @@ import {
   leadEngagementsTable,
 } from "@workspace/db";
 import { CreateLeadBody, ListLeadsQueryParams } from "@workspace/api-zod";
-import { and, desc, eq, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, or, sql } from "drizzle-orm";
 import {
   classifyCase,
   deriveAutoPriority,
@@ -70,6 +70,153 @@ router.post("/leads", async (req, res) => {
   if (!data.consentAccepted) {
     return res.status(400).json({ error: "Consent is required" });
   }
+
+  // Local fire-and-forget confirmation dispatcher used by BOTH the
+  // new-insert branch AND the dedup-update branch.  Resubmissions are
+  // first-class: a real client filling the form a second time should
+  // get acknowledged, not silently ignored.
+  //
+  // `cooldownMinutes` (only relevant for the dedup branch) suppresses a
+  // fresh send only if the SAME channel was already successfully delivered
+  // to within the window — so accidental double-clicks don't spam, while
+  // a legitimate retry a couple of minutes later still goes through.
+  // status='sent' is the only blocker; pending/failed never block a retry.
+  const dispatchConfirmation = (
+    lead: typeof prelaunchLeadsTable.$inferSelect,
+    cooldownMinutes: number,
+  ): void => {
+    if (!lead.consentAccepted) return;
+
+    const hasWhatsApp =
+      typeof lead.whatsapp === "string" && lead.whatsapp.length > 0;
+    const hasEmail =
+      typeof lead.email === "string" && lead.email.length > 0;
+    const wantsWhatsApp = lead.preferredContactMethod === "whatsapp";
+
+    let pickedChannel: "email" | "whatsapp" | null = null;
+    let pickedRecipient: string | null = null;
+    if (wantsWhatsApp && hasWhatsApp) {
+      pickedChannel = "whatsapp";
+      pickedRecipient = lead.whatsapp!;
+    } else if (hasEmail) {
+      pickedChannel = "email";
+      pickedRecipient = lead.email!;
+    } else if (hasWhatsApp) {
+      pickedChannel = "whatsapp";
+      pickedRecipient = lead.whatsapp!;
+    }
+    if (!pickedChannel || !pickedRecipient) return;
+
+    const channel = pickedChannel;
+    const recipient = pickedRecipient;
+    const referenceNumber = lead.referenceNumber;
+    const fullName = lead.fullName;
+    const leadId = lead.id;
+
+    void (async () => {
+      if (cooldownMinutes > 0) {
+        const cutoff = new Date(Date.now() - cooldownMinutes * 60_000);
+        try {
+          const recent = await db
+            .select({ id: leadEngagementsTable.id })
+            .from(leadEngagementsTable)
+            .where(
+              and(
+                eq(leadEngagementsTable.leadId, leadId),
+                eq(leadEngagementsTable.type, "confirmation"),
+                eq(leadEngagementsTable.channel, channel),
+                eq(leadEngagementsTable.status, "sent"),
+                gt(leadEngagementsTable.createdAt, cutoff),
+              ),
+            )
+            .limit(1);
+          if (recent.length > 0) {
+            req.log.info(
+              { leadId, channel, cooldownMinutes },
+              "Skipping resubmission confirmation (recent send within cooldown)",
+            );
+            return;
+          }
+        } catch (err) {
+          req.log.warn(
+            { err },
+            "Confirmation cooldown lookup failed; sending anyway",
+          );
+        }
+      }
+
+      let engagementId: string | null = null;
+      try {
+        const [engagement] = await db
+          .insert(leadEngagementsTable)
+          .values({
+            leadId,
+            channel,
+            type: "confirmation",
+            status: "pending",
+          })
+          .returning({ id: leadEngagementsTable.id });
+        engagementId = engagement?.id ?? null;
+      } catch (err) {
+        req.log.warn({ err }, "Failed to record confirmation engagement row");
+      }
+
+      try {
+        let nextStatus: "sent" | "failed" | "pending" = "pending";
+        let analyticsPayload: Record<string, unknown>;
+
+        if (channel === "whatsapp") {
+          const result = await sendMessage({
+            channel: "whatsapp",
+            to: recipient,
+            message: composeConfirmationBody({ referenceNumber, fullName }),
+            referenceNumber,
+          });
+          if (result.ok) nextStatus = "sent";
+          else if (result.pending) nextStatus = "pending";
+          else nextStatus = "failed";
+          analyticsPayload = result.ok
+            ? { success: true, channel, messageId: result.id }
+            : { success: false, channel, reason: result.reason };
+        } else {
+          const sendResult = await sendConfirmationEmail({
+            to: recipient,
+            referenceNumber,
+            fullName,
+          });
+          nextStatus = sendResult.ok ? "sent" : "failed";
+          analyticsPayload = sendResult.ok
+            ? { success: true, channel, messageId: sendResult.id }
+            : { success: false, channel, reason: sendResult.reason };
+        }
+
+        if (engagementId) {
+          await db
+            .update(leadEngagementsTable)
+            .set({ status: nextStatus })
+            .where(eq(leadEngagementsTable.id, engagementId))
+            .catch((err) =>
+              req.log.warn(
+                { err },
+                "Failed to update confirmation engagement status",
+              ),
+            );
+        }
+
+        await db.insert(analyticsEventsTable).values({
+          eventName:
+            channel === "whatsapp"
+              ? "whatsapp_sent_confirmation"
+              : "email_sent_confirmation",
+          leadId,
+          referenceNumber,
+          payload: analyticsPayload,
+        });
+      } catch (err) {
+        req.log.warn({ err }, "Confirmation pipeline error (silent)");
+      }
+    })();
+  };
 
   // WhatsApp: normalise to canonical +E.164. Invalid → store null. Submission
   // is NEVER blocked on a bad number. Raw user input is intentionally not
@@ -154,6 +301,11 @@ router.post("/leads", async (req, res) => {
       "Duplicate detected — updated existing lead",
     );
 
+    // Resubmissions get acknowledged too. The 1-minute cooldown absorbs
+    // accidental double-clicks; anything beyond that is a real retry and
+    // the client deserves a fresh confirmation.
+    dispatchConfirmation(updated, 1);
+
     return res.status(200).json(serializeLead(updated));
   }
 
@@ -225,138 +377,8 @@ router.post("/leads", async (req, res) => {
       req.log.error({ err }, "Failed to log whatsapp_captured event"),
     );
 
-  // Confirmation engagement row + fire-and-forget send.
-  //
-  // Channel is chosen from the lead's preferred contact method:
-  //   * preferredContactMethod === "whatsapp"  AND has whatsapp → WhatsApp
-  //   * otherwise (including "email", "phone", or unset)        → Email
-  //   * fallback: if no email is on file but a whatsapp number is, fall
-  //     through to whatsapp regardless of preference — better to reach
-  //     the lead via the only contact we have than to silently skip.
-  //
-  // The engagement record is created with status='pending' BEFORE the send is
-  // attempted, so that:
-  //   * even if the process crashes mid-send, the operator still sees a
-  //     "pending" row in the engagement history (not a silent black hole),
-  //   * the send pipeline can update the row to 'sent' / 'failed' / leave
-  //     as 'pending' for transient failures (e.g. WhatsApp 5xx) atomically
-  //     with the analytics event,
-  //   * and lead submission is NEVER blocked: the whole block is async and
-  //     errors are swallowed (logged with no PII).
-  //
-  // No contact on file at all? We skip the engagement row entirely — there
-  // is nothing to deliver and nothing to retry.
-  const hasWhatsApp =
-    typeof inserted.whatsapp === "string" && inserted.whatsapp.length > 0;
-  const hasEmail =
-    typeof inserted.email === "string" && inserted.email.length > 0;
-  const wantsWhatsApp = inserted.preferredContactMethod === "whatsapp";
-
-  let confirmChannel: "email" | "whatsapp" | null = null;
-  let confirmRecipient: string | null = null;
-  if (wantsWhatsApp && hasWhatsApp) {
-    confirmChannel = "whatsapp";
-    confirmRecipient = inserted.whatsapp!;
-  } else if (hasEmail) {
-    confirmChannel = "email";
-    confirmRecipient = inserted.email!;
-  } else if (hasWhatsApp) {
-    // No email, but a whatsapp number is available — use it.
-    confirmChannel = "whatsapp";
-    confirmRecipient = inserted.whatsapp!;
-  }
-
-  if (confirmChannel && confirmRecipient && inserted.consentAccepted) {
-    const channel = confirmChannel;
-    const recipient = confirmRecipient;
-    const referenceNumber = inserted.referenceNumber;
-    const fullName = inserted.fullName;
-
-    void (async () => {
-      let engagementId: string | null = null;
-      try {
-        const [engagement] = await db
-          .insert(leadEngagementsTable)
-          .values({
-            leadId: inserted.id,
-            channel,
-            type: "confirmation",
-            status: "pending",
-          })
-          .returning({ id: leadEngagementsTable.id });
-        engagementId = engagement?.id ?? null;
-      } catch (err) {
-        req.log.warn({ err }, "Failed to record confirmation engagement row");
-      }
-
-      try {
-        let nextStatus: "sent" | "failed" | "pending" = "pending";
-        let analyticsPayload: Record<string, unknown>;
-
-        if (channel === "whatsapp") {
-          // Route through the channel-agnostic gateway so transient
-          // failures (5xx / 429 / network) leave the row as 'pending' for
-          // a future retry, while permanent failures (not_configured,
-          // missing_permission, invalid_recipient) move it to 'failed'.
-          const result = await sendMessage({
-            channel: "whatsapp",
-            to: recipient,
-            message: composeConfirmationBody({
-              referenceNumber,
-              fullName,
-            }),
-            referenceNumber,
-          });
-          if (result.ok) nextStatus = "sent";
-          else if (result.pending) nextStatus = "pending";
-          else nextStatus = "failed";
-
-          analyticsPayload = result.ok
-            ? { success: true, channel, messageId: result.id }
-            : { success: false, channel, reason: result.reason };
-        } else {
-          // Email path — keep the legacy subject by going through
-          // sendConfirmationEmail directly. Email failures default to
-          // 'failed' here (the gateway's transient/pending classification
-          // is only applied via sendMessage on this codepath today).
-          const sendResult = await sendConfirmationEmail({
-            to: recipient,
-            referenceNumber,
-            fullName,
-          });
-          nextStatus = sendResult.ok ? "sent" : "failed";
-          analyticsPayload = sendResult.ok
-            ? { success: true, channel, messageId: sendResult.id }
-            : { success: false, channel, reason: sendResult.reason };
-        }
-
-        if (engagementId) {
-          await db
-            .update(leadEngagementsTable)
-            .set({ status: nextStatus })
-            .where(eq(leadEngagementsTable.id, engagementId))
-            .catch((err) =>
-              req.log.warn(
-                { err },
-                "Failed to update confirmation engagement status",
-              ),
-            );
-        }
-
-        await db.insert(analyticsEventsTable).values({
-          eventName:
-            channel === "whatsapp"
-              ? "whatsapp_sent_confirmation"
-              : "email_sent_confirmation",
-          leadId: inserted.id,
-          referenceNumber,
-          payload: analyticsPayload,
-        });
-      } catch (err) {
-        req.log.warn({ err }, "Confirmation pipeline error (silent)");
-      }
-    })();
-  }
+  // Fresh insert: dispatch confirmation immediately, no cooldown.
+  dispatchConfirmation(inserted, 0);
 
   return res.status(201).json(serializeLead(inserted));
 });
