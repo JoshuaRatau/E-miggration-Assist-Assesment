@@ -4,17 +4,12 @@ import {
   prelaunchLeadsTable,
   analyticsEventsTable,
 } from "@workspace/db";
-import {
-  CreateLeadBody,
-  ListLeadsQueryParams,
-  UpdateLeadBody,
-} from "@workspace/api-zod";
+import { CreateLeadBody, ListLeadsQueryParams } from "@workspace/api-zod";
 import { and, desc, eq, or, sql } from "drizzle-orm";
 import {
   classifyCase,
-  derivePriority,
+  deriveAutoPriority,
   generateReferenceNumber,
-  LEAD_STATUS_VALUES,
 } from "../lib/classification";
 import { sendConfirmationEmail } from "../lib/email";
 import { normalizeWhatsapp } from "../lib/whatsapp";
@@ -84,7 +79,13 @@ router.post("/leads", async (req, res) => {
     overstayReason: data.overstayReason ?? null,
     hasSupportingDocuments: data.hasSupportingDocuments ?? null,
   });
-  const priority = derivePriority(result.score);
+  // Auto-priority is computed from the visa/situation context (NOT the score),
+  // so a fresh insert always has a sensible default.  Admin can override via
+  // PATCH /api/admin/leads/:id.
+  const priority = deriveAutoPriority(
+    data.immigrationSituation ?? null,
+    data.visaHistory ?? null,
+  );
   const now = new Date();
 
   // Duplicate detection: same email OR same canonical whatsapp → update existing
@@ -134,8 +135,9 @@ router.post("/leads", async (req, res) => {
         internalClassification: result.category,
         leadScore: result.score,
         leadCategory: result.label,
-        leadPriority: priority,
-        // Preserve existing leadStatus and adminNotes; do not reset
+        // Preserve existing leadPriority/leadStatus/adminNotes — admin may
+        // have customised these on the existing record.  Auto-priority only
+        // seeds NEW inserts; never overwrite operator overrides.
         updatedAt: now,
       })
       .where(eq(prelaunchLeadsTable.id, existing.id))
@@ -181,7 +183,7 @@ router.post("/leads", async (req, res) => {
       leadScore: result.score,
       leadCategory: result.label,
       leadPriority: priority,
-      leadStatus: "NEW",
+      leadStatus: "new",
     })
     .returning();
 
@@ -349,43 +351,10 @@ router.get("/leads/by-id/:id", async (req, res) => {
   return res.json(serializeLead(rows[0]));
 });
 
-router.patch("/leads/by-id/:id", async (req, res) => {
-  const { id } = req.params;
-  const parsed = UpdateLeadBody.safeParse(req.body);
-  if (!parsed.success) {
-    return res
-      .status(400)
-      .json({ error: "Invalid input", details: parsed.error.issues });
-  }
-  const data = parsed.data;
-
-  if (
-    data.leadStatus !== undefined &&
-    !LEAD_STATUS_VALUES.includes(data.leadStatus as never)
-  ) {
-    return res
-      .status(400)
-      .json({ error: `leadStatus must be one of ${LEAD_STATUS_VALUES.join(", ")}` });
-  }
-
-  const updates: Partial<typeof prelaunchLeadsTable.$inferInsert> = {
-    updatedAt: new Date(),
-  };
-  if (data.leadStatus !== undefined) updates.leadStatus = data.leadStatus;
-  if (data.adminNotes !== undefined) updates.adminNotes = data.adminNotes;
-
-  const [updated] = await db
-    .update(prelaunchLeadsTable)
-    .set(updates)
-    .where(eq(prelaunchLeadsTable.id, id))
-    .returning();
-
-  if (!updated) {
-    return res.status(404).json({ error: "Lead not found" });
-  }
-
-  return res.json(serializeLead(updated));
-});
+// NOTE: PATCH /leads/by-id/:id (status/notes editor) was removed and replaced
+// by the token-gated PATCH /api/admin/leads/:id route in adminLeads.ts.  The
+// old route was unauthenticated, which conflicts with the rule that
+// admin-only mutations must remain admin-only.
 
 router.get("/leads/:referenceNumber", async (req, res) => {
   const { referenceNumber } = req.params;

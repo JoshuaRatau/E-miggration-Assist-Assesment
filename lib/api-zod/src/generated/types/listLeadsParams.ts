@@ -13,11 +13,11 @@ export type ListLeadsParams = {
    */
   limit?: number;
   /**
-   * Filter by HIGH_PRIORITY | MEDIUM_PRIORITY | LOW_PRIORITY
+   * Filter by high | medium | low
    */
   priority?: string;
   /**
-   * Filter by NEW | REVIEWED | NEEDS_FOLLOW_UP | WAITLISTED | NOT_RELEVANT
+   * Filter by new | reviewing | contacted | converted | closed
    */
   status?: string;
   nationality?: string;

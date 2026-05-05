@@ -71,14 +71,15 @@ export const CreateLeadResponse = zod.object({
   internalClassification: zod.string().nullish(),
   leadScore: zod.number().nullish(),
   leadCategory: zod.string().nullish(),
-  leadPriority: zod
-    .string()
-    .nullish()
-    .describe("HIGH_PRIORITY | MEDIUM_PRIORITY | LOW_PRIORITY"),
+  leadPriority: zod.string().nullish().describe("high | medium | low"),
   leadStatus: zod
     .string()
-    .describe("NEW | REVIEWED | NEEDS_FOLLOW_UP | WAITLISTED | NOT_RELEVANT"),
+    .describe("new | reviewing | contacted | converted | closed"),
   adminNotes: zod.string().nullish(),
+  hasWhatsapp: zod
+    .boolean()
+    .optional()
+    .describe("True if the lead has a stored canonical WhatsApp number."),
   preferredContactMethod: zod.string().nullish(),
   consentAccepted: zod.boolean(),
   consentTimestamp: zod.string().nullish(),
@@ -101,13 +102,11 @@ export const ListLeadsQueryParams = zod.object({
   priority: zod.coerce
     .string()
     .optional()
-    .describe("Filter by HIGH_PRIORITY | MEDIUM_PRIORITY | LOW_PRIORITY"),
+    .describe("Filter by high | medium | low"),
   status: zod.coerce
     .string()
     .optional()
-    .describe(
-      "Filter by NEW | REVIEWED | NEEDS_FOLLOW_UP | WAITLISTED | NOT_RELEVANT",
-    ),
+    .describe("Filter by new | reviewing | contacted | converted | closed"),
   nationality: zod.coerce.string().optional(),
   situation: zod.coerce
     .string()
@@ -136,14 +135,15 @@ export const ListLeadsResponseItem = zod.object({
   internalClassification: zod.string().nullish(),
   leadScore: zod.number().nullish(),
   leadCategory: zod.string().nullish(),
-  leadPriority: zod
-    .string()
-    .nullish()
-    .describe("HIGH_PRIORITY | MEDIUM_PRIORITY | LOW_PRIORITY"),
+  leadPriority: zod.string().nullish().describe("high | medium | low"),
   leadStatus: zod
     .string()
-    .describe("NEW | REVIEWED | NEEDS_FOLLOW_UP | WAITLISTED | NOT_RELEVANT"),
+    .describe("new | reviewing | contacted | converted | closed"),
   adminNotes: zod.string().nullish(),
+  hasWhatsapp: zod
+    .boolean()
+    .optional()
+    .describe("True if the lead has a stored canonical WhatsApp number."),
   preferredContactMethod: zod.string().nullish(),
   consentAccepted: zod.boolean(),
   consentTimestamp: zod.string().nullish(),
@@ -180,14 +180,15 @@ export const GetLeadByReferenceResponse = zod.object({
   internalClassification: zod.string().nullish(),
   leadScore: zod.number().nullish(),
   leadCategory: zod.string().nullish(),
-  leadPriority: zod
-    .string()
-    .nullish()
-    .describe("HIGH_PRIORITY | MEDIUM_PRIORITY | LOW_PRIORITY"),
+  leadPriority: zod.string().nullish().describe("high | medium | low"),
   leadStatus: zod
     .string()
-    .describe("NEW | REVIEWED | NEEDS_FOLLOW_UP | WAITLISTED | NOT_RELEVANT"),
+    .describe("new | reviewing | contacted | converted | closed"),
   adminNotes: zod.string().nullish(),
+  hasWhatsapp: zod
+    .boolean()
+    .optional()
+    .describe("True if the lead has a stored canonical WhatsApp number."),
   preferredContactMethod: zod.string().nullish(),
   consentAccepted: zod.boolean(),
   consentTimestamp: zod.string().nullish(),
@@ -223,65 +224,15 @@ export const GetLeadByIdResponse = zod.object({
   internalClassification: zod.string().nullish(),
   leadScore: zod.number().nullish(),
   leadCategory: zod.string().nullish(),
-  leadPriority: zod
-    .string()
-    .nullish()
-    .describe("HIGH_PRIORITY | MEDIUM_PRIORITY | LOW_PRIORITY"),
+  leadPriority: zod.string().nullish().describe("high | medium | low"),
   leadStatus: zod
     .string()
-    .describe("NEW | REVIEWED | NEEDS_FOLLOW_UP | WAITLISTED | NOT_RELEVANT"),
+    .describe("new | reviewing | contacted | converted | closed"),
   adminNotes: zod.string().nullish(),
-  preferredContactMethod: zod.string().nullish(),
-  consentAccepted: zod.boolean(),
-  consentTimestamp: zod.string().nullish(),
-  createdAt: zod.string(),
-  updatedAt: zod.string(),
-});
-
-/**
- * @summary Update admin-only fields (status, notes)
- */
-export const UpdateLeadParams = zod.object({
-  id: zod.coerce.string(),
-});
-
-export const UpdateLeadBody = zod.object({
-  leadStatus: zod
-    .string()
+  hasWhatsapp: zod
+    .boolean()
     .optional()
-    .describe("NEW | REVIEWED | NEEDS_FOLLOW_UP | WAITLISTED | NOT_RELEVANT"),
-  adminNotes: zod.string().nullish(),
-});
-
-export const UpdateLeadResponse = zod.object({
-  id: zod.string(),
-  referenceNumber: zod.string(),
-  fullName: zod.string().nullish(),
-  email: zod.string().nullish(),
-  whatsapp: zod.string().nullish(),
-  nationality: zod.string().nullish(),
-  countryOfResidence: zod.string().nullish(),
-  currentlyInSouthAfrica: zod.boolean().nullish(),
-  passportStatus: zod.string().nullish(),
-  visaHistory: zod.string().nullish(),
-  immigrationSituation: zod.string().nullish(),
-  visaExpiryDate: zod.string().nullish(),
-  exitDate: zod.string().nullish(),
-  borderDocumentIssued: zod.string().nullish(),
-  overstayReason: zod.string().nullish(),
-  hasSupportingDocuments: zod.string().nullish(),
-  previousOverstay: zod.string().nullish(),
-  internalClassification: zod.string().nullish(),
-  leadScore: zod.number().nullish(),
-  leadCategory: zod.string().nullish(),
-  leadPriority: zod
-    .string()
-    .nullish()
-    .describe("HIGH_PRIORITY | MEDIUM_PRIORITY | LOW_PRIORITY"),
-  leadStatus: zod
-    .string()
-    .describe("NEW | REVIEWED | NEEDS_FOLLOW_UP | WAITLISTED | NOT_RELEVANT"),
-  adminNotes: zod.string().nullish(),
+    .describe("True if the lead has a stored canonical WhatsApp number."),
   preferredContactMethod: zod.string().nullish(),
   consentAccepted: zod.boolean(),
   consentTimestamp: zod.string().nullish(),

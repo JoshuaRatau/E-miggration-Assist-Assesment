@@ -10,7 +10,13 @@ export interface ClassificationResult {
   label: string;
 }
 
-export type LeadPriority = "HIGH_PRIORITY" | "MEDIUM_PRIORITY" | "LOW_PRIORITY";
+export type LeadPriority = "high" | "medium" | "low";
+export type LeadStatus =
+  | "new"
+  | "reviewing"
+  | "contacted"
+  | "converted"
+  | "closed";
 
 const STRONG_CONTEXT_REASONS = new Set([
   "medical",
@@ -89,21 +95,50 @@ export function classifyCase(input: ClassificationInput): ClassificationResult {
   };
 }
 
-export function derivePriority(score: number | null | undefined): LeadPriority {
-  const s = typeof score === "number" ? score : 0;
-  if (s >= 80) return "HIGH_PRIORITY";
-  if (s >= 60) return "MEDIUM_PRIORITY";
-  return "LOW_PRIORITY";
+/**
+ * Auto-priority for newly captured leads.  An admin can always override the
+ * stored priority via PATCH /api/admin/leads/:id; this function only seeds
+ * the initial value at insert time.
+ *
+ * Rules (from product spec):
+ *   - overstay-class situation OR visaHistory mentions "appeal" → high
+ *   - visaHistory mentions "work" or "business"                  → medium
+ *   - everything else                                            → low
+ *
+ * "overstay-class" is interpreted broadly to include the objectively-urgent
+ * declared statuses (overstay, undesirable, prohibited) so the auto-priority
+ * never silently downgrades a high-risk case to "low".
+ */
+export function deriveAutoPriority(
+  immigrationSituation: string | null | undefined,
+  visaHistory: string | null | undefined,
+): LeadPriority {
+  const sit = (immigrationSituation ?? "").toLowerCase();
+  const vh = (visaHistory ?? "").toLowerCase();
+
+  if (
+    sit === "overstay" ||
+    sit === "undesirable" ||
+    sit === "prohibited" ||
+    vh.includes("appeal")
+  ) {
+    return "high";
+  }
+  if (vh.includes("work") || vh.includes("business")) {
+    return "medium";
+  }
+  return "low";
 }
 
 export const LEAD_STATUS_VALUES = [
-  "NEW",
-  "REVIEWED",
-  "NEEDS_FOLLOW_UP",
-  "WAITLISTED",
-  "NOT_RELEVANT",
+  "new",
+  "reviewing",
+  "contacted",
+  "converted",
+  "closed",
 ] as const;
-export type LeadStatus = (typeof LEAD_STATUS_VALUES)[number];
+
+export const LEAD_PRIORITY_VALUES = ["high", "medium", "low"] as const;
 
 export function generateReferenceNumber(): string {
   const ts = Date.now().toString(36).toUpperCase();

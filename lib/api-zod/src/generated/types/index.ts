@@ -19,4 +19,3 @@ export * from "./listLeadsParams";
 export * from "./publicStatus";
 export * from "./publicStatusPublicLabel";
 export * from "./statsSummary";
-export * from "./updateLeadInput";

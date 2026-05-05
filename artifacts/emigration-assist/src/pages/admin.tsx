@@ -3,9 +3,14 @@ import { Link } from "wouter";
 import {
   useListLeads,
   useGetStatsSummary,
+  getListLeadsQueryKey,
+  type Lead,
+  type ListLeadsParams,
 } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { getAdminToken, clearAdminToken } from "@/lib/adminToken";
 import {
   Card,
   CardContent,
@@ -31,21 +36,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+
+// Lowercase canonical enums shared with the server (see classification.ts).
+const STATUS_VALUES = [
+  "new",
+  "reviewing",
+  "contacted",
+  "converted",
+  "closed",
+] as const;
+const PRIORITY_VALUES = ["high", "medium", "low"] as const;
 
 const PRIORITY_OPTIONS = [
   { value: "ALL", label: "All priorities" },
-  { value: "HIGH_PRIORITY", label: "High" },
-  { value: "MEDIUM_PRIORITY", label: "Medium" },
-  { value: "LOW_PRIORITY", label: "Low" },
+  { value: "high", label: "High" },
+  { value: "medium", label: "Medium" },
+  { value: "low", label: "Low" },
 ];
 
 const STATUS_OPTIONS = [
   { value: "ALL", label: "All statuses" },
-  { value: "NEW", label: "New" },
-  { value: "REVIEWED", label: "Reviewed" },
-  { value: "NEEDS_FOLLOW_UP", label: "Needs follow-up" },
-  { value: "WAITLISTED", label: "Waitlisted" },
-  { value: "NOT_RELEVANT", label: "Not relevant" },
+  { value: "new", label: "New" },
+  { value: "reviewing", label: "Reviewing" },
+  { value: "contacted", label: "Contacted" },
+  { value: "converted", label: "Converted" },
+  { value: "closed", label: "Closed" },
 ];
 
 const SITUATION_OPTIONS = [
@@ -86,45 +102,21 @@ function whatsappBadge(hasWhatsapp: boolean) {
   );
 }
 
-function priorityBadge(priority: string | null | undefined) {
-  if (priority === "HIGH_PRIORITY") {
-    return (
-      <Badge className="bg-red-600 hover:bg-red-700 text-white border-transparent">
-        HIGH
-      </Badge>
-    );
-  }
-  if (priority === "MEDIUM_PRIORITY") {
-    return (
-      <Badge className="bg-orange-500 hover:bg-orange-600 text-white border-transparent">
-        MEDIUM
-      </Badge>
-    );
-  }
-  if (priority === "LOW_PRIORITY") {
-    return (
-      <Badge className="bg-gray-400 hover:bg-gray-500 text-white border-transparent">
-        LOW
-      </Badge>
-    );
-  }
-  return <Badge variant="outline">—</Badge>;
+function priorityBadgeClass(priority: string | null | undefined): string {
+  if (priority === "high")
+    return "bg-red-600 hover:bg-red-700 text-white border-transparent";
+  if (priority === "medium")
+    return "bg-orange-500 hover:bg-orange-600 text-white border-transparent";
+  if (priority === "low")
+    return "bg-gray-400 hover:bg-gray-500 text-white border-transparent";
+  return "bg-muted text-muted-foreground border-transparent";
 }
 
-function statusBadge(status: string | null | undefined) {
-  const s = status ?? "NEW";
-  const variantMap: Record<string, "default" | "secondary" | "outline"> = {
-    NEW: "default",
-    REVIEWED: "secondary",
-    NEEDS_FOLLOW_UP: "default",
-    WAITLISTED: "outline",
-    NOT_RELEVANT: "outline",
-  };
-  return (
-    <Badge variant={variantMap[s] ?? "outline"} className="whitespace-nowrap">
-      {s.replace(/_/g, " ")}
-    </Badge>
-  );
+function priorityLabel(priority: string | null | undefined): string {
+  if (priority === "high") return "HIGH";
+  if (priority === "medium") return "MEDIUM";
+  if (priority === "low") return "LOW";
+  return "—";
 }
 
 export function Admin() {
@@ -138,16 +130,20 @@ export function Admin() {
   const [nationality, setNationality] = useState("");
   const [whatsappFilter, setWhatsappFilter] = useState("ANY");
 
-  const queryParams = useMemo(() => {
+  const queryParams: ListLeadsParams = useMemo(() => {
     const p: Record<string, string | number> = { limit: 200 };
     if (priority !== "ALL") p.priority = priority;
     if (status !== "ALL") p.status = status;
     if (situation !== "ALL") p.situation = situation;
     if (nationality.trim()) p.nationality = nationality.trim();
-    return p;
+    return p as ListLeadsParams;
   }, [priority, status, situation, nationality]);
 
-  const { data: leads, isLoading } = useListLeads(queryParams as never);
+  const { data: leads, isLoading } = useListLeads(queryParams);
+  const listQueryKey = useMemo(
+    () => getListLeadsQueryKey(queryParams),
+    [queryParams],
+  );
 
   // Client-side WhatsApp filter — applied over the already-fetched list so the
   // server contract is unchanged. `hasWhatsapp` comes from the serialized lead;
@@ -164,22 +160,102 @@ export function Admin() {
   }, [leads, whatsappFilter]);
   const { data: stats } = useGetStatsSummary();
   const { toast } = useToast();
+  const qc = useQueryClient();
   const [sendingUpdate, setSendingUpdate] = useState(false);
 
   const exportHref = `${import.meta.env.BASE_URL}api/leads/export.csv`;
   const sendUpdateUrl = `${import.meta.env.BASE_URL}api/admin/email/update`;
+  const adminLeadUrl = (id: string) =>
+    `${import.meta.env.BASE_URL}api/admin/leads/${id}`;
+
+  // ---------------------------------------------------------------------
+  // Inline CRM mutation (PATCH /api/admin/leads/:id)
+  //
+  // Concurrency-safe per-row optimistic update:
+  //   * Snapshot ONLY the row being mutated (not the whole list) — so a
+  //     concurrent successful edit on a different row is never clobbered
+  //     when this request rolls back.
+  //   * On error: restore that single row in place; other rows are left as
+  //     whatever the cache currently holds.
+  //   * On success: write the authoritative server payload back into the
+  //     row (bumps updatedAt) and invalidate the list query — this guarantees
+  //     reconciliation when the new status/priority moves the row out of the
+  //     active filter.
+  //   * On 401: clear the cached admin token so the next attempt re-prompts.
+  // ---------------------------------------------------------------------
+  const patchLead = async (
+    id: string,
+    patch: { status?: string; priority?: string; notes?: string | null },
+  ): Promise<boolean> => {
+    const token = getAdminToken();
+    if (!token) return false;
+
+    const original = qc
+      .getQueryData<Lead[]>(listQueryKey)
+      ?.find((l) => l.id === id);
+
+    qc.setQueryData<Lead[]>(listQueryKey, (old) =>
+      old?.map((l) =>
+        l.id === id
+          ? {
+              ...l,
+              ...(patch.status !== undefined ? { leadStatus: patch.status } : {}),
+              ...(patch.priority !== undefined
+                ? { leadPriority: patch.priority }
+                : {}),
+              ...(patch.notes !== undefined ? { adminNotes: patch.notes } : {}),
+            }
+          : l,
+      ),
+    );
+
+    try {
+      const res = await fetch(adminLeadUrl(id), {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-token": token,
+        },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) {
+        if (res.status === 401) clearAdminToken();
+        const body = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(body.error ?? `Server returned ${res.status}`);
+      }
+      const updated = (await res.json()) as Lead;
+      qc.setQueryData<Lead[]>(listQueryKey, (old) =>
+        old?.map((l) => (l.id === id ? updated : l)),
+      );
+      // Refetch in the background so any filter-affecting changes (e.g. a
+      // status change that moves the row out of the current filter) reconcile
+      // without disturbing the just-applied optimistic UI.
+      qc.invalidateQueries({ queryKey: listQueryKey });
+      return true;
+    } catch (err) {
+      // Per-row rollback — only the row we tried to mutate is restored. Any
+      // concurrent successful edit on another row keeps its updated value.
+      if (original) {
+        qc.setQueryData<Lead[]>(listQueryKey, (old) =>
+          old?.map((l) => (l.id === id ? original : l)),
+        );
+      }
+      toast({
+        title: "Update failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
 
   const handleSendUpdateEmail = async () => {
     if (sendingUpdate) return;
 
-    let token = sessionStorage.getItem("ema-admin-token") ?? "";
-    if (!token) {
-      const entered = window.prompt("Enter the admin email token");
-      if (!entered) return;
-      token = entered.trim();
-      if (!token) return;
-      sessionStorage.setItem("ema-admin-token", token);
-    }
+    const token = getAdminToken();
+    if (!token) return;
 
     const ok = window.confirm(
       "Send the silent update email to every lead with consent and an email on file?",
@@ -197,7 +273,7 @@ export function Admin() {
       });
       if (!res.ok) {
         if (res.status === 401) {
-          sessionStorage.removeItem("ema-admin-token");
+          clearAdminToken();
           toast({
             title: "Invalid admin token",
             description: "Please try again with the correct token.",
@@ -293,24 +369,33 @@ export function Admin() {
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>High priority</CardDescription>
-              <CardTitle className="text-3xl text-red-600">
-                {priorityCount("HIGH_PRIORITY")}
+              <CardTitle
+                className="text-3xl text-red-600"
+                data-testid="stat-priority-high"
+              >
+                {priorityCount("high")}
               </CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Medium priority</CardDescription>
-              <CardTitle className="text-3xl text-orange-500">
-                {priorityCount("MEDIUM_PRIORITY")}
+              <CardTitle
+                className="text-3xl text-orange-500"
+                data-testid="stat-priority-medium"
+              >
+                {priorityCount("medium")}
               </CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Low priority</CardDescription>
-              <CardTitle className="text-3xl text-gray-500">
-                {priorityCount("LOW_PRIORITY")}
+              <CardTitle
+                className="text-3xl text-gray-500"
+                data-testid="stat-priority-low"
+              >
+                {priorityCount("low")}
               </CardTitle>
             </CardHeader>
           </Card>
@@ -320,7 +405,8 @@ export function Admin() {
           <CardHeader>
             <CardTitle>Filter</CardTitle>
             <CardDescription>
-              Narrow the lead list by priority, status, nationality or situation.
+              Narrow the lead list by priority, status, nationality, situation
+              or WhatsApp.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -417,8 +503,9 @@ export function Admin() {
           <CardHeader>
             <CardTitle>Recent Assessments</CardTitle>
             <CardDescription>
-              Internal classification, score, priority, status and public-facing
-              label per submission.
+              Inline CRM editor — change status, priority or notes directly in
+              the table. Updates apply optimistically and persist via an
+              admin-only endpoint.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -443,11 +530,9 @@ export function Admin() {
                       <TableHead>Nationality</TableHead>
                       <TableHead>Situation</TableHead>
                       <TableHead>WhatsApp</TableHead>
-                      <TableHead>Internal Category</TableHead>
-                      <TableHead>Public Label</TableHead>
-                      <TableHead>Priority</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Score</TableHead>
+                      <TableHead>Priority</TableHead>
+                      <TableHead className="min-w-[14rem]">Notes</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -458,49 +543,100 @@ export function Admin() {
                         (typeof lead.whatsapp === "string" &&
                           lead.whatsapp.length > 0);
                       return (
-                      <TableRow
-                        key={lead.id}
-                        data-testid={`row-lead-${lead.referenceNumber}`}
-                        data-has-whatsapp={hasWhatsapp ? "true" : "false"}
-                      >
-                        <TableCell className="font-mono text-xs font-medium">
-                          {lead.referenceNumber}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground whitespace-nowrap">
-                          {format(new Date(lead.createdAt), "MMM d, HH:mm")}
-                        </TableCell>
-                        <TableCell>{lead.nationality}</TableCell>
-                        <TableCell className="capitalize">
-                          {lead.immigrationSituation?.replace(/_/g, " ")}
-                        </TableCell>
-                        <TableCell>{whatsappBadge(hasWhatsapp)}</TableCell>
-                        <TableCell>
-                          <code className="text-xs font-mono text-muted-foreground">
-                            {lead.internalClassification || "—"}
-                          </code>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="whitespace-nowrap">
-                            {lead.leadCategory || "Pending"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{priorityBadge(lead.leadPriority)}</TableCell>
-                        <TableCell>{statusBadge(lead.leadStatus)}</TableCell>
-                        <TableCell className="text-right font-mono">
-                          {lead.leadScore ?? 0}
-                        </TableCell>
-                        <TableCell>
-                          <Link href={`/admin/lead/${lead.id}`}>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              data-testid={`link-lead-${lead.referenceNumber}`}
+                        <TableRow
+                          key={lead.id}
+                          data-testid={`row-lead-${lead.referenceNumber}`}
+                          data-has-whatsapp={hasWhatsapp ? "true" : "false"}
+                        >
+                          <TableCell className="font-mono text-xs font-medium">
+                            {lead.referenceNumber}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground whitespace-nowrap">
+                            {format(new Date(lead.createdAt), "MMM d, HH:mm")}
+                          </TableCell>
+                          <TableCell>{lead.nationality}</TableCell>
+                          <TableCell className="capitalize">
+                            {lead.immigrationSituation?.replace(/_/g, " ")}
+                          </TableCell>
+                          <TableCell>{whatsappBadge(hasWhatsapp)}</TableCell>
+                          <TableCell>
+                            <Select
+                              value={lead.leadStatus}
+                              onValueChange={(v) =>
+                                patchLead(lead.id, { status: v })
+                              }
                             >
-                              View
-                            </Button>
-                          </Link>
-                        </TableCell>
-                      </TableRow>
+                              <SelectTrigger
+                                className="h-8 w-[10rem] text-xs"
+                                data-testid={`select-status-${lead.referenceNumber}`}
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {STATUS_VALUES.map((s) => (
+                                  <SelectItem
+                                    key={s}
+                                    value={s}
+                                    className="capitalize"
+                                  >
+                                    {s}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={lead.leadPriority ?? "medium"}
+                              onValueChange={(v) =>
+                                patchLead(lead.id, { priority: v })
+                              }
+                            >
+                              <SelectTrigger
+                                className={`h-8 w-[7rem] text-xs ${priorityBadgeClass(lead.leadPriority)}`}
+                                data-testid={`select-priority-${lead.referenceNumber}`}
+                              >
+                                <SelectValue>
+                                  {priorityLabel(lead.leadPriority)}
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent>
+                                {PRIORITY_VALUES.map((p) => (
+                                  <SelectItem
+                                    key={p}
+                                    value={p}
+                                    className="capitalize"
+                                  >
+                                    {p}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <NotesCell
+                              leadId={lead.id}
+                              referenceNumber={lead.referenceNumber}
+                              initial={lead.adminNotes ?? ""}
+                              onSave={(value) =>
+                                patchLead(lead.id, {
+                                  notes: value === "" ? null : value,
+                                })
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Link href={`/admin/lead/${lead.id}`}>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                data-testid={`link-lead-${lead.referenceNumber}`}
+                              >
+                                View
+                              </Button>
+                            </Link>
+                          </TableCell>
+                        </TableRow>
                       );
                     })}
                   </TableBody>
@@ -511,5 +647,65 @@ export function Admin() {
         </Card>
       </div>
     </div>
+  );
+}
+
+/**
+ * Inline notes cell.  The textarea is uncontrolled-after-mount: the parent's
+ * `initial` value seeds local state, and we only call `onSave` when the cell
+ * loses focus AND the value actually changed.  This avoids a network round
+ * trip on every keystroke and avoids fighting React Query's refetches.
+ */
+function NotesCell({
+  leadId,
+  referenceNumber,
+  initial,
+  onSave,
+}: {
+  leadId: string;
+  referenceNumber: string;
+  initial: string;
+  onSave: (value: string) => Promise<boolean>;
+}) {
+  const [value, setValue] = useState(initial);
+  const [savedValue, setSavedValue] = useState(initial);
+  const [saving, setSaving] = useState(false);
+
+  // Re-sync if the parent's authoritative value changes (e.g. after a refetch
+  // or another tab updates the lead).  Skip if the user has unsaved edits.
+  useEffect(() => {
+    if (value === savedValue) {
+      setValue(initial);
+      setSavedValue(initial);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial]);
+
+  const handleBlur = async () => {
+    if (value === savedValue) return;
+    setSaving(true);
+    const ok = await onSave(value);
+    setSaving(false);
+    if (ok) {
+      setSavedValue(value);
+    } else {
+      setValue(savedValue);
+    }
+  };
+
+  // Suppress unused warning — leadId is exposed for future analytics hooks.
+  void leadId;
+
+  return (
+    <Textarea
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={handleBlur}
+      placeholder="Notes…"
+      rows={2}
+      className="min-h-[2.5rem] text-xs resize-y"
+      disabled={saving}
+      data-testid={`textarea-notes-${referenceNumber}`}
+    />
   );
 }

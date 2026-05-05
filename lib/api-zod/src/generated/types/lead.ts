@@ -27,11 +27,13 @@ export interface Lead {
   internalClassification?: string | null;
   leadScore?: number | null;
   leadCategory?: string | null;
-  /** HIGH_PRIORITY | MEDIUM_PRIORITY | LOW_PRIORITY */
+  /** high | medium | low */
   leadPriority?: string | null;
-  /** NEW | REVIEWED | NEEDS_FOLLOW_UP | WAITLISTED | NOT_RELEVANT */
+  /** new | reviewing | contacted | converted | closed */
   leadStatus: string;
   adminNotes?: string | null;
+  /** True if the lead has a stored canonical WhatsApp number. */
+  hasWhatsapp?: boolean;
   preferredContactMethod?: string | null;
   consentAccepted: boolean;
   consentTimestamp?: string | null;

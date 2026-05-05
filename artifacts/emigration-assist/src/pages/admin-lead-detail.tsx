@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "wouter";
 import {
   useGetLeadById,
-  useUpdateLead,
   getGetLeadByIdQueryKey,
+  type Lead,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -27,14 +27,27 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { DocumentUploader } from "@/components/DocumentUploader";
+import { getAdminToken, clearAdminToken } from "@/lib/adminToken";
 
 const STATUS_OPTIONS = [
-  "NEW",
-  "REVIEWED",
-  "NEEDS_FOLLOW_UP",
-  "WAITLISTED",
-  "NOT_RELEVANT",
-];
+  "new",
+  "reviewing",
+  "contacted",
+  "converted",
+  "closed",
+] as const;
+
+const PRIORITY_OPTIONS = ["high", "medium", "low"] as const;
+
+function priorityBadgeClass(priority: string | null | undefined): string {
+  if (priority === "high")
+    return "bg-red-600 text-white border-transparent";
+  if (priority === "medium")
+    return "bg-orange-500 text-white border-transparent";
+  if (priority === "low")
+    return "bg-gray-400 text-white border-transparent";
+  return "bg-muted text-muted-foreground border-transparent";
+}
 
 function Field({
   label,
@@ -66,10 +79,11 @@ export function AdminLeadDetail() {
   const qc = useQueryClient();
 
   const { data: lead, isLoading, isError } = useGetLeadById(id);
-  const updateLead = useUpdateLead();
 
-  const [leadStatus, setLeadStatus] = useState<string>("NEW");
+  const [leadStatus, setLeadStatus] = useState<string>("new");
+  const [leadPriority, setLeadPriority] = useState<string>("medium");
   const [adminNotes, setAdminNotes] = useState<string>("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     document.title = "Lead Detail | E-Migration Assist";
@@ -77,31 +91,57 @@ export function AdminLeadDetail() {
 
   useEffect(() => {
     if (lead) {
-      setLeadStatus(lead.leadStatus ?? "NEW");
+      setLeadStatus(lead.leadStatus ?? "new");
+      setLeadPriority(lead.leadPriority ?? "medium");
       setAdminNotes(lead.adminNotes ?? "");
     }
   }, [lead]);
 
-  const handleSave = () => {
-    updateLead.mutate(
-      { id, data: { leadStatus, adminNotes } },
-      {
-        onSuccess: () => {
-          toast({
-            title: "Lead updated",
-            description: "Status and notes have been saved.",
-          });
-          qc.invalidateQueries({ queryKey: getGetLeadByIdQueryKey(id) });
+  const handleSave = async () => {
+    if (!lead) return;
+    const token = getAdminToken();
+    if (!token) return;
+
+    setSaving(true);
+    try {
+      const res = await fetch(
+        `${import.meta.env.BASE_URL}api/admin/leads/${id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "x-admin-token": token,
+          },
+          body: JSON.stringify({
+            status: leadStatus,
+            priority: leadPriority,
+            notes: adminNotes === "" ? null : adminNotes,
+          }),
         },
-        onError: () => {
-          toast({
-            title: "Update failed",
-            description: "Could not save the changes. Please try again.",
-            variant: "destructive",
-          });
-        },
-      },
-    );
+      );
+      if (!res.ok) {
+        if (res.status === 401) clearAdminToken();
+        const body = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(body.error ?? `Server returned ${res.status}`);
+      }
+      const updated = (await res.json()) as Lead;
+      qc.setQueryData(getGetLeadByIdQueryKey(id), updated);
+      qc.invalidateQueries({ queryKey: ["/api/leads"] });
+      toast({
+        title: "Lead updated",
+        description: "Status, priority and notes have been saved.",
+      });
+    } catch (err) {
+      toast({
+        title: "Update failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (isLoading) {
@@ -159,16 +199,10 @@ export function AdminLeadDetail() {
                   {lead.leadCategory ?? "Pending"}
                 </Badge>
                 <Badge
-                  className={
-                    lead.leadPriority === "HIGH_PRIORITY"
-                      ? "bg-red-600 text-white border-transparent"
-                      : lead.leadPriority === "MEDIUM_PRIORITY"
-                        ? "bg-orange-500 text-white border-transparent"
-                        : "bg-gray-400 text-white border-transparent"
-                  }
+                  className={priorityBadgeClass(lead.leadPriority)}
                   data-testid="badge-priority"
                 >
-                  {(lead.leadPriority ?? "").replace(/_/g, " ")}
+                  {(lead.leadPriority ?? "—").toUpperCase()}
                 </Badge>
               </div>
             </div>
@@ -281,28 +315,49 @@ export function AdminLeadDetail() {
           <CardHeader>
             <CardTitle>Admin Controls</CardTitle>
             <CardDescription>
-              Update the operational status and add internal notes. These fields
-              are only visible inside the admin panel.
+              Update the operational status, priority, and add internal notes.
+              These fields are only visible inside the admin panel and are
+              never exposed to the lead.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Lead status</label>
-              <Select value={leadStatus} onValueChange={setLeadStatus}>
-                <SelectTrigger
-                  className="md:w-72"
-                  data-testid="select-lead-status"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUS_OPTIONS.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s.replace(/_/g, " ")}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Lead status</label>
+                <Select value={leadStatus} onValueChange={setLeadStatus}>
+                  <SelectTrigger
+                    className="md:w-72"
+                    data-testid="select-lead-status"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUS_OPTIONS.map((s) => (
+                      <SelectItem key={s} value={s} className="capitalize">
+                        {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Priority</label>
+                <Select value={leadPriority} onValueChange={setLeadPriority}>
+                  <SelectTrigger
+                    className="md:w-72"
+                    data-testid="select-lead-priority"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRIORITY_OPTIONS.map((p) => (
+                      <SelectItem key={p} value={p} className="capitalize">
+                        {p}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Internal notes</label>
@@ -317,10 +372,10 @@ export function AdminLeadDetail() {
             <div className="flex justify-end">
               <Button
                 onClick={handleSave}
-                disabled={updateLead.isPending}
+                disabled={saving}
                 data-testid="button-save-lead"
               >
-                {updateLead.isPending ? "Saving…" : "Save changes"}
+                {saving ? "Saving…" : "Save changes"}
               </Button>
             </div>
           </CardContent>

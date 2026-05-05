@@ -169,6 +169,73 @@ Pre-launch confirmation + manual update emails via Resend.
   The submission still rejects without `consentAccepted=true` (zod refine on
   the client; explicit 400 on the server).
 
+### Admin Lead Management CRM (added)
+
+Lightweight CRM layer on top of `/admin` for the operations team. Lead rows
+can be edited inline; a full editor lives on the per-lead detail page.
+
+- **Canonical lowercase enums** (single source of truth in
+  `artifacts/api-server/src/lib/classification.ts`):
+   - `leadStatus` ∈ `new | reviewing | contacted | converted | closed`
+     (column NOT NULL, DB default `'new'`)
+   - `leadPriority` ∈ `high | medium | low`
+     (column nullable, DB default `'medium'`)
+  Migration from the legacy uppercase values
+  (`NEW`/`REVIEWED`/`NEEDS_FOLLOW_UP`/`WAITLISTED`/`NOT_RELEVANT` →
+  status; `HIGH_PRIORITY`/`MEDIUM_PRIORITY`/`LOW_PRIORITY` → priority) was
+  applied via SQL on the dev DB.
+- **Auto-priority on insert.** `deriveAutoPriority(situation, visaHistory)`
+  assigns `high` for overstay/undesirable/prohibited situations OR a visa
+  history mentioning "appeal"; `medium` for histories mentioning "work" or
+  "business"; `low` otherwise. The duplicate-update branch of `POST /leads`
+  intentionally **does NOT** overwrite an existing lead's `leadPriority`,
+  `leadStatus` or `adminNotes` so an admin's manual changes survive a
+  re-submission.
+- **Admin endpoint.** `PATCH /api/admin/leads/:id`
+  (`artifacts/api-server/src/routes/adminLeads.ts`).
+   - Body: `{ status?, priority?, notes? }` — at least one required, each
+     enum-validated server-side, helpful 400 error on bad enum.
+   - Auth: `x-admin-token` header must equal env `ADMIN_EMAIL_TOKEN`
+     (constant-time compare). **Fail-closed (503) when the env var is
+     unset**, 401 on missing/wrong token, 404 on unknown lead id. Same
+     header pattern as the existing `POST /api/admin/email/update`.
+   - The endpoint is intentionally **not** in the OpenAPI spec — it
+     requires a custom header that the generated React Query mutator does
+     not surface, so the client calls it with plain `fetch`. (Same
+     reasoning as the email endpoint and the document upload routes.)
+- **Old PATCH /api/leads/by-id/:id removed.** That route was
+  unauthenticated and only ever called by `admin-lead-detail.tsx`. Both
+  it and the corresponding `UpdateLeadInput` schema / `useUpdateLead` hook
+  have been deleted.
+- **Analytics event** `admin.lead_updated` is fire-and-forgotten with
+  payload `{ leadId, fieldsUpdated: [...] }`. The denormalised
+  `reference_number` column is intentionally **not** populated on this row
+  — telemetry minimisation per spec, no extra identifiers persisted.
+- **Frontend token helper.** `artifacts/emigration-assist/src/lib/adminToken.ts`
+  exposes `getAdminToken()` (prompts once, caches in `sessionStorage` under
+  `ema-admin-token`) and `clearAdminToken()`. Shared by the admin email
+  button, the inline CRM editor, and the lead detail save form.
+- **Inline editor (admin.tsx).** Each row exposes:
+   - a status `Select` (per-row),
+   - a colored priority `Select` (per-row, trigger background reflects the
+     priority — red/orange/grey),
+   - a `NotesCell` textarea that **saves on blur** (compares against the
+     last-saved value to avoid no-op writes).
+  All three call a shared `patchLead(id, patch)` helper that:
+   - snapshots **only the row being mutated** (per-row optimistic update),
+   - applies the optimistic change via
+     `qc.setQueryData(getListLeadsQueryKey(params), ...)`,
+   - on success: writes the server payload back into that one row and
+     invalidates the list query so filter-affecting changes reconcile
+     cleanly,
+   - on error: restores **just that row** (concurrent successful edits on
+     other rows are never clobbered) and shows a destructive toast,
+   - on 401: clears the cached admin token so the next attempt re-prompts.
+- **Detail editor (admin-lead-detail.tsx).** Now contains a Status select,
+  a Priority select, and a Notes textarea inside an "Admin Controls" card,
+  posting to the same admin endpoint via `fetch` with the cached token.
+  Success toast: "Lead updated".
+
 ### OpenAPI spec note
 
 Most endpoints are defined in `lib/api-spec/openapi.yaml` and consumed via

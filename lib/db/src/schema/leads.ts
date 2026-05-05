@@ -30,9 +30,12 @@ export const prelaunchLeadsTable = pgTable("prelaunch_leads", {
   internalClassification: text("internal_classification"),
   leadScore: integer("lead_score"),
   leadCategory: text("lead_category"),
-  // Business CRM fields
-  leadPriority: text("lead_priority"),
-  leadStatus: text("lead_status").notNull().default("NEW"),
+  // Business CRM fields. Lowercase canonical enums (see classification.ts):
+  //   leadStatus   ∈ {new, reviewing, contacted, converted, closed}
+  //   leadPriority ∈ {high, medium, low}
+  // adminNotes holds internal-only operator notes (never exposed publicly).
+  leadPriority: text("lead_priority").default("medium"),
+  leadStatus: text("lead_status").notNull().default("new"),
   adminNotes: text("admin_notes"),
   preferredContactMethod: text("preferred_contact_method"),
   consentAccepted: boolean("consent_accepted").notNull().default(false),

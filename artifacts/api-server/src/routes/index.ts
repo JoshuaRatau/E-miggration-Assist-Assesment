@@ -6,6 +6,7 @@ import analyticsRouter from "./analytics";
 import documentsRouter from "./documents";
 import publicStatusRouter from "./publicStatus";
 import adminEmailRouter from "./adminEmail";
+import adminLeadsRouter from "./adminLeads";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(analyticsRouter);
 router.use(documentsRouter);
 router.use(publicStatusRouter);
 router.use(adminEmailRouter);
+router.use(adminLeadsRouter);
 
 export default router;

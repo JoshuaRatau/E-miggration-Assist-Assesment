@@ -27,7 +27,6 @@ import type {
   ListLeadsParams,
   PublicStatus,
   StatsSummary,
-  UpdateLeadInput,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -472,93 +471,6 @@ export function useGetLeadById<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
-
-/**
- * @summary Update admin-only fields (status, notes)
- */
-export const getUpdateLeadUrl = (id: string) => {
-  return `/api/leads/by-id/${id}`;
-};
-
-export const updateLead = async (
-  id: string,
-  updateLeadInput: UpdateLeadInput,
-  options?: RequestInit,
-): Promise<Lead> => {
-  return customFetch<Lead>(getUpdateLeadUrl(id), {
-    ...options,
-    method: "PATCH",
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(updateLeadInput),
-  });
-};
-
-export const getUpdateLeadMutationOptions = <
-  TError = ErrorType<void>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof updateLead>>,
-    TError,
-    { id: string; data: BodyType<UpdateLeadInput> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof updateLead>>,
-  TError,
-  { id: string; data: BodyType<UpdateLeadInput> },
-  TContext
-> => {
-  const mutationKey = ["updateLead"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof updateLead>>,
-    { id: string; data: BodyType<UpdateLeadInput> }
-  > = (props) => {
-    const { id, data } = props ?? {};
-
-    return updateLead(id, data, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type UpdateLeadMutationResult = NonNullable<
-  Awaited<ReturnType<typeof updateLead>>
->;
-export type UpdateLeadMutationBody = BodyType<UpdateLeadInput>;
-export type UpdateLeadMutationError = ErrorType<void>;
-
-/**
- * @summary Update admin-only fields (status, notes)
- */
-export const useUpdateLead = <
-  TError = ErrorType<void>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof updateLead>>,
-    TError,
-    { id: string; data: BodyType<UpdateLeadInput> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof updateLead>>,
-  TError,
-  { id: string; data: BodyType<UpdateLeadInput> },
-  TContext
-> => {
-  return useMutation(getUpdateLeadMutationOptions(options));
-};
 
 /**
  * @summary Aggregate stats (totals, priority breakdown)

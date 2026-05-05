@@ -69,13 +69,13 @@ paths:
         - name: priority
           in: query
           required: false
-          description: Filter by HIGH_PRIORITY | MEDIUM_PRIORITY | LOW_PRIORITY
+          description: Filter by high | medium | low
           schema:
             type: string
         - name: status
           in: query
           required: false
-          description: Filter by NEW | REVIEWED | NEEDS_FOLLOW_UP | WAITLISTED | NOT_RELEVANT
+          description: Filter by new | reviewing | contacted | converted | closed
           schema:
             type: string
         - name: nationality
@@ -138,31 +138,11 @@ paths:
                 $ref: "#/components/schemas/Lead"
         "404":
           description: Not found
-    patch:
-      operationId: updateLead
-      tags: [leads]
-      summary: Update admin-only fields (status, notes)
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateLeadInput"
-      responses:
-        "200":
-          description: Lead updated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Lead"
-        "404":
-          description: Not found
+  # NOTE: PATCH /api/admin/leads/{id} is the canonical admin mutation
+  # endpoint.  It is intentionally NOT modelled in this OpenAPI spec because
+  # it requires an `x-admin-token` header that the generated React Query
+  # mutator does not surface; clients call it directly with `fetch`, mirroring
+  # the pattern used by /api/admin/email/update.
   /stats/summary:
     get:
       operationId: getStatsSummary
@@ -308,15 +288,6 @@ components:
         - nationality
         - immigrationSituation
         - consentAccepted
-    UpdateLeadInput:
-      type: object
-      properties:
-        leadStatus:
-          type: string
-          description: 'NEW | REVIEWED | NEEDS_FOLLOW_UP | WAITLISTED | NOT_RELEVANT'
-        adminNotes:
-          type: string
-          nullable: true
     Lead:
       type: object
       properties:
@@ -381,13 +352,16 @@ components:
         leadPriority:
           type: string
           nullable: true
-          description: 'HIGH_PRIORITY | MEDIUM_PRIORITY | LOW_PRIORITY'
+          description: 'high | medium | low'
         leadStatus:
           type: string
-          description: 'NEW | REVIEWED | NEEDS_FOLLOW_UP | WAITLISTED | NOT_RELEVANT'
+          description: 'new | reviewing | contacted | converted | closed'
         adminNotes:
           type: string
           nullable: true
+        hasWhatsapp:
+          type: boolean
+          description: True if the lead has a stored canonical WhatsApp number.
         preferredContactMethod:
           type: string
           nullable: true
