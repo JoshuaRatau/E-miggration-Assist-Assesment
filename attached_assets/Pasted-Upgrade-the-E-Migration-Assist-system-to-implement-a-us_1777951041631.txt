@@ -1,0 +1,110 @@
+Upgrade the E-Migration Assist system to implement a user status tracking and return system using reference numbers.
+
+GOAL:
+Allow users to return to the system and check their progress using their reference number.
+
+------------------------------------
+
+1. CREATE STATUS LOOKUP PAGE
+
+Route:
+/status
+
+Features:
+- Input field: "Enter your reference number"
+- Submit button
+- Clean UI (mobile-first)
+
+------------------------------------
+
+2. API ENDPOINT
+
+GET /api/public/status/:referenceNumber
+
+Return ONLY SAFE DATA:
+- referenceNumber
+- publicLabel (e.g. "Supporting Circumstances Present")
+- createdAt
+- documentsUploaded (true/false)
+
+DO NOT RETURN:
+- score
+- priority
+- internal classification
+- admin notes
+- personal contact info
+
+------------------------------------
+
+3. STATUS PAGE RESPONSE UI
+
+After lookup:
+
+Show:
+- Reference number
+- Case status label
+- Date submitted
+- Message:
+
+"This is your current assessment status. You may be contacted when the full platform becomes available."
+
+------------------------------------
+
+4. OPTIONAL DOCUMENT INDICATOR
+
+If documents exist:
+Show:
+"Supporting documents received"
+
+Else:
+Show:
+"No documents uploaded yet"
+
+------------------------------------
+
+5. ADD RETURN LINK TO THANK YOU PAGE
+
+On thank-you page:
+
+Add:
+
+"Save your reference number. You can return anytime to check your status."
+
+Button:
+"Check Status"
+
+------------------------------------
+
+6. ADD LIGHT STATUS STATES
+
+Map public labels to:
+
+- "Assessment Received"
+- "Supporting Circumstances Present"
+- "Requires Further Review"
+- "High Complexity Case"
+
+------------------------------------
+
+7. SECURITY
+
+- Rate limit lookup endpoint
+- Validate reference format
+- Prevent enumeration (randomized references)
+
+------------------------------------
+
+8. NO NEW CTA
+
+Do NOT add:
+- Apply now
+- Book consultation
+- Pay
+- Contact agent
+
+------------------------------------
+
+OUTPUT:
+- Fully working status lookup system
+- Users can return using reference number
+- Clean, secure public endpoint
