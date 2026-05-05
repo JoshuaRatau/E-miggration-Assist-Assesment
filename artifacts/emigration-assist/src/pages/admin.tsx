@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import {
   useGetStatsSummary,
   type Lead,
@@ -271,6 +271,9 @@ export function Admin() {
 
   const { toast } = useToast();
   const qc = useQueryClient();
+  // wouter setLocation — used by the Convert-to-Case quick action to deep-link
+  // straight into /admin/case/:caseId after the conversion PATCH succeeds.
+  const [, setLocation] = useLocation();
 
   const {
     data: leads,
@@ -368,12 +371,17 @@ export function Admin() {
   //     active filter.
   //   * On 401: clear the cached admin token so the next attempt re-prompts.
   // ---------------------------------------------------------------------
+  // Returns the updated Lead on success (so callers like the Convert-to-Case
+  // button can read the freshly-populated `caseId` from the response and
+  // navigate immediately) or `null` on failure.  Existing callers using the
+  // truthy-check pattern (`if (ok) …`) keep working unchanged because a
+  // Lead object is truthy.
   const patchLead = async (
     id: string,
     patch: { status?: string; priority?: string },
-  ): Promise<boolean> => {
+  ): Promise<Lead | null> => {
     const token = getAdminToken();
-    if (!token) return false;
+    if (!token) return null;
 
     const original = qc
       .getQueryData<Lead[]>(listQueryKey)
@@ -417,7 +425,7 @@ export function Admin() {
       // status change that moves the row out of the current filter) reconcile
       // without disturbing the just-applied optimistic UI.
       qc.invalidateQueries({ queryKey: listQueryKey });
-      return true;
+      return updated;
     } catch (err) {
       // Per-row rollback — only the row we tried to mutate is restored. Any
       // concurrent successful edit on another row keeps its updated value.
@@ -431,7 +439,7 @@ export function Admin() {
         description: err instanceof Error ? err.message : "Unknown error",
         variant: "destructive",
       });
-      return false;
+      return null;
     }
   };
 
@@ -988,6 +996,51 @@ export function Admin() {
                                   Contact
                                 </Button>
                               )}
+                              {lead.leadStatus === "ready_for_case" && (
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  title="Convert this lead into a case and open the case detail view"
+                                  data-testid={`button-convert-case-${lead.referenceNumber}`}
+                                  onClick={() => {
+                                    void patchLead(lead.id, {
+                                      status: "converted",
+                                    }).then((updated) => {
+                                      if (!updated) return;
+                                      if (updated.caseId) {
+                                        toast({
+                                          title: "Case created",
+                                        });
+                                        setLocation(
+                                          `/admin/case/${updated.caseId}`,
+                                        );
+                                      } else {
+                                        toast({
+                                          title: "Converted",
+                                          description:
+                                            "Lead marked converted but no case id was returned.",
+                                          variant: "destructive",
+                                        });
+                                      }
+                                    });
+                                  }}
+                                >
+                                  Convert to Case
+                                </Button>
+                              )}
+                              {lead.leadStatus === "converted" &&
+                                lead.caseId && (
+                                  <Link href={`/admin/case/${lead.caseId}`}>
+                                    <Button
+                                      variant="default"
+                                      size="sm"
+                                      data-testid={`button-open-case-${lead.referenceNumber}`}
+                                      title="Open the linked case"
+                                    >
+                                      Open Case
+                                    </Button>
+                                  </Link>
+                                )}
                               <Link href={`/admin/lead/${lead.id}`}>
                                 <Button
                                   variant="ghost"

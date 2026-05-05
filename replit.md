@@ -34,6 +34,14 @@ The project is structured as a pnpm monorepo using Node.js 24 and TypeScript 5.9
     *   Confirmation dispatch is preference-aware, using WhatsApp if preferred and available, otherwise email.
     *   Resubmissions trigger fresh confirmations after a 1-minute per-channel cooldown.
     *   Admin endpoints for manual updates and viewing engagement history are token-gated.
+*   **Lead → Case Conversion (V1):** When a lead reaches `leadStatus="converted"`, an idempotent `lead_cases` row is created.
+    *   `lead_cases` table: `id`, `lead_id UUID UNIQUE`, `reference_number` (snapshot of the lead's ref at conversion), `status TEXT default "initiated"`, timestamps. The unique `lead_id` is the idempotency primitive.
+    *   `ensureCaseForLead()` (`api-server/src/lib/cases.ts`) uses `INSERT … ON CONFLICT (lead_id) DO NOTHING RETURNING` + fallback `SELECT`, safe under concurrent PATCHes.
+    *   `PATCH /api/admin/leads/:id` calls `ensureCaseForLead` whenever the resulting `leadStatus === "converted"` (every time, not only on status change — so notes-only edits on already-converted leads still surface `caseId`); fails the request with HTTP 500 if case creation errors.
+    *   `Lead` payloads (list + detail + PATCH response) carry `caseId: string | null`, populated via `LEFT JOIN lead_cases` for GETs and from `ensureCaseForLead` for PATCH. `openapi.yaml` Lead schema includes `caseId`.
+    *   Admin endpoint `GET /api/admin/cases/:caseId` returns case + embedded lead snapshot (admin-token gated, NOT modelled in OpenAPI — uses raw fetch from frontend, mirroring the PATCH convention).
+    *   Frontend: `/admin` row actions render **"Convert to Case"** when `leadStatus === "ready_for_case"` (PATCHes to `converted` then deep-links to `/admin/case/:caseId` from the response) and **"Open Case"** when `leadStatus === "converted"` (link only). New page `/admin/case/:caseId` (`pages/admin-case-detail.tsx`) shows case ref, case status, lead status, next step, original lead snapshot, and notes.
+    *   **Note (intentional):** server allows `converted` from any forward status (consistent with existing forward-only funnel semantics — no per-step staging). The `ready_for_case` gate is UI-only.
 *   **Inbound WhatsApp Webhook:** `POST /api/webhooks/whatsapp` receives Twilio event payloads, stores inbound messages in `case_messages` table, and responds immediately with 200. Includes signature verification.
     *   Deterministic keyword intent detection (`"done", "uploaded", "sent"`) sets `intent='task_complete_signal'`.
     *   Admin endpoint `GET /api/admin/leads/:id/messages` returns inbound messages.

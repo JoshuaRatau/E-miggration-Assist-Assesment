@@ -4,6 +4,7 @@ import {
   prelaunchLeadsTable,
   analyticsEventsTable,
   leadEngagementsTable,
+  leadCasesTable,
 } from "@workspace/db";
 import { CreateLeadBody, ListLeadsQueryParams } from "@workspace/api-zod";
 import { and, desc, eq, gt, or, sql } from "drizzle-orm";
@@ -20,7 +21,10 @@ import { requireAdminToken } from "../lib/adminAuth";
 
 const router: IRouter = Router();
 
-function serializeLead(row: typeof prelaunchLeadsTable.$inferSelect) {
+function serializeLead(
+  row: typeof prelaunchLeadsTable.$inferSelect,
+  caseId: string | null = null,
+) {
   return {
     ...row,
     visaExpiryDate: row.visaExpiryDate ?? null,
@@ -32,6 +36,10 @@ function serializeLead(row: typeof prelaunchLeadsTable.$inferSelect) {
     updatedAt: row.updatedAt.toISOString(),
     hasWhatsapp: typeof row.whatsapp === "string" && row.whatsapp.length > 0,
     nextStep: deriveNextStep(row.leadStatus),
+    // Lead → Case linkage.  null until the lead reaches `converted` (see
+    // ensureCaseForLead in lib/cases.ts).  Read via LEFT JOIN so list and
+    // detail responses stay a single round-trip.
+    caseId,
   };
 }
 
@@ -40,7 +48,10 @@ function serializeLead(row: typeof prelaunchLeadsTable.$inferSelect) {
 // Crucially, it omits internal "rules engine" fields — `internalClassification`,
 // `leadScore`, `leadCategory`, `adminNotes` — and bulky funnel data the
 // dashboard does not need.  Per spec: "Do NOT expose rules engine data yet."
-function serializeLeadAdminList(row: typeof prelaunchLeadsTable.$inferSelect) {
+function serializeLeadAdminList(
+  row: typeof prelaunchLeadsTable.$inferSelect,
+  caseId: string | null = null,
+) {
   return {
     id: row.id,
     referenceNumber: row.referenceNumber,
@@ -54,6 +65,8 @@ function serializeLeadAdminList(row: typeof prelaunchLeadsTable.$inferSelect) {
     createdAt: row.createdAt.toISOString(),
     // Conversion-funnel hint derived from leadStatus.  See `deriveNextStep`.
     nextStep: deriveNextStep(row.leadStatus),
+    // Lead → Case linkage; powers the "Open Case" quick-action in /admin.
+    caseId,
   };
 }
 
@@ -431,14 +444,25 @@ router.get("/leads", async (req, res) => {
   if (situation)
     filters.push(eq(prelaunchLeadsTable.immigrationSituation, situation));
 
+  // LEFT JOIN lead_cases so each row carries its caseId (null when no
+  // case has been created yet).  The unique constraint on lead_cases.lead_id
+  // guarantees at most one matching row per lead, so the join cannot
+  // duplicate leads.
   const rows = await db
-    .select()
+    .select({
+      lead: prelaunchLeadsTable,
+      caseId: leadCasesTable.id,
+    })
     .from(prelaunchLeadsTable)
+    .leftJoin(
+      leadCasesTable,
+      eq(leadCasesTable.leadId, prelaunchLeadsTable.id),
+    )
     .where(filters.length ? and(...filters) : undefined)
     .orderBy(desc(prelaunchLeadsTable.createdAt))
     .limit(limit);
 
-  return res.json(rows.map(serializeLeadAdminList));
+  return res.json(rows.map((r) => serializeLeadAdminList(r.lead, r.caseId)));
 });
 
 router.get("/leads/export.csv", async (req, res) => {
@@ -514,8 +538,15 @@ router.get("/leads/by-id/:id", async (req, res) => {
 
   const { id } = req.params;
   const rows = await db
-    .select()
+    .select({
+      lead: prelaunchLeadsTable,
+      caseId: leadCasesTable.id,
+    })
     .from(prelaunchLeadsTable)
+    .leftJoin(
+      leadCasesTable,
+      eq(leadCasesTable.leadId, prelaunchLeadsTable.id),
+    )
     .where(eq(prelaunchLeadsTable.id, id))
     .limit(1);
 
@@ -523,7 +554,7 @@ router.get("/leads/by-id/:id", async (req, res) => {
     return res.status(404).json({ error: "Lead not found" });
   }
 
-  return res.json(serializeLead(rows[0]));
+  return res.json(serializeLead(rows[0].lead, rows[0].caseId));
 });
 
 // NOTE: PATCH /leads/by-id/:id (status/notes editor) was removed and replaced

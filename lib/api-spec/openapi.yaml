@@ -368,6 +368,15 @@ components:
             "Await response" (contacted), "Prepare case conversion" (qualified),
             "Initiate case handover" (ready_for_case),
             "Move to case system" (converted), null (closed/unknown).
+        caseId:
+          type: string
+          nullable: true
+          description: >-
+            UUID of the linked lead_cases row.  null until the lead reaches
+            `converted` status.  PATCH /admin/leads/{id} populates it as a
+            side-effect of the converted-status transition; the GET list
+            and detail endpoints surface it via LEFT JOIN.  The admin
+            dashboard uses it to deep-link to /admin/case/{caseId}.
         adminNotes:
           type: string
           nullable: true

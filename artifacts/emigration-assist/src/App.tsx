@@ -9,6 +9,7 @@ import { ThankYou } from "@/pages/thank-you";
 import { Status } from "@/pages/status";
 import { Admin } from "@/pages/admin";
 import { AdminLeadDetail } from "@/pages/admin-lead-detail";
+import { AdminCaseDetail } from "@/pages/admin-case-detail";
 
 const queryClient = new QueryClient();
 
@@ -21,6 +22,7 @@ function Router() {
       <Route path="/status" component={Status} />
       <Route path="/admin" component={Admin} />
       <Route path="/admin/lead/:id" component={AdminLeadDetail} />
+      <Route path="/admin/case/:caseId" component={AdminCaseDetail} />
       <Route component={NotFound} />
     </Switch>
   );

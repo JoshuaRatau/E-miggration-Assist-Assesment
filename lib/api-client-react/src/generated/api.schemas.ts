@@ -61,6 +61,8 @@ export interface Lead {
   leadStatus: string;
   /** Conversion-funnel hint derived from leadStatus. Values: "Review lead" (new), "Contact lead" (reviewing), "Await response" (contacted), "Prepare case conversion" (qualified), "Initiate case handover" (ready_for_case), "Move to case system" (converted), null (closed/unknown). */
   nextStep?: string | null;
+  /** UUID of the linked lead_cases row.  null until the lead reaches `converted` status.  PATCH /admin/leads/{id} populates it as a side-effect of the converted-status transition; the GET list and detail endpoints surface it via LEFT JOIN.  The admin dashboard uses it to deep-link to /admin/case/{caseId}. */
+  caseId?: string | null;
   adminNotes?: string | null;
   /** True if the lead has a stored canonical WhatsApp number. */
   hasWhatsapp?: boolean;

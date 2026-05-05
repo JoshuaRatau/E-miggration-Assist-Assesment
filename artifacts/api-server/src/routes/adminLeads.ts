@@ -7,10 +7,14 @@ import {
   deriveNextStep,
 } from "../lib/classification";
 import { requireAdminToken } from "../lib/adminAuth";
+import { ensureCaseForLead } from "../lib/cases";
 
 const router: IRouter = Router();
 
-function serializeLead(row: typeof prelaunchLeadsTable.$inferSelect) {
+function serializeLead(
+  row: typeof prelaunchLeadsTable.$inferSelect,
+  caseId: string | null = null,
+) {
   return {
     ...row,
     visaExpiryDate: row.visaExpiryDate ?? null,
@@ -24,6 +28,10 @@ function serializeLead(row: typeof prelaunchLeadsTable.$inferSelect) {
     // Conversion-funnel hint mirrored from leads.ts so PATCH responses stay
     // consistent with GET — see deriveNextStep().
     nextStep: deriveNextStep(row.leadStatus),
+    // Lightweight case linkage.  Populated by the lead→case conversion
+    // (see ensureCaseForLead) and on read by a LEFT JOIN with lead_cases.
+    // null for leads that have not reached `converted` yet.
+    caseId,
   };
 }
 
@@ -161,6 +169,32 @@ router.patch("/admin/leads/:id", async (req, res) => {
     return res.status(404).json({ error: "Lead not found" });
   }
 
+  // Lead → Case conversion (idempotent).  When the lead's effective status
+  // after this PATCH is "converted", ensure a lead_cases row exists.  We
+  // call this on EVERY converted-status patch (not just status-changing
+  // ones) so a notes/priority-only edit on an already-converted lead still
+  // surfaces the linked caseId in the response.  ensureCaseForLead is
+  // safe to call repeatedly — the unique (lead_id) constraint guarantees
+  // no duplicate cases can ever be created.
+  let caseId: string | null = null;
+  if (updated.leadStatus === "converted") {
+    try {
+      const caseRow = await ensureCaseForLead(
+        updated.id,
+        updated.referenceNumber,
+      );
+      caseId = caseRow.id;
+    } catch (err) {
+      req.log.error(
+        { err, leadId: updated.id },
+        "Failed to ensure case for converted lead",
+      );
+      return res.status(500).json({
+        error: "Lead status updated but case creation failed",
+      });
+    }
+  }
+
   // Fire-and-forget analytics. Telemetry minimisation per spec: ONLY the
   // lead id (FK column + payload field) and the names of the updated fields
   // are persisted. The denormalised `reference_number` column is intentionally
@@ -175,7 +209,7 @@ router.patch("/admin/leads/:id", async (req, res) => {
       req.log.warn({ err }, "Failed to log admin.lead_updated event"),
     );
 
-  return res.json(serializeLead(updated));
+  return res.json(serializeLead(updated, caseId));
 });
 
 export default router;
