@@ -328,3 +328,40 @@ export const TrackAnalyticsEventBody = zod.object({
   referenceNumber: zod.string().nullish(),
   payload: zod.record(zod.string(), zod.unknown()).nullish(),
 });
+
+/**
+ * Returns the documents previously uploaded for a lead.
+
+Two related document endpoints are intentionally NOT defined in this
+spec because their request/response shapes (multipart upload, raw
+binary download) cannot be modelled by Orval's React Query codegen:
+  - POST /api/documents/upload     (multipart/form-data: file, leadId, documentType)
+  - GET  /api/documents/{id}/download  (returns the file bytes)
+Clients call these directly with `fetch` or an anchor href.
+
+ * @summary List uploaded documents for a lead
+ */
+export const ListDocumentsQueryParams = zod.object({
+  leadId: zod.coerce.string().uuid(),
+});
+
+export const ListDocumentsResponseItem = zod.object({
+  id: zod.string(),
+  leadId: zod.string(),
+  documentType: zod
+    .string()
+    .describe(
+      "passport | visa_permit | entry_stamp | exit_stamp | undesirable_declaration | medical_evidence | travel_evidence | written_explanation | other",
+    ),
+  fileUrl: zod
+    .string()
+    .describe(
+      "Internal object storage path. Use \/api\/documents\/{id}\/download to fetch the bytes.",
+    ),
+  fileName: zod.string().nullish(),
+  mimeType: zod.string().nullish(),
+  fileSize: zod.number().nullish(),
+  uploadStatus: zod.string(),
+  createdAt: zod.string(),
+});
+export const ListDocumentsResponse = zod.array(ListDocumentsResponseItem);

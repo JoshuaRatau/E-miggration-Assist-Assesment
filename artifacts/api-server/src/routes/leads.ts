@@ -33,8 +33,9 @@ function serializeLead(row: typeof prelaunchLeadsTable.$inferSelect) {
 }
 
 // Public-safe view of a lead for the user-facing reference lookup. Strips out
-// internal CRM fields (score, priority, internalClassification, leadStatus,
-// adminNotes) and contact PII that the lookup page does not need to render.
+// every internal CRM field (score, priority, internalClassification,
+// leadStatus, adminNotes) and contact PII that the lookup page does not need
+// to render.
 function serializeLeadPublic(row: typeof prelaunchLeadsTable.$inferSelect) {
   return {
     id: row.id,
@@ -49,7 +50,6 @@ function serializeLeadPublic(row: typeof prelaunchLeadsTable.$inferSelect) {
       : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
-    leadStatus: row.leadStatus,
   };
 }
 

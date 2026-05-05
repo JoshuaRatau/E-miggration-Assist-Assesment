@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { DocumentUploader } from "@/components/DocumentUploader";
 
 const STATUS_OPTIONS = [
   "NEW",
@@ -260,6 +261,19 @@ export function AdminLeadDetail() {
                   : null
               }
             />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Documents</CardTitle>
+            <CardDescription>
+              Files uploaded by the lead. They are stored privately and only
+              served via authenticated download links from this panel.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DocumentUploader leadId={id} />
           </CardContent>
         </Card>
 

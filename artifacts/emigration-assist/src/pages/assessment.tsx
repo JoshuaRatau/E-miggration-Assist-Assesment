@@ -16,6 +16,7 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Disclaimer } from "@/components/disclaimer";
 import { trackEvent } from "@/lib/analytics";
+import { DocumentUploader } from "@/components/DocumentUploader";
 
 const assessmentSchema = z.object({
   // Step 1
@@ -60,7 +61,11 @@ export function Assessment() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [step, setStep] = useState(1);
-  const totalSteps = 4;
+  const totalSteps = 5;
+  const [createdLead, setCreatedLead] = useState<{
+    id: string;
+    referenceNumber: string;
+  } | null>(null);
 
   const createLead = useCreateLead();
 
@@ -130,7 +135,12 @@ export function Assessment() {
               payload: { hasSupportingDocuments: data.hasSupportingDocuments },
             });
           }
-          setLocation(`/thank-you/${result.referenceNumber}`);
+          setCreatedLead({
+            id: result.id,
+            referenceNumber: result.referenceNumber,
+          });
+          setStep(5);
+          window.scrollTo(0, 0);
         },
         onError: () => {
           toast({
@@ -518,8 +528,27 @@ export function Assessment() {
                 </div>
               )}
 
+              {step === 5 && createdLead && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <h2 className="text-xl font-medium border-b pb-2">
+                    Upload Supporting Documents (Optional)
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Uploading documents may help improve your future assessment
+                    when the full system is available.
+                  </p>
+                  <div className="rounded-md bg-muted/40 border p-3 text-sm">
+                    <span className="text-muted-foreground">Reference: </span>
+                    <code className="font-mono">
+                      {createdLead.referenceNumber}
+                    </code>
+                  </div>
+                  <DocumentUploader leadId={createdLead.id} />
+                </div>
+              )}
+
               <div className="flex justify-between pt-6 border-t">
-                {step > 1 ? (
+                {step > 1 && step < 5 ? (
                   <Button type="button" variant="outline" onClick={prevStep}>
                     Back
                   </Button>
@@ -527,13 +556,25 @@ export function Assessment() {
                   <div></div>
                 )}
 
-                {step < totalSteps ? (
+                {step < 4 && (
                   <Button type="button" onClick={nextStep}>
                     Continue
                   </Button>
-                ) : (
+                )}
+                {step === 4 && (
                   <Button type="submit" disabled={createLead.isPending}>
                     {createLead.isPending ? "Submitting..." : "Submit Assessment"}
+                  </Button>
+                )}
+                {step === 5 && createdLead && (
+                  <Button
+                    type="button"
+                    onClick={() =>
+                      setLocation(`/thank-you/${createdLead.referenceNumber}`)
+                    }
+                    data-testid="button-continue-to-summary"
+                  >
+                    Continue to summary
                   </Button>
                 )}
               </div>

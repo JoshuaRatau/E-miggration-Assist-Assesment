@@ -1,0 +1,153 @@
+Upgrade the E-Migration Assist system to implement a secure, structured document upload system tied to each lead.
+
+GOAL:
+- Allow users to upload immigration-related documents
+- Store documents securely
+- Link documents to leads
+- Prepare system for future OCR and case processing
+
+------------------------------------
+
+1. CREATE DOCUMENT UPLOAD COMPONENT
+
+Create:
+/components/DocumentUploader.tsx
+
+Features:
+- Drag & drop upload
+- File picker fallback
+- Show upload progress
+- Show uploaded files list
+
+------------------------------------
+
+2. SUPPORTED FILE TYPES
+
+Allow only:
+- PDF
+- JPG
+- PNG
+
+Reject all others
+
+Max file size:
+10MB per file
+
+------------------------------------
+
+3. DOCUMENT TYPES
+
+User must select document type:
+
+Dropdown:
+- Passport
+- Visa / Permit
+- Entry Stamp
+- Exit Stamp
+- Undesirable Declaration
+- Medical Evidence
+- Travel Evidence
+- Written Explanation
+- Other
+
+------------------------------------
+
+4. STORAGE
+
+Store files in:
+
+Option A (quick):
+- local /uploads folder
+
+Option B (preferred):
+- S3-compatible storage (Replit object storage if available)
+
+Store in database:
+
+prelaunch_documents:
+- id
+- leadId
+- documentType
+- fileUrl
+- fileName
+- mimeType
+- fileSize
+- uploadStatus ("UPLOADED")
+
+------------------------------------
+
+5. API ENDPOINT
+
+Create:
+
+POST /api/documents/upload
+
+Accept:
+- file
+- leadId
+- documentType
+
+Return:
+- success
+- fileUrl
+
+------------------------------------
+
+6. LINK TO LEAD
+
+Each upload must:
+- be linked to leadId
+- appear in admin dashboard
+
+------------------------------------
+
+7. UPDATE ADMIN PANEL
+
+In lead detail page:
+
+Show:
+
+Documents section:
+- document type
+- file name
+- upload date
+- download button
+
+------------------------------------
+
+8. SECURITY
+
+- Validate file type before upload
+- Reject executable files
+- Prevent direct public access if possible
+- Use signed URLs if supported
+
+------------------------------------
+
+9. USER FLOW
+
+On assessment flow:
+
+Add step:
+"Upload Supporting Documents (Optional)"
+
+Message:
+
+"Uploading documents may help improve your future assessment when the full system is available."
+
+------------------------------------
+
+10. DO NOT ADD CTAs
+
+No:
+- submit for review
+- send to consultant
+- pay
+- apply
+
+------------------------------------
+
+OUTPUT:
+- working document upload system
+- files stored and linked to leads
+- visible in admin dashboard

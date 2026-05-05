@@ -49,7 +49,12 @@ export const prelaunchDocumentsTable = pgTable("prelaunch_documents", {
   id: uuid("id").primaryKey().defaultRandom(),
   leadId: uuid("lead_id").notNull(),
   documentType: text("document_type").notNull(),
+  // fileUrl stores the object storage path (e.g. /objects/uploads/<uuid>)
   fileUrl: text("file_url").notNull(),
+  fileName: text("file_name"),
+  mimeType: text("mime_type"),
+  fileSize: integer("file_size"),
+  uploadStatus: text("upload_status").notNull().default("UPLOADED"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

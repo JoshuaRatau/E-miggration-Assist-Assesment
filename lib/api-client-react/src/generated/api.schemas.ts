@@ -102,6 +102,20 @@ export interface AnalyticsEventResponse {
   createdAt: string;
 }
 
+export interface Document {
+  id: string;
+  leadId: string;
+  /** passport | visa_permit | entry_stamp | exit_stamp | undesirable_declaration | medical_evidence | travel_evidence | written_explanation | other */
+  documentType: string;
+  /** Internal object storage path. Use /api/documents/{id}/download to fetch the bytes. */
+  fileUrl: string;
+  fileName?: string | null;
+  mimeType?: string | null;
+  fileSize?: number | null;
+  uploadStatus: string;
+  createdAt: string;
+}
+
 export type ListLeadsParams = {
   /**
    * @minimum 1
@@ -121,4 +135,8 @@ export type ListLeadsParams = {
    * Filter by immigrationSituation enum value
    */
   situation?: string;
+};
+
+export type ListDocumentsParams = {
+  leadId: string;
 };

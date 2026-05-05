@@ -193,6 +193,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AnalyticsEventResponse"
+  /documents:
+    get:
+      operationId: listDocuments
+      tags: [documents]
+      summary: List uploaded documents for a lead
+      description: |
+        Returns the documents previously uploaded for a lead.
+
+        Two related document endpoints are intentionally NOT defined in this
+        spec because their request/response shapes (multipart upload, raw
+        binary download) cannot be modelled by Orval's React Query codegen:
+          - POST /api/documents/upload     (multipart/form-data: file, leadId, documentType)
+          - GET  /api/documents/{id}/download  (returns the file bytes)
+        Clients call these directly with `fetch` or an anchor href.
+      parameters:
+        - in: query
+          name: leadId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Documents list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Document"
 components:
   schemas:
     HealthStatus:
@@ -404,3 +434,30 @@ components:
         createdAt:
           type: string
       required: [id, eventName, createdAt]
+    Document:
+      type: object
+      properties:
+        id:
+          type: string
+        leadId:
+          type: string
+        documentType:
+          type: string
+          description: 'passport | visa_permit | entry_stamp | exit_stamp | undesirable_declaration | medical_evidence | travel_evidence | written_explanation | other'
+        fileUrl:
+          type: string
+          description: 'Internal object storage path. Use /api/documents/{id}/download to fetch the bytes.'
+        fileName:
+          type: string
+          nullable: true
+        mimeType:
+          type: string
+          nullable: true
+        fileSize:
+          type: integer
+          nullable: true
+        uploadStatus:
+          type: string
+        createdAt:
+          type: string
+      required: [id, leadId, documentType, fileUrl, uploadStatus, createdAt]
