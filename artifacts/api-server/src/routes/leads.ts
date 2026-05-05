@@ -3,6 +3,7 @@ import {
   db,
   prelaunchLeadsTable,
   analyticsEventsTable,
+  leadEngagementsTable,
 } from "@workspace/db";
 import { CreateLeadBody, ListLeadsQueryParams } from "@workspace/api-zod";
 import { and, desc, eq, or, sql } from "drizzle-orm";
@@ -223,15 +224,56 @@ router.post("/leads", async (req, res) => {
       req.log.error({ err }, "Failed to log whatsapp_captured event"),
     );
 
-  // Fire-and-forget confirmation email + analytics. Email failures must NEVER
-  // block submission, so we swallow all errors and log silently.
+  // Confirmation engagement row + fire-and-forget send.
+  //
+  // The engagement record is created with status='pending' BEFORE the send is
+  // attempted, so that:
+  //   * even if the process crashes mid-send, the operator still sees a
+  //     "pending" row in the engagement history (not a silent black hole),
+  //   * the send pipeline can update the row to 'sent' / 'failed' atomically
+  //     with the analytics event,
+  //   * and lead submission is NEVER blocked: the whole block is async and
+  //     errors are swallowed (logged with no PII).
+  //
+  // No email on file? We skip the engagement row entirely — there is nothing
+  // to deliver and nothing to retry.
   if (inserted.email && inserted.consentAccepted) {
     void (async () => {
+      let engagementId: string | null = null;
+      try {
+        const [engagement] = await db
+          .insert(leadEngagementsTable)
+          .values({
+            leadId: inserted.id,
+            channel: "email",
+            type: "confirmation",
+            status: "pending",
+          })
+          .returning({ id: leadEngagementsTable.id });
+        engagementId = engagement?.id ?? null;
+      } catch (err) {
+        req.log.warn({ err }, "Failed to record confirmation engagement row");
+      }
+
       try {
         const sendResult = await sendConfirmationEmail({
           to: inserted.email!,
           referenceNumber: inserted.referenceNumber,
         });
+
+        if (engagementId) {
+          await db
+            .update(leadEngagementsTable)
+            .set({ status: sendResult.ok ? "sent" : "failed" })
+            .where(eq(leadEngagementsTable.id, engagementId))
+            .catch((err) =>
+              req.log.warn(
+                { err },
+                "Failed to update confirmation engagement status",
+              ),
+            );
+        }
+
         await db.insert(analyticsEventsTable).values({
           eventName: "email_sent_confirmation",
           leadId: inserted.id,

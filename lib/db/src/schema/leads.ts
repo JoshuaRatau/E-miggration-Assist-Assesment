@@ -74,8 +74,37 @@ export const analyticsEventsTable = pgTable("analytics_events", {
     .defaultNow(),
 });
 
+// Lead Engagements ------------------------------------------------------------
+//
+// One row per outbound message attempt to a lead. Drives the admin engagement
+// history UI and is also a future hand-off point for non-email channels
+// (WhatsApp first). Channel/type/status are stored as plain text rather than
+// pg enums so adding e.g. 'sms' or 'in_app' later does not require a migration
+// dance — the application layer is the source of truth.
+//
+//   channel ∈ email | whatsapp
+//   type    ∈ confirmation | update | manual
+//   status  ∈ pending | sent | failed
+//
+// `message` is nullable: confirmation and "send update batch" rows use a
+// templated body and do not store the rendered text. Manual messages typed by
+// an admin ARE persisted so the operator can audit what was sent.
+export const leadEngagementsTable = pgTable("lead_engagements", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  leadId: uuid("lead_id").notNull(),
+  channel: text("channel").notNull(),
+  type: text("type").notNull(),
+  status: text("status").notNull().default("pending"),
+  message: text("message"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export type PrelaunchLead = typeof prelaunchLeadsTable.$inferSelect;
 export type InsertPrelaunchLead = typeof prelaunchLeadsTable.$inferInsert;
 export type PrelaunchDocument = typeof prelaunchDocumentsTable.$inferSelect;
 export type AnalyticsEvent = typeof analyticsEventsTable.$inferSelect;
 export type InsertAnalyticsEvent = typeof analyticsEventsTable.$inferInsert;
+export type LeadEngagement = typeof leadEngagementsTable.$inferSelect;
+export type InsertLeadEngagement = typeof leadEngagementsTable.$inferInsert;

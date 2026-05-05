@@ -75,6 +75,21 @@ export type SendResult =
   | { ok: true; id: string }
   | { ok: false; reason: string };
 
+/**
+ * Redact a recipient email for logging. We never want full addresses ending
+ * up in logs (PII). Keep only the domain so an operator triaging a delivery
+ * problem can still tell whether it's a corporate / consumer / test domain
+ * without exposing the local part.
+ *
+ *   "ana.silva@example.com"  → "<redacted>@example.com"
+ *   "weird-input"            → "<redacted>"
+ */
+function redactRecipient(to: string): string {
+  const at = to.lastIndexOf("@");
+  if (at <= 0 || at === to.length - 1) return "<redacted>";
+  return `<redacted>@${to.slice(at + 1)}`;
+}
+
 async function sendSafely(args: {
   to: string;
   subject: string;
@@ -83,8 +98,10 @@ async function sendSafely(args: {
   const blocked =
     findForbiddenPhrase(args.subject) ?? findForbiddenPhrase(args.text);
   if (blocked) {
+    // NOTE: subject is operator-supplied for manual sends, so it CAN contain
+    // PII (e.g. a name). Log only the matched phrase, not the subject.
     logger.error(
-      { phrase: blocked, subject: args.subject },
+      { phrase: blocked },
       "Email blocked: forbidden phrase",
     );
     return { ok: false, reason: `forbidden_phrase:${blocked}` };
@@ -99,13 +116,19 @@ async function sendSafely(args: {
       text: args.text,
     });
     if (r.error) {
-      logger.warn({ err: r.error, to: args.to }, "Resend send returned error");
+      logger.warn(
+        { err: r.error, recipient: redactRecipient(args.to) },
+        "Resend send returned error",
+      );
       return { ok: false, reason: r.error.message ?? "resend_error" };
     }
     const id = r.data?.id ?? "";
     return { ok: true, id };
   } catch (err) {
-    logger.warn({ err, to: args.to }, "Resend send threw");
+    logger.warn(
+      { err, recipient: redactRecipient(args.to) },
+      "Resend send threw",
+    );
     return {
       ok: false,
       reason: err instanceof Error ? err.message : "unknown_error",
@@ -151,4 +174,19 @@ export async function sendUpdateEmail(args: {
   ].join("\n");
 
   return sendSafely({ to: args.to, subject, text });
+}
+
+/**
+ * Public escape-hatch for the messaging gateway (`lib/messaging.ts`). Lets
+ * the channel-agnostic sender route a fully-rendered subject + body through
+ * the same forbidden-phrase screen and never-throw discipline used by all
+ * other email paths. Do NOT call directly from route handlers — go through
+ * `sendMessage()` so the engagement-row lifecycle stays intact.
+ */
+export async function sendCustomEmail(args: {
+  to: string;
+  subject: string;
+  text: string;
+}): Promise<SendResult> {
+  return sendSafely(args);
 }

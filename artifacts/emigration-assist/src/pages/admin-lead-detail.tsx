@@ -380,7 +380,150 @@ export function AdminLeadDetail() {
             </div>
           </CardContent>
         </Card>
+
+        <EngagementHistory leadId={id} />
       </div>
     </div>
   );
+}
+
+interface EngagementRow {
+  id: string;
+  leadId: string;
+  channel: string;
+  type: string;
+  status: string;
+  message: string | null;
+  createdAt: string;
+}
+
+/**
+ * Read-only engagement timeline for a single lead.
+ *
+ * Fetches `GET /api/admin/leads/:id/engagements` (token-gated, never written
+ * to the React Query cache shared with public lead data, since rows may
+ * contain operator-typed message bodies). We refetch on mount and after a
+ * window-focus event so an operator who sends an update from the listing
+ * page sees the new row immediately when they navigate back here.
+ *
+ * Failure mode: if the admin token is missing or rejected, we render a
+ * compact empty state rather than blocking the page — the rest of the lead
+ * detail (status, priority, notes) remains usable.
+ */
+function EngagementHistory({ leadId }: { leadId: string }) {
+  const [rows, setRows] = useState<EngagementRow[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const token = getAdminToken();
+      if (!token) {
+        if (!cancelled) {
+          setError("Admin token required");
+          setLoading(false);
+        }
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(
+          `${import.meta.env.BASE_URL}api/admin/leads/${leadId}/engagements`,
+          { headers: { "x-admin-token": token } },
+        );
+        if (res.status === 401) {
+          clearAdminToken();
+          throw new Error("Admin token rejected");
+        }
+        if (!res.ok) throw new Error(`Server returned ${res.status}`);
+        const body = (await res.json()) as EngagementRow[];
+        if (!cancelled) setRows(body);
+      } catch (err) {
+        if (!cancelled)
+          setError(err instanceof Error ? err.message : "Unknown error");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void load();
+    const onFocus = () => void load();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [leadId]);
+
+  return (
+    <Card data-testid="card-engagement-history">
+      <CardHeader>
+        <CardTitle>Engagement history</CardTitle>
+        <CardDescription>
+          Outbound messages we have attempted for this lead, newest first.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+          </div>
+        ) : error ? (
+          <div
+            className="text-sm text-muted-foreground"
+            data-testid="text-engagement-error"
+          >
+            Could not load engagement history: {error}
+          </div>
+        ) : !rows || rows.length === 0 ? (
+          <div
+            className="text-sm text-muted-foreground"
+            data-testid="text-engagement-empty"
+          >
+            No engagements yet. Use “Send update” on the leads list to send a
+            one-off message.
+          </div>
+        ) : (
+          <ul className="divide-y">
+            {rows.map((row) => (
+              <li
+                key={row.id}
+                className="flex flex-col gap-1 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+                data-testid={`row-engagement-${row.id}`}
+              >
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline">{row.type}</Badge>
+                    <Badge variant="outline">{row.channel}</Badge>
+                    <Badge className={statusBadgeClass(row.status)}>
+                      {row.status}
+                    </Badge>
+                  </div>
+                  {row.message ? (
+                    <div className="text-sm whitespace-pre-wrap text-muted-foreground">
+                      {row.message}
+                    </div>
+                  ) : null}
+                </div>
+                <div className="text-xs text-muted-foreground whitespace-nowrap">
+                  {format(new Date(row.createdAt), "PPp")}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function statusBadgeClass(status: string): string {
+  if (status === "sent") return "bg-emerald-600 text-white border-transparent";
+  if (status === "failed") return "bg-red-600 text-white border-transparent";
+  if (status === "pending")
+    return "bg-amber-500 text-white border-transparent";
+  return "bg-muted text-muted-foreground border-transparent";
 }

@@ -7,6 +7,7 @@ import documentsRouter from "./documents";
 import publicStatusRouter from "./publicStatus";
 import adminEmailRouter from "./adminEmail";
 import adminLeadsRouter from "./adminLeads";
+import adminEngagementsRouter from "./adminEngagements";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(documentsRouter);
 router.use(publicStatusRouter);
 router.use(adminEmailRouter);
 router.use(adminLeadsRouter);
+router.use(adminEngagementsRouter);
 
 export default router;

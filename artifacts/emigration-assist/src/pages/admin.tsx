@@ -12,6 +12,14 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { getAdminToken, clearAdminToken } from "@/lib/adminToken";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -162,6 +170,14 @@ export function Admin() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [sendingUpdate, setSendingUpdate] = useState(false);
+  // Per-row "Send update" dialog target. Null = dialog closed. The dialog is
+  // rendered once at page level (see SendUpdateDialog) and switched between
+  // leads via this state, so we don't pay for one Radix portal per row.
+  const [sendUpdateTarget, setSendUpdateTarget] = useState<{
+    id: string;
+    referenceNumber: string;
+    email: string | null;
+  } | null>(null);
 
   const exportHref = `${import.meta.env.BASE_URL}api/leads/export.csv`;
   const sendUpdateUrl = `${import.meta.env.BASE_URL}api/admin/email/update`;
@@ -626,15 +642,37 @@ export function Admin() {
                             />
                           </TableCell>
                           <TableCell>
-                            <Link href={`/admin/lead/${lead.id}`}>
+                            <div className="flex items-center gap-1">
+                              <Link href={`/admin/lead/${lead.id}`}>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  data-testid={`link-lead-${lead.referenceNumber}`}
+                                >
+                                  View
+                                </Button>
+                              </Link>
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                data-testid={`link-lead-${lead.referenceNumber}`}
+                                disabled={!lead.email}
+                                title={
+                                  lead.email
+                                    ? "Send a one-off update to this lead"
+                                    : "No email on file"
+                                }
+                                onClick={() =>
+                                  setSendUpdateTarget({
+                                    id: lead.id,
+                                    referenceNumber: lead.referenceNumber,
+                                    email: lead.email ?? null,
+                                  })
+                                }
+                                data-testid={`button-send-update-${lead.referenceNumber}`}
                               >
-                                View
+                                Send update
                               </Button>
-                            </Link>
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
@@ -646,7 +684,162 @@ export function Admin() {
           </CardContent>
         </Card>
       </div>
+
+      <SendUpdateDialog
+        target={sendUpdateTarget}
+        onClose={() => setSendUpdateTarget(null)}
+        onUnauthorized={clearAdminToken}
+      />
     </div>
+  );
+}
+
+/**
+ * Per-row "Send update" modal.
+ *
+ * Posts to the token-gated `/api/admin/leads/:id/send-update` endpoint. The
+ * server creates the engagement row BEFORE attempting to send, so even a
+ * provider failure leaves an auditable history entry — the dialog therefore
+ * always surfaces the resulting status (sent / pending / failed) rather than
+ * just a generic success.
+ *
+ * The dialog is rendered once at the page level and driven by the parent's
+ * `target` prop; this avoids one Dialog instance per table row (which would
+ * be hundreds of detached Radix portals on a busy admin page).
+ */
+function SendUpdateDialog({
+  target,
+  onClose,
+  onUnauthorized,
+}: {
+  target: {
+    id: string;
+    referenceNumber: string;
+    email: string | null;
+  } | null;
+  onClose: () => void;
+  onUnauthorized: () => void;
+}) {
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const { toast } = useToast();
+
+  // Reset the textarea every time a new target opens so we don't leak the
+  // previous lead's draft message across rows.
+  useEffect(() => {
+    if (target) setMessage("");
+  }, [target?.id]);
+
+  const open = target !== null;
+  const trimmed = message.trim();
+  const canSend = open && trimmed.length > 0 && !sending;
+
+  const handleSend = async () => {
+    if (!target || !canSend) return;
+    const token = getAdminToken();
+    if (!token) return;
+    setSending(true);
+    try {
+      const res = await fetch(
+        `${import.meta.env.BASE_URL}api/admin/leads/${target.id}/send-update`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-admin-token": token,
+          },
+          body: JSON.stringify({ message: trimmed }),
+        },
+      );
+      if (res.status === 401) {
+        onUnauthorized();
+        throw new Error("Admin token rejected");
+      }
+      const body = (await res.json().catch(() => ({}))) as {
+        sent?: boolean;
+        reason?: string | null;
+        error?: string;
+        engagement?: { status?: string };
+      };
+      if (!res.ok) {
+        throw new Error(body.error ?? `Server returned ${res.status}`);
+      }
+      if (body.sent) {
+        toast({
+          title: "Update sent",
+          description: `Email delivered to lead ${target.referenceNumber}.`,
+        });
+      } else if (body.engagement?.status === "pending") {
+        toast({
+          title: "Update queued",
+          description:
+            "Email provider is unavailable; the engagement is recorded as pending and will retry.",
+        });
+      } else {
+        toast({
+          title: "Send failed",
+          description: body.reason ?? "Engagement saved but the send failed.",
+          variant: "destructive",
+        });
+      }
+      onClose();
+    } catch (err) {
+      toast({
+        title: "Send failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && !sending) onClose();
+      }}
+    >
+      <DialogContent data-testid="dialog-send-update">
+        <DialogHeader>
+          <DialogTitle>Send update</DialogTitle>
+          <DialogDescription>
+            {target ? (
+              <>
+                Sending to lead <strong>{target.referenceNumber}</strong>
+                {target.email ? <> via email.</> : <>.</>}
+              </>
+            ) : null}
+          </DialogDescription>
+        </DialogHeader>
+        <Textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Type the update message you want to send to this lead…"
+          rows={6}
+          disabled={sending}
+          data-testid="textarea-send-update-message"
+        />
+        <DialogFooter>
+          <Button
+            variant="ghost"
+            onClick={onClose}
+            disabled={sending}
+            data-testid="button-cancel-send-update"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSend}
+            disabled={!canSend}
+            data-testid="button-confirm-send-update"
+          >
+            {sending ? "Sending…" : "Send"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
