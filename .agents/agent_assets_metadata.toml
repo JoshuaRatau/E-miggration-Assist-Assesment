@@ -12,3 +12,15 @@ id = "e2n6172uZbXEPfuDKLxoU"
 uri = "file://docs/FUNCTIONAL_SPEC.md"
 type = "text"
 title = "E-Migration Assist — Functional Specification (Fully Functioning)"
+
+[[outputs]]
+id = "dqooa4P0PkwW6U8WLNmnI"
+uri = "file://docs/ARCHITECTURE.pdf"
+type = "pdf"
+title = "E-Migration Assist — Architecture (PDF)"
+
+[[outputs]]
+id = "LPTvVhnA7TXxote_bKyFN"
+uri = "file://docs/FUNCTIONAL_SPEC.pdf"
+type = "pdf"
+title = "E-Migration Assist — Functional Specification (PDF)"
