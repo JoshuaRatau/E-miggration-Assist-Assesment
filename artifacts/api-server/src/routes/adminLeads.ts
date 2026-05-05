@@ -1,47 +1,13 @@
 import { Router, type IRouter } from "express";
-import { timingSafeEqual } from "node:crypto";
 import { db, prelaunchLeadsTable, analyticsEventsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import {
   LEAD_STATUS_VALUES,
   LEAD_PRIORITY_VALUES,
 } from "../lib/classification";
+import { requireAdminToken } from "../lib/adminAuth";
 
 const router: IRouter = Router();
-
-function tokensMatch(a: string, b: string): boolean {
-  const ab = Buffer.from(a);
-  const bb = Buffer.from(b);
-  if (ab.length !== bb.length) return false;
-  return timingSafeEqual(ab, bb);
-}
-
-function requireAdminToken(
-  req: import("express").Request,
-  res: import("express").Response,
-): boolean {
-  const expected = process.env.ADMIN_EMAIL_TOKEN;
-  if (!expected) {
-    req.log.error(
-      "ADMIN_EMAIL_TOKEN env var is not set; refusing admin lead update",
-    );
-    res.status(503).json({ error: "Admin endpoints are not configured" });
-    return false;
-  }
-  const provided =
-    typeof req.header("x-admin-token") === "string"
-      ? (req.header("x-admin-token") as string)
-      : "";
-  if (!provided || !tokensMatch(provided, expected)) {
-    req.log.warn(
-      { ip: req.ip },
-      "Rejected admin lead update — invalid or missing token",
-    );
-    res.status(401).json({ error: "Invalid admin token" });
-    return false;
-  }
-  return true;
-}
 
 function serializeLead(row: typeof prelaunchLeadsTable.$inferSelect) {
   return {

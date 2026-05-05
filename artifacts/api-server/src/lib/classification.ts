@@ -15,6 +15,7 @@ export type LeadStatus =
   | "new"
   | "reviewing"
   | "contacted"
+  | "qualified"
   | "converted"
   | "closed";
 
@@ -134,6 +135,7 @@ export const LEAD_STATUS_VALUES = [
   "new",
   "reviewing",
   "contacted",
+  "qualified",
   "converted",
   "closed",
 ] as const;

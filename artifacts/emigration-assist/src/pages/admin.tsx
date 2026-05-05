@@ -1,13 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import {
-  useListLeads,
   useGetStatsSummary,
-  getListLeadsQueryKey,
   type Lead,
-  type ListLeadsParams,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { getAdminToken, clearAdminToken } from "@/lib/adminToken";
@@ -51,6 +48,7 @@ const STATUS_VALUES = [
   "new",
   "reviewing",
   "contacted",
+  "qualified",
   "converted",
   "closed",
 ] as const;
@@ -68,18 +66,9 @@ const STATUS_OPTIONS = [
   { value: "new", label: "New" },
   { value: "reviewing", label: "Reviewing" },
   { value: "contacted", label: "Contacted" },
+  { value: "qualified", label: "Qualified" },
   { value: "converted", label: "Converted" },
   { value: "closed", label: "Closed" },
-];
-
-const SITUATION_OPTIONS = [
-  { value: "ALL", label: "All situations" },
-  { value: "valid", label: "Valid visa" },
-  { value: "expired", label: "Expired visa" },
-  { value: "overstay", label: "Overstay" },
-  { value: "undesirable", label: "Undesirable" },
-  { value: "prohibited", label: "Prohibited" },
-  { value: "unknown", label: "Unknown" },
 ];
 
 const WHATSAPP_OPTIONS = [
@@ -88,28 +77,12 @@ const WHATSAPP_OPTIONS = [
   { value: "NONE", label: "WhatsApp: None" },
 ];
 
-function whatsappBadge(hasWhatsapp: boolean) {
-  if (hasWhatsapp) {
-    return (
-      <Badge
-        className="bg-green-600 hover:bg-green-700 text-white border-transparent"
-        aria-label="Has WhatsApp"
-      >
-        ✓ WhatsApp
-      </Badge>
-    );
-  }
-  return (
-    <Badge
-      variant="outline"
-      className="text-muted-foreground"
-      aria-label="No WhatsApp"
-    >
-      —
-    </Badge>
-  );
-}
+const SORT_OPTIONS = [
+  { value: "newest", label: "Newest first" },
+  { value: "priority", label: "Priority first (high → low)" },
+];
 
+// Visual cues for the priority badge — high = red, medium = orange, low = grey.
 function priorityBadgeClass(priority: string | null | undefined): string {
   if (priority === "high")
     return "bg-red-600 hover:bg-red-700 text-white border-transparent";
@@ -127,6 +100,49 @@ function priorityLabel(priority: string | null | undefined): string {
   return "—";
 }
 
+function whatsappCell(hasWhatsapp: boolean) {
+  if (hasWhatsapp) {
+    return (
+      <span
+        className="text-green-600 text-lg font-semibold"
+        aria-label="Has WhatsApp"
+        title="Has WhatsApp"
+      >
+        ✔
+      </span>
+    );
+  }
+  return (
+    <span
+      className="text-muted-foreground text-lg"
+      aria-label="No WhatsApp"
+      title="No WhatsApp"
+    >
+      ✖
+    </span>
+  );
+}
+
+// Order used by the "priority first" sort: high > medium > low > unknown.
+const PRIORITY_RANK: Record<string, number> = {
+  high: 0,
+  medium: 1,
+  low: 2,
+};
+
+function priorityRank(p: string | null | undefined): number {
+  return p && p in PRIORITY_RANK ? PRIORITY_RANK[p]! : 99;
+}
+
+// "Visa Type" surfaces the lead's `immigrationSituation` (the canonical
+// enum captured in the funnel: valid / expired / overstay / undesirable /
+// prohibited / unknown).  Free-form `visaHistory` is operator-only and
+// stays in the detail page.
+function visaTypeLabel(situation: string | null | undefined): string {
+  if (!situation) return "—";
+  return situation.replace(/_/g, " ");
+}
+
 export function Admin() {
   useEffect(() => {
     document.title = "Admin Overview | E-Migration Assist";
@@ -134,42 +150,98 @@ export function Admin() {
 
   const [priority, setPriority] = useState("ALL");
   const [status, setStatus] = useState("ALL");
-  const [situation, setSituation] = useState("ALL");
-  const [nationality, setNationality] = useState("");
   const [whatsappFilter, setWhatsappFilter] = useState("ANY");
+  const [sort, setSort] = useState<"newest" | "priority">("newest");
 
-  const queryParams: ListLeadsParams = useMemo(() => {
+  // Server-side filters that we forward to GET /api/leads.  WhatsApp is
+  // applied client-side because the server contract has no filter for it
+  // (`hasWhatsapp` is derived from the `whatsapp` field at serialization).
+  const serverParams = useMemo(() => {
     const p: Record<string, string | number> = { limit: 200 };
     if (priority !== "ALL") p.priority = priority;
     if (status !== "ALL") p.status = status;
-    if (situation !== "ALL") p.situation = situation;
-    if (nationality.trim()) p.nationality = nationality.trim();
-    return p as ListLeadsParams;
-  }, [priority, status, situation, nationality]);
+    return p;
+  }, [priority, status]);
 
-  const { data: leads, isLoading } = useListLeads(queryParams);
+  // We can't use the Orval-generated `useListLeads` here because it does not
+  // expose a way to inject the `x-admin-token` header that GET /api/leads now
+  // requires.  We use React Query directly with a custom fetch and our own
+  // query key — that key is also what `patchLead` mutates optimistically.
   const listQueryKey = useMemo(
-    () => getListLeadsQueryKey(queryParams),
-    [queryParams],
+    () => ["admin", "leads", serverParams] as const,
+    [serverParams],
   );
 
-  // Client-side WhatsApp filter — applied over the already-fetched list so the
-  // server contract is unchanged. `hasWhatsapp` comes from the serialized lead;
-  // we also fall back to checking the raw `whatsapp` field for resilience.
-  const filteredLeads = useMemo(() => {
-    if (!leads) return leads;
-    if (whatsappFilter === "ANY") return leads;
-    return leads.filter((l) => {
-      const has =
-        (l as { hasWhatsapp?: boolean }).hasWhatsapp ??
-        (typeof l.whatsapp === "string" && l.whatsapp.length > 0);
-      return whatsappFilter === "HAS" ? has : !has;
-    });
-  }, [leads, whatsappFilter]);
-  const { data: stats } = useGetStatsSummary();
   const { toast } = useToast();
   const qc = useQueryClient();
+
+  const {
+    data: leads,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery<Lead[], Error>({
+    queryKey: listQueryKey,
+    queryFn: async () => {
+      const token = getAdminToken();
+      if (!token) throw new Error("Admin token required");
+      const url = new URL(
+        `${import.meta.env.BASE_URL}api/leads`,
+        window.location.origin,
+      );
+      for (const [k, v] of Object.entries(serverParams)) {
+        url.searchParams.set(k, String(v));
+      }
+      const res = await fetch(url.toString(), {
+        headers: { "x-admin-token": token },
+      });
+      if (res.status === 401) {
+        clearAdminToken();
+        throw new Error("Invalid admin token");
+      }
+      if (!res.ok) {
+        throw new Error(`Server returned ${res.status}`);
+      }
+      return (await res.json()) as Lead[];
+    },
+  });
+
+  // Apply the WhatsApp filter and the optional priority sort on the client.
+  // `hasWhatsapp` lives on the serialized payload; we fall back to checking
+  // the raw `whatsapp` field for resilience against older payloads.
+  const visibleLeads = useMemo(() => {
+    if (!leads) return leads;
+    let out = leads;
+    if (whatsappFilter !== "ANY") {
+      out = out.filter((l) => {
+        const has =
+          (l as { hasWhatsapp?: boolean }).hasWhatsapp ??
+          (typeof l.whatsapp === "string" && l.whatsapp.length > 0);
+        return whatsappFilter === "HAS" ? has : !has;
+      });
+    }
+    if (sort === "priority") {
+      out = [...out].sort((a, b) => {
+        const ra = priorityRank(a.leadPriority);
+        const rb = priorityRank(b.leadPriority);
+        if (ra !== rb) return ra - rb;
+        // Tiebreak on createdAt DESC so high-priority newest is on top.
+        return (
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+      });
+    }
+    // sort === "newest" is already the server's default order.
+    return out;
+  }, [leads, whatsappFilter, sort]);
+
+  const filtersAreActive =
+    priority !== "ALL" || status !== "ALL" || whatsappFilter !== "ANY";
+
+  const { data: stats } = useGetStatsSummary();
   const [sendingUpdate, setSendingUpdate] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState(false);
   // Per-row "Send update" dialog target. Null = dialog closed. The dialog is
   // rendered once at page level (see SendUpdateDialog) and switched between
   // leads via this state, so we don't pay for one Radix portal per row.
@@ -180,7 +252,6 @@ export function Admin() {
     whatsapp: string | null;
   } | null>(null);
 
-  const exportHref = `${import.meta.env.BASE_URL}api/leads/export.csv`;
   const sendUpdateUrl = `${import.meta.env.BASE_URL}api/admin/email/update`;
   const adminLeadUrl = (id: string) =>
     `${import.meta.env.BASE_URL}api/admin/leads/${id}`;
@@ -202,7 +273,7 @@ export function Admin() {
   // ---------------------------------------------------------------------
   const patchLead = async (
     id: string,
-    patch: { status?: string; priority?: string; notes?: string | null },
+    patch: { status?: string; priority?: string },
   ): Promise<boolean> => {
     const token = getAdminToken();
     if (!token) return false;
@@ -220,7 +291,6 @@ export function Admin() {
               ...(patch.priority !== undefined
                 ? { leadPriority: patch.priority }
                 : {}),
-              ...(patch.notes !== undefined ? { adminNotes: patch.notes } : {}),
             }
           : l,
       ),
@@ -265,6 +335,43 @@ export function Admin() {
         variant: "destructive",
       });
       return false;
+    }
+  };
+
+  // CSV export goes through fetch + blob download so we can send the admin
+  // token in a header rather than putting it in the URL (URLs get logged).
+  const handleExportCsv = async () => {
+    if (exportingCsv) return;
+    const token = getAdminToken();
+    if (!token) return;
+    setExportingCsv(true);
+    try {
+      const res = await fetch(
+        `${import.meta.env.BASE_URL}api/leads/export.csv`,
+        { headers: { "x-admin-token": token } },
+      );
+      if (res.status === 401) {
+        clearAdminToken();
+        throw new Error("Invalid admin token");
+      }
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ema-leads-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast({
+        title: "Export failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setExportingCsv(false);
     }
   };
 
@@ -350,11 +457,10 @@ export function Admin() {
       <div className="max-w-7xl mx-auto space-y-8">
         <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-display font-bold">Admin Overview</h1>
+            <h1 className="text-3xl font-display font-bold">Lead Dashboard</h1>
             <p className="text-muted-foreground">
-              Pre-launch lead monitoring tool. Internal use only — categories,
-              scores and priorities shown here are internal classifications and
-              are not displayed to users.
+              Pre-launch lead monitoring tool. Internal use only — manage
+              status and priority directly from the table.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
@@ -366,10 +472,12 @@ export function Admin() {
             >
               {sendingUpdate ? "Sending..." : "Send Update Email"}
             </Button>
-            <Button asChild data-testid="button-export-leads">
-              <a href={exportHref} download>
-                Export Leads (CSV)
-              </a>
+            <Button
+              onClick={handleExportCsv}
+              disabled={exportingCsv}
+              data-testid="button-export-leads"
+            >
+              {exportingCsv ? "Exporting…" : "Export Leads (CSV)"}
             </Button>
           </div>
         </header>
@@ -420,31 +528,13 @@ export function Admin() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Filter</CardTitle>
+            <CardTitle>Filters & Sort</CardTitle>
             <CardDescription>
-              Narrow the lead list by priority, status, nationality, situation
-              or WhatsApp.
+              Narrow the lead list by status, priority or WhatsApp availability.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-3 md:grid-cols-5">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">
-                  Priority
-                </label>
-                <Select value={priority} onValueChange={setPriority}>
-                  <SelectTrigger data-testid="select-filter-priority">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PRIORITY_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="grid gap-3 md:grid-cols-4">
               <div>
                 <label className="text-xs font-medium text-muted-foreground">
                   Status
@@ -464,33 +554,20 @@ export function Admin() {
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground">
-                  Situation
+                  Priority
                 </label>
-                <Select value={situation} onValueChange={setSituation}>
-                  <SelectTrigger data-testid="select-filter-situation">
+                <Select value={priority} onValueChange={setPriority}>
+                  <SelectTrigger data-testid="select-filter-priority">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {SITUATION_OPTIONS.map((o) => (
+                    {PRIORITY_OPTIONS.map((o) => (
                       <SelectItem key={o.value} value={o.value}>
                         {o.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">
-                  Nationality
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Zimbabwean"
-                  value={nationality}
-                  onChange={(e) => setNationality(e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  data-testid="input-filter-nationality"
-                />
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground">
@@ -512,17 +589,37 @@ export function Admin() {
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">
+                  Sort
+                </label>
+                <Select
+                  value={sort}
+                  onValueChange={(v) => setSort(v as "newest" | "priority")}
+                >
+                  <SelectTrigger data-testid="select-sort">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SORT_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Recent Assessments</CardTitle>
+            <CardTitle>Leads</CardTitle>
             <CardDescription>
-              Inline CRM editor — change status, priority or notes directly in
-              the table. Updates apply optimistically and persist via an
-              admin-only endpoint.
+              Inline editor — change status or priority directly in the table.
+              Updates apply optimistically and persist via an admin-only
+              endpoint.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -533,28 +630,43 @@ export function Admin() {
                 <Skeleton className="h-16 w-full" />
                 <Skeleton className="h-16 w-full" />
               </div>
-            ) : !filteredLeads || filteredLeads.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground border rounded-lg border-dashed">
-                No assessments match the current filters.
+            ) : isError ? (
+              <div className="text-center py-12 text-destructive border rounded-lg border-dashed space-y-2">
+                <div>{error?.message ?? "Failed to load leads."}</div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => refetch()}
+                  data-testid="button-retry-leads"
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : !visibleLeads || visibleLeads.length === 0 ? (
+              <div
+                className="text-center py-12 text-muted-foreground border rounded-lg border-dashed"
+                data-testid="empty-state-leads"
+              >
+                {filtersAreActive
+                  ? "No leads match the current filters."
+                  : "No leads yet"}
               </div>
             ) : (
               <div className="rounded-md border overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Reference</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Nationality</TableHead>
-                      <TableHead>Situation</TableHead>
-                      <TableHead>WhatsApp</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Visa Type</TableHead>
+                      <TableHead className="text-center">WhatsApp</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Priority</TableHead>
-                      <TableHead className="min-w-[14rem]">Notes</TableHead>
-                      <TableHead></TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead className="text-right"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredLeads.map((lead) => {
+                    {visibleLeads.map((lead) => {
                       const hasWhatsapp =
                         (lead as { hasWhatsapp?: boolean }).hasWhatsapp ??
                         (typeof lead.whatsapp === "string" &&
@@ -565,17 +677,20 @@ export function Admin() {
                           data-testid={`row-lead-${lead.referenceNumber}`}
                           data-has-whatsapp={hasWhatsapp ? "true" : "false"}
                         >
-                          <TableCell className="font-mono text-xs font-medium">
-                            {lead.referenceNumber}
+                          <TableCell>
+                            <div className="font-medium">
+                              {lead.fullName ?? "—"}
+                            </div>
+                            <div className="font-mono text-[10px] text-muted-foreground">
+                              {lead.referenceNumber}
+                            </div>
                           </TableCell>
-                          <TableCell className="text-muted-foreground whitespace-nowrap">
-                            {format(new Date(lead.createdAt), "MMM d, HH:mm")}
-                          </TableCell>
-                          <TableCell>{lead.nationality}</TableCell>
                           <TableCell className="capitalize">
-                            {lead.immigrationSituation?.replace(/_/g, " ")}
+                            {visaTypeLabel(lead.immigrationSituation)}
                           </TableCell>
-                          <TableCell>{whatsappBadge(hasWhatsapp)}</TableCell>
+                          <TableCell className="text-center">
+                            {whatsappCell(hasWhatsapp)}
+                          </TableCell>
                           <TableCell>
                             <Select
                               value={lead.leadStatus}
@@ -630,20 +745,11 @@ export function Admin() {
                               </SelectContent>
                             </Select>
                           </TableCell>
-                          <TableCell>
-                            <NotesCell
-                              leadId={lead.id}
-                              referenceNumber={lead.referenceNumber}
-                              initial={lead.adminNotes ?? ""}
-                              onSave={(value) =>
-                                patchLead(lead.id, {
-                                  notes: value === "" ? null : value,
-                                })
-                              }
-                            />
+                          <TableCell className="text-muted-foreground whitespace-nowrap text-xs">
+                            {format(new Date(lead.createdAt), "MMM d, HH:mm")}
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center justify-end gap-1">
                               <Link href={`/admin/lead/${lead.id}`}>
                                 <Button
                                   variant="ghost"
@@ -901,65 +1007,5 @@ function SendUpdateDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-/**
- * Inline notes cell.  The textarea is uncontrolled-after-mount: the parent's
- * `initial` value seeds local state, and we only call `onSave` when the cell
- * loses focus AND the value actually changed.  This avoids a network round
- * trip on every keystroke and avoids fighting React Query's refetches.
- */
-function NotesCell({
-  leadId,
-  referenceNumber,
-  initial,
-  onSave,
-}: {
-  leadId: string;
-  referenceNumber: string;
-  initial: string;
-  onSave: (value: string) => Promise<boolean>;
-}) {
-  const [value, setValue] = useState(initial);
-  const [savedValue, setSavedValue] = useState(initial);
-  const [saving, setSaving] = useState(false);
-
-  // Re-sync if the parent's authoritative value changes (e.g. after a refetch
-  // or another tab updates the lead).  Skip if the user has unsaved edits.
-  useEffect(() => {
-    if (value === savedValue) {
-      setValue(initial);
-      setSavedValue(initial);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initial]);
-
-  const handleBlur = async () => {
-    if (value === savedValue) return;
-    setSaving(true);
-    const ok = await onSave(value);
-    setSaving(false);
-    if (ok) {
-      setSavedValue(value);
-    } else {
-      setValue(savedValue);
-    }
-  };
-
-  // Suppress unused warning — leadId is exposed for future analytics hooks.
-  void leadId;
-
-  return (
-    <Textarea
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-      onBlur={handleBlur}
-      placeholder="Notes…"
-      rows={2}
-      className="min-h-[2.5rem] text-xs resize-y"
-      disabled={saving}
-      data-testid={`textarea-notes-${referenceNumber}`}
-    />
   );
 }

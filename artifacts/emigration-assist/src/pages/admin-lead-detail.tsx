@@ -1,11 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "wouter";
-import {
-  useGetLeadById,
-  getGetLeadByIdQueryKey,
-  type Lead,
-} from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { type Lead } from "@workspace/api-client-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
   Card,
@@ -33,6 +29,7 @@ const STATUS_OPTIONS = [
   "new",
   "reviewing",
   "contacted",
+  "qualified",
   "converted",
   "closed",
 ] as const;
@@ -78,7 +75,31 @@ export function AdminLeadDetail() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data: lead, isLoading, isError } = useGetLeadById(id);
+  // GET /api/leads/by-id/:id is admin-gated (returns PII).  We can't use the
+  // Orval-generated `useGetLeadById` because it has no header-injection hook,
+  // so we use React Query directly with a custom fetch + admin token.
+  const leadQueryKey = ["admin", "lead", id] as const;
+  const {
+    data: lead,
+    isLoading,
+    isError,
+  } = useQuery<Lead, Error>({
+    queryKey: leadQueryKey,
+    queryFn: async () => {
+      const token = getAdminToken();
+      if (!token) throw new Error("Admin token required");
+      const res = await fetch(
+        `${import.meta.env.BASE_URL}api/leads/by-id/${id}`,
+        { headers: { "x-admin-token": token } },
+      );
+      if (res.status === 401) {
+        clearAdminToken();
+        throw new Error("Invalid admin token");
+      }
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      return (await res.json()) as Lead;
+    },
+  });
 
   const [leadStatus, setLeadStatus] = useState<string>("new");
   const [leadPriority, setLeadPriority] = useState<string>("medium");
@@ -127,8 +148,11 @@ export function AdminLeadDetail() {
         throw new Error(body.error ?? `Server returned ${res.status}`);
       }
       const updated = (await res.json()) as Lead;
-      qc.setQueryData(getGetLeadByIdQueryKey(id), updated);
+      qc.setQueryData(leadQueryKey, updated);
+      // Invalidate both legacy and current admin list cache shapes so any
+      // open dashboard tab reconciles its row.
       qc.invalidateQueries({ queryKey: ["/api/leads"] });
+      qc.invalidateQueries({ queryKey: ["admin", "leads"] });
       toast({
         title: "Lead updated",
         description: "Status, priority and notes have been saved.",

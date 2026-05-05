@@ -15,6 +15,7 @@ import {
 import { composeConfirmationBody, sendConfirmationEmail } from "../lib/email";
 import { sendMessage } from "../lib/messaging";
 import { normalizeWhatsapp } from "../lib/whatsapp";
+import { requireAdminToken } from "../lib/adminAuth";
 
 const router: IRouter = Router();
 
@@ -29,6 +30,26 @@ function serializeLead(row: typeof prelaunchLeadsTable.$inferSelect) {
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     hasWhatsapp: typeof row.whatsapp === "string" && row.whatsapp.length > 0,
+  };
+}
+
+// Admin LIST serializer.  Exposes ONLY the dashboard's spec'd fields plus
+// `referenceNumber` (used for row testids and cross-reference in the UI).
+// Crucially, it omits internal "rules engine" fields — `internalClassification`,
+// `leadScore`, `leadCategory`, `adminNotes` — and bulky funnel data the
+// dashboard does not need.  Per spec: "Do NOT expose rules engine data yet."
+function serializeLeadAdminList(row: typeof prelaunchLeadsTable.$inferSelect) {
+  return {
+    id: row.id,
+    referenceNumber: row.referenceNumber,
+    fullName: row.fullName,
+    email: row.email,
+    whatsapp: row.whatsapp,
+    immigrationSituation: row.immigrationSituation,
+    leadStatus: row.leadStatus,
+    leadPriority: row.leadPriority,
+    hasWhatsapp: typeof row.whatsapp === "string" && row.whatsapp.length > 0,
+    createdAt: row.createdAt.toISOString(),
   };
 }
 
@@ -384,6 +405,12 @@ router.post("/leads", async (req, res) => {
 });
 
 router.get("/leads", async (req, res) => {
+  // Admin-only: the list contains PII (full name, email, whatsapp number)
+  // and internal CRM fields (priority, status).  The user-facing reference
+  // lookup is `GET /leads/:referenceNumber`, which uses `serializeLeadPublic`
+  // and is unaffected by this gate.
+  if (!requireAdminToken(req, res)) return;
+
   const parsed = ListLeadsQueryParams.safeParse(req.query);
   if (!parsed.success) {
     return res
@@ -407,10 +434,15 @@ router.get("/leads", async (req, res) => {
     .orderBy(desc(prelaunchLeadsTable.createdAt))
     .limit(limit);
 
-  return res.json(rows.map(serializeLead));
+  return res.json(rows.map(serializeLeadAdminList));
 });
 
-router.get("/leads/export.csv", async (_req, res) => {
+router.get("/leads/export.csv", async (req, res) => {
+  // Admin-only: the export contains the same PII as `GET /leads`.  The
+  // admin UI calls this with a fetch + `x-admin-token` header and triggers
+  // the download via a Blob URL (so we never put the token in the URL).
+  if (!requireAdminToken(req, res)) return;
+
   const rows = await db
     .select()
     .from(prelaunchLeadsTable)
@@ -471,6 +503,11 @@ router.get("/leads/export.csv", async (_req, res) => {
 });
 
 router.get("/leads/by-id/:id", async (req, res) => {
+  // Admin-only: returns the full lead record including PII (email, whatsapp)
+  // and operator-only `adminNotes`.  The user-facing reference lookup is
+  // `GET /leads/:referenceNumber`, which uses `serializeLeadPublic`.
+  if (!requireAdminToken(req, res)) return;
+
   const { id } = req.params;
   const rows = await db
     .select()

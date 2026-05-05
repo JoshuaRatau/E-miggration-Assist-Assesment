@@ -355,7 +355,7 @@ components:
           description: 'high | medium | low'
         leadStatus:
           type: string
-          description: 'new | reviewing | contacted | converted | closed'
+          description: 'new | reviewing | contacted | qualified | converted | closed'
         adminNotes:
           type: string
           nullable: true
