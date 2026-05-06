@@ -550,7 +550,7 @@ router.get("/leads", async (req, res) => {
   // and internal CRM fields (priority, status).  The user-facing reference
   // lookup is `GET /leads/:referenceNumber`, which uses `serializeLeadPublic`
   // and is unaffected by this gate.
-  if (!requireAdminToken(req, res)) return;
+  if (!(await requireAdminToken(req, res))) return;
 
   const parsed = ListLeadsQueryParams.safeParse(req.query);
   if (!parsed.success) {
@@ -593,7 +593,7 @@ router.get("/leads/export.csv", async (req, res) => {
   // Admin-only: the export contains the same PII as `GET /leads`.  The
   // admin UI calls this with a fetch + `x-admin-token` header and triggers
   // the download via a Blob URL (so we never put the token in the URL).
-  if (!requireAdminToken(req, res)) return;
+  if (!(await requireAdminToken(req, res))) return;
 
   const rows = await db
     .select()
@@ -658,7 +658,7 @@ router.get("/leads/by-id/:id", async (req, res) => {
   // Admin-only: returns the full lead record including PII (email, whatsapp)
   // and operator-only `adminNotes`.  The user-facing reference lookup is
   // `GET /leads/:referenceNumber`, which uses `serializeLeadPublic`.
-  if (!requireAdminToken(req, res)) return;
+  if (!(await requireAdminToken(req, res))) return;
 
   const { id } = req.params;
   const rows = await db

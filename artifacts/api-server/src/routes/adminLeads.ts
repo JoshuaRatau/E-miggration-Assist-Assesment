@@ -61,7 +61,7 @@ function serializeLead(
  * only `{ leadId, fieldsUpdated: [...] }`.
  */
 router.patch("/admin/leads/:id", async (req, res) => {
-  if (!requireAdminToken(req, res)) return;
+  if (!(await requireAdminToken(req, res))) return;
 
   const { id } = req.params;
   const body = (req.body ?? {}) as Record<string, unknown>;

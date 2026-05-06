@@ -26,6 +26,7 @@ import { DocumentUploader } from "@/components/DocumentUploader";
 import { getAdminToken, clearAdminToken } from "@/lib/adminToken";
 import { canAdvanceStatus, statusLabel } from "@/lib/leadStatus";
 import { BrandHeader } from "@/components/brand-header";
+import { AdminUserMenu } from "@/components/admin-user-menu";
 
 const STATUS_OPTIONS = [
   "new",
@@ -175,7 +176,7 @@ export function AdminLeadDetail() {
     return (
       <div className="min-h-screen bg-background p-6 md:p-12">
         <div className="max-w-5xl mx-auto space-y-6">
-          <BrandHeader variant="compact" />
+          <BrandHeader variant="compact" rightSlot={<AdminUserMenu />} />
           <Skeleton className="h-8 w-48" />
           <Skeleton className="h-64 w-full" />
         </div>
@@ -187,7 +188,7 @@ export function AdminLeadDetail() {
     return (
       <div className="min-h-screen bg-background p-6 md:p-12">
         <div className="max-w-5xl mx-auto space-y-4">
-          <BrandHeader variant="compact" />
+          <BrandHeader variant="compact" rightSlot={<AdminUserMenu />} />
           <Link href="/admin">
             <Button variant="ghost">← Back to admin</Button>
           </Link>
@@ -204,7 +205,7 @@ export function AdminLeadDetail() {
   return (
     <div className="min-h-screen bg-background p-6 md:p-12">
       <div className="max-w-5xl mx-auto space-y-6">
-        <BrandHeader variant="compact" />
+        <BrandHeader variant="compact" rightSlot={<AdminUserMenu />} />
         <div className="flex items-center justify-between">
           <Link href="/admin">
             <Button variant="ghost" data-testid="link-back-admin">

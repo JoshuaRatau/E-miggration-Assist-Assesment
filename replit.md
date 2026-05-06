@@ -13,11 +13,13 @@ E-Migration Assist helps users navigate the immigration process by providing a 5
 
 **Required Environment Variables:**
 *   `DATABASE_URL`: PostgreSQL connection string
-*   `ADMIN_EMAIL_TOKEN`: Token for admin email endpoints
+*   `ADMIN_EMAIL_TOKEN`: Legacy operator-only `x-admin-token` fallback (kept for back-compat with scripts)
 *   `RESEND_API_KEY`: Resend API key for email sending
 *   `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`: Twilio credentials for WhatsApp
 *   `OTP_SECRET`: Secret for OTP hashing
 *   `REPLIT_OBJECT_STORAGE_URL`: Replit Object Storage endpoint
+*   `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD` (optional): override the seeded demo admin (defaults: `demo@admin.local` / `ChangeMe!2026`)
+*   `PUBLIC_BASE_URL` (optional): public origin used to build password-reset links (falls back to `https://$REPLIT_DEV_DOMAIN`)
 
 ## Stack
 
@@ -50,6 +52,7 @@ E-Migration Assist helps users navigate the immigration process by providing a 5
 *   **Dynamic Assessment Step Count:** The assessment is 7 steps when the user opts out of supporting documents, 8 when they opt in. The Yes/No "do you have supporting documents to upload?" gate sits between Terms and Upload/Summary.
 *   **Session-Scoped Document Listing:** `DocumentUploader` accepts a `sessionStartedAt` cutoff and filters out documents created before that moment, so a returning user (same email/whatsapp → dedup match on the existing lead) never sees documents from a previous session.
 *   **Inside/Outside-SA Residence Logic:** When the user picks "outside South Africa" the residence dropdown excludes ZA via `excludeIso`. When they pick "inside" with an empty residence, ZA is auto-selected; when they switch from a ZA residence back to "outside", ZA is cleared.
+*   **Admin Auth (V3 — email + password):** `admin_users`, `admin_sessions`, `admin_password_resets` tables in `lib/db/src/schema/admin.ts`. Login mints an opaque session id stored server-side and set as the httpOnly `ema_admin_session` cookie (7-day TTL, sameSite=lax, secure in prod). The shared `requireAdminAuth` / `requireAdminToken` middleware checks the cookie first and falls back to the legacy `x-admin-token` header so operator scripts keep working. On startup, if `admin_users` is empty, a demo admin (`demo@admin.local` / `ChangeMe!2026`, override via `BOOTSTRAP_ADMIN_EMAIL`/`BOOTSTRAP_ADMIN_PASSWORD`) is seeded as superadmin and the credentials are logged at WARN. Forgot-password mints a 1-hour single-use token (sha256-hashed in DB) emailed via Resend; "Manage Admins" (`/admin/users`) is superadmin-only and includes a self-protection guard so a superadmin can't disable/demote/delete themselves.
 
 ## Product
 
@@ -78,6 +81,7 @@ Ensure all solutions are robust and consider edge cases.
 *   **Orphaned Blobs:** Object storage blobs are not deleted when documents are removed (V1 limitation).
 *   **Autofill:** Chromium occasionally autofills WhatsApp input despite attempts to defeat it; handled by clearing during tests.
 *   **`POST /api/leads` `finalize` Flag:** Defaults to `true` for back-compat. The web frontend always passes `finalize:false` from the assessment so the confirmation isn't sent until `/finalize` is hit. Any new caller must remember to pass `finalize:false` if it intends to defer the dispatch.
+*   **Legacy `adminToken.ts` Shim:** `getAdminToken()` now returns the placeholder string `"cookie-auth"` so the many existing fetch sites keep their `if (!token) return;` guards green and the (irrelevant) header is harmless server-side. `clearAdminToken()` redirects to `/admin/login`. Real auth is the session cookie. New admin fetches should use `credentials: "include"` and skip the token helper entirely.
 *   **Step 7 Schema Optionality:** `wantsToUploadDocuments` is `.optional()` in the assessment zod schema even though the UI requires it. This is so that step 6's `type=submit` Continue button isn't silently blocked by zod-resolver before the user has even seen the gate. The Submit/Finalize buttons themselves enforce the choice via `disabled={!wantsDocs}`.
 
 ## Pointers

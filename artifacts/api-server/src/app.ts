@@ -1,5 +1,6 @@
 import express, { type Express } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
@@ -25,7 +26,12 @@ app.use(
     },
   }),
 );
-app.use(cors());
+// Same-origin in normal Replit deployments (proxy puts web + api behind
+// the same host), so default CORS is fine. `credentials: true` is set
+// in case a future operator hosts the admin UI on a different origin —
+// the session cookie still needs to be allowed.
+app.use(cors({ origin: true, credentials: true }));
+app.use(cookieParser());
 // Trust the Replit reverse proxy so `req.ip` and `req.protocol` reflect
 // the original client / scheme rather than the loopback hop. Required
 // for Twilio webhook signature verification (URL must be reconstructed

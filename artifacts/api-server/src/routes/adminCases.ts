@@ -35,7 +35,7 @@ function serializeCase(row: typeof leadCasesTable.$inferSelect) {
  * raw `fetch` (see admin-case-detail.tsx).
  */
 router.get("/admin/cases/:caseId", async (req, res) => {
-  if (!requireAdminToken(req, res)) return;
+  if (!(await requireAdminToken(req, res))) return;
 
   const { caseId } = req.params;
 
@@ -110,7 +110,7 @@ router.get("/admin/cases/:caseId", async (req, res) => {
  * other admin mutation endpoints; the frontend uses raw fetch.
  */
 router.patch("/admin/cases/:caseId", async (req, res) => {
-  if (!requireAdminToken(req, res)) return;
+  if (!(await requireAdminToken(req, res))) return;
 
   const { caseId } = req.params;
   const body = (req.body ?? {}) as Record<string, unknown>;

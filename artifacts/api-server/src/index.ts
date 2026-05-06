@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { bootstrapAdminAccounts } from "./lib/adminBootstrap";
 
 const rawPort = process.env["PORT"];
 
@@ -22,4 +23,11 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+
+  // Fire-and-forget: seeds a demo admin if `admin_users` is empty and
+  // purges any expired sessions. Errors are logged but never crash the
+  // server.
+  bootstrapAdminAccounts().catch((err) => {
+    logger.error({ err }, "Admin bootstrap failed");
+  });
 });

@@ -1,8 +1,8 @@
 import { Router, type IRouter } from "express";
-import { timingSafeEqual } from "node:crypto";
 import { db, prelaunchLeadsTable, analyticsEventsTable } from "@workspace/db";
 import { and, eq, isNotNull, ne } from "drizzle-orm";
 import { sendUpdateEmail } from "../lib/email";
+import { requireAdminToken } from "../lib/adminAuth";
 
 const router: IRouter = Router();
 
@@ -16,36 +16,9 @@ setInterval(() => {
   }
 }, 60 * 1000).unref();
 
-function tokensMatch(a: string, b: string): boolean {
-  const ab = Buffer.from(a);
-  const bb = Buffer.from(b);
-  if (ab.length !== bb.length) return false;
-  return timingSafeEqual(ab, bb);
-}
-
 router.post("/admin/email/update", async (req, res) => {
-  // Auth gate: a server-only env var must be set, and the request must
-  // present a matching x-admin-token header. Fail-closed if env var is unset.
-  const expected = process.env.ADMIN_EMAIL_TOKEN;
-  if (!expected) {
-    req.log.error(
-      "ADMIN_EMAIL_TOKEN env var is not set; refusing admin email request",
-    );
-    return res.status(503).json({
-      error: "Admin email is not configured",
-    });
-  }
-  const provided =
-    typeof req.header("x-admin-token") === "string"
-      ? (req.header("x-admin-token") as string)
-      : "";
-  if (!provided || !tokensMatch(provided, expected)) {
-    req.log.warn(
-      { ip: req.ip },
-      "Rejected admin email request — invalid or missing token",
-    );
-    return res.status(401).json({ error: "Invalid admin token" });
-  }
+  // Auth gate: cookie-session first, falls back to legacy x-admin-token.
+  if (!(await requireAdminToken(req, res))) return;
 
   const ip = req.ip ?? "unknown";
   const now = Date.now();

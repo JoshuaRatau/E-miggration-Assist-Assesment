@@ -2,6 +2,7 @@ import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AdminAuthProvider, RequireAdminAuth } from "@/lib/adminAuth";
 import NotFound from "@/pages/not-found";
 import { Home } from "@/pages/home";
 import { Assessment } from "@/pages/assessment";
@@ -10,6 +11,11 @@ import { Status } from "@/pages/status";
 import { Admin } from "@/pages/admin";
 import { AdminLeadDetail } from "@/pages/admin-lead-detail";
 import { AdminCaseDetail } from "@/pages/admin-case-detail";
+import { AdminLogin } from "@/pages/admin-login";
+import { AdminForgot } from "@/pages/admin-forgot";
+import { AdminReset } from "@/pages/admin-reset";
+import { AdminProfile } from "@/pages/admin-profile";
+import { AdminUsers } from "@/pages/admin-users";
 
 const queryClient = new QueryClient();
 
@@ -20,9 +26,41 @@ function Router() {
       <Route path="/assessment" component={Assessment} />
       <Route path="/thank-you/:reference" component={ThankYou} />
       <Route path="/status" component={Status} />
-      <Route path="/admin" component={Admin} />
-      <Route path="/admin/lead/:id" component={AdminLeadDetail} />
-      <Route path="/admin/case/:caseId" component={AdminCaseDetail} />
+
+      {/* Public admin auth pages — outside RequireAdminAuth so the
+          login flow can render them without redirecting back to itself. */}
+      <Route path="/admin/login" component={AdminLogin} />
+      <Route path="/admin/forgot" component={AdminForgot} />
+      <Route path="/admin/reset/:token" component={AdminReset} />
+
+      {/* Authenticated admin surface. Each protected page is wrapped
+          individually so the loading shimmer is local to that route. */}
+      <Route path="/admin">
+        <RequireAdminAuth>
+          <Admin />
+        </RequireAdminAuth>
+      </Route>
+      <Route path="/admin/profile">
+        <RequireAdminAuth>
+          <AdminProfile />
+        </RequireAdminAuth>
+      </Route>
+      <Route path="/admin/users">
+        <RequireAdminAuth>
+          <AdminUsers />
+        </RequireAdminAuth>
+      </Route>
+      <Route path="/admin/lead/:id">
+        <RequireAdminAuth>
+          <AdminLeadDetail />
+        </RequireAdminAuth>
+      </Route>
+      <Route path="/admin/case/:caseId">
+        <RequireAdminAuth>
+          <AdminCaseDetail />
+        </RequireAdminAuth>
+      </Route>
+
       <Route component={NotFound} />
     </Switch>
   );
@@ -33,7 +71,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
+          <AdminAuthProvider>
+            <Router />
+          </AdminAuthProvider>
         </WouterRouter>
         <Toaster />
       </TooltipProvider>
