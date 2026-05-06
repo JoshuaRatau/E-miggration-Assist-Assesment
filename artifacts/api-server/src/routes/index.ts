@@ -11,6 +11,7 @@ import adminCasesRouter from "./adminCases";
 import adminEngagementsRouter from "./adminEngagements";
 import adminMessagesRouter from "./adminMessages";
 import whatsappWebhookRouter from "./whatsappWebhook";
+import otpRouter from "./otp";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(adminCasesRouter);
 router.use(adminEngagementsRouter);
 router.use(adminMessagesRouter);
 router.use(whatsappWebhookRouter);
+router.use(otpRouter);
 
 export default router;

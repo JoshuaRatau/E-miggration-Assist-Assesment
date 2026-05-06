@@ -18,6 +18,7 @@ import { composeConfirmationBody, sendConfirmationEmail } from "../lib/email";
 import { sendMessage } from "../lib/messaging";
 import { normalizeWhatsapp } from "../lib/whatsapp";
 import { requireAdminToken } from "../lib/adminAuth";
+import { findUsableVerifiedOtp } from "../lib/otp";
 
 const router: IRouter = Router();
 
@@ -107,6 +108,45 @@ router.post("/leads", async (req, res) => {
 
   if (!data.consentAccepted) {
     return res.status(400).json({ error: "Consent is required" });
+  }
+
+  // V2: contact verification is mandatory.  The frontend obtains a
+  // verifiedOtpId from POST /api/otp/verify and forwards it here.  We
+  // confirm the proof is fresh (consumed within 30 min) AND that the
+  // verified channel matches the contact we are about to persist.
+  // Bypass for non-production environments only when the explicit env
+  // flag is set, so automated/CLI smoke tests can still create leads.
+  const bypass =
+    process.env["NODE_ENV"] !== "production" &&
+    process.env["DISABLE_OTP_VERIFICATION"] === "1";
+  const normalizedWhatsappEarly = normalizeWhatsapp(data.whatsapp);
+  if (!bypass) {
+    const otpId = (req.body as { verifiedOtpId?: unknown }).verifiedOtpId;
+    if (typeof otpId !== "string" || otpId.length === 0) {
+      return res
+        .status(400)
+        .json({ error: "Contact verification is required" });
+    }
+    const verified = await findUsableVerifiedOtp(otpId);
+    if (!verified) {
+      return res
+        .status(400)
+        .json({ error: "Verification has expired — please verify again" });
+    }
+    const matchesEmail =
+      verified.channel === "email" &&
+      typeof verified.email === "string" &&
+      verified.email.toLowerCase() === data.email.toLowerCase();
+    const matchesWhatsapp =
+      verified.channel === "whatsapp" &&
+      typeof verified.whatsapp === "string" &&
+      verified.whatsapp === normalizedWhatsappEarly;
+    if (!matchesEmail && !matchesWhatsapp) {
+      return res.status(400).json({
+        error:
+          "Verified contact does not match — please verify again with the contact you are submitting",
+      });
+    }
   }
 
   // Local fire-and-forget confirmation dispatcher used by BOTH the
@@ -259,7 +299,7 @@ router.post("/leads", async (req, res) => {
   // WhatsApp: normalise to canonical +E.164. Invalid → store null. Submission
   // is NEVER blocked on a bad number. Raw user input is intentionally not
   // persisted (stored value is always either the canonical form or null).
-  const normalizedWhatsapp = normalizeWhatsapp(data.whatsapp);
+  const normalizedWhatsapp = normalizedWhatsappEarly;
 
   const result = classifyCase({
     immigrationSituation: data.immigrationSituation ?? null,

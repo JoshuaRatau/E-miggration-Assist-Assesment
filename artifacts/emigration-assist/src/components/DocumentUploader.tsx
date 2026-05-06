@@ -1,7 +1,14 @@
 import { useCallback, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Loader2, Upload, FileText, Download, AlertCircle } from "lucide-react";
+import {
+  Loader2,
+  Upload,
+  FileText,
+  Download,
+  AlertCircle,
+  Trash2,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -12,22 +19,46 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 
+// V2 expanded list. Server (`routes/documents.ts`) holds the canonical
+// allow-list — keep these two lists in sync when adding a type.
 const DOCUMENT_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "passport", label: "Passport" },
-  { value: "visa_permit", label: "Visa / Permit" },
+  { value: "visa_permit", label: "Visa or Permit" },
   { value: "entry_stamp", label: "Entry Stamp" },
   { value: "exit_stamp", label: "Exit Stamp" },
-  { value: "undesirable_declaration", label: "Undesirable Declaration" },
+  { value: "id_document", label: "ID Document" },
+  { value: "proof_of_address", label: "Proof of Address" },
+  { value: "employment_letter", label: "Employment Letter" },
+  { value: "financial_statement", label: "Financial Statement" },
+  { value: "marriage_certificate", label: "Marriage Certificate" },
+  { value: "birth_certificate", label: "Birth Certificate" },
   { value: "medical_evidence", label: "Medical Evidence" },
   { value: "travel_evidence", label: "Travel Evidence" },
+  { value: "undesirable_declaration", label: "Undesirable Declaration" },
   { value: "written_explanation", label: "Written Explanation" },
   { value: "other", label: "Other" },
 ];
 
-const ALLOWED_MIME = ["application/pdf", "image/jpeg", "image/png"];
-const ALLOWED_EXT = [".pdf", ".jpg", ".jpeg", ".png"];
+const ALLOWED_MIME = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+];
+const ALLOWED_EXT = [".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx"];
 const MAX_BYTES = 10 * 1024 * 1024;
 
 type DocumentRow = {
@@ -50,9 +81,7 @@ function humanSize(bytes: number | null): string {
 }
 
 function labelForType(value: string): string {
-  return (
-    DOCUMENT_TYPE_OPTIONS.find((o) => o.value === value)?.label ?? value
-  );
+  return DOCUMENT_TYPE_OPTIONS.find((o) => o.value === value)?.label ?? value;
 }
 
 const BASE_URL = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -67,13 +96,16 @@ async function fetchDocuments(leadId: string): Promise<DocumentRow[]> {
 
 interface DocumentUploaderProps {
   leadId: string;
-  /** When true, hides the in-component documents list (useful when a parent renders its own list). */
+  /** Hide the in-component documents list (parent renders its own review). */
   hideList?: boolean;
+  /** Notified when the documents list changes (after upload or delete). */
+  onChange?: (docs: DocumentRow[]) => void;
 }
 
 export function DocumentUploader({
   leadId,
   hideList = false,
+  onChange,
 }: DocumentUploaderProps) {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -83,11 +115,17 @@ export function DocumentUploader({
   const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<DocumentRow | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const queryKey = ["documents", leadId];
   const { data: docs = [], isLoading } = useQuery({
     queryKey,
-    queryFn: () => fetchDocuments(leadId),
+    queryFn: async () => {
+      const list = await fetchDocuments(leadId);
+      onChange?.(list);
+      return list;
+    },
     enabled: Boolean(leadId),
   });
 
@@ -95,12 +133,9 @@ export function DocumentUploader({
     async (file: File) => {
       setErrorMsg(null);
 
-      // Client-side validation (server also re-validates)
-      const ext = file.name
-        .slice(file.name.lastIndexOf("."))
-        .toLowerCase();
+      const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
       if (!ALLOWED_MIME.includes(file.type) || !ALLOWED_EXT.includes(ext)) {
-        setErrorMsg("Only PDF, JPG, and PNG files are accepted.");
+        setErrorMsg("Only PDF, JPG, PNG, DOC, and DOCX files are accepted.");
         return;
       }
       if (file.size > MAX_BYTES) {
@@ -127,10 +162,7 @@ export function DocumentUploader({
         xhr.onload = () => {
           setIsUploading(false);
           if (xhr.status >= 200 && xhr.status < 300) {
-            toast({
-              title: "Document uploaded",
-              description: file.name,
-            });
+            toast({ title: "Document uploaded", description: file.name });
             qc.invalidateQueries({ queryKey });
           } else {
             let msg = "Upload failed.";
@@ -161,6 +193,37 @@ export function DocumentUploader({
     if (!files || files.length === 0) return;
     void handleUpload(files[0]!);
   };
+
+  const confirmDelete = useCallback(async () => {
+    if (!pendingDelete) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(
+        `${BASE_URL}/api/documents/${pendingDelete.id}?leadId=${encodeURIComponent(leadId)}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok && res.status !== 204) {
+        let msg = "Delete failed.";
+        try {
+          const parsed = await res.json();
+          if (parsed?.error) msg = parsed.error;
+        } catch {
+          /* ignore */
+        }
+        toast({
+          title: "Could not delete",
+          description: msg,
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Document removed" });
+        qc.invalidateQueries({ queryKey });
+      }
+    } finally {
+      setIsDeleting(false);
+      setPendingDelete(null);
+    }
+  }, [leadId, pendingDelete, qc, queryKey, toast]);
 
   return (
     <div className="space-y-6" data-testid="document-uploader">
@@ -209,12 +272,12 @@ export function DocumentUploader({
             : "Drag a file here or click to browse"}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          PDF, JPG or PNG · up to 10MB
+          PDF, JPG, PNG, DOC or DOCX · up to 10MB
         </p>
         <input
           ref={fileInputRef}
           type="file"
-          accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,application/pdf,image/jpeg,image/png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           className="hidden"
           onChange={(e) => onPickFiles(e.target.files)}
           data-testid="input-file"
@@ -273,15 +336,25 @@ export function DocumentUploader({
                       </p>
                     </div>
                   </div>
-                  <a
-                    href={`${BASE_URL}/api/documents/${d.id}/download`}
-                    className="shrink-0"
-                    data-testid={`button-download-${d.id}`}
-                  >
-                    <Button size="sm" variant="ghost">
-                      <Download className="h-4 w-4 mr-1" /> Download
+                  <div className="flex items-center gap-1 shrink-0">
+                    <a
+                      href={`${BASE_URL}/api/documents/${d.id}/download`}
+                      data-testid={`button-download-${d.id}`}
+                    >
+                      <Button size="sm" variant="ghost">
+                        <Download className="h-4 w-4 mr-1" /> Download
+                      </Button>
+                    </a>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => setPendingDelete(d)}
+                      data-testid={`button-delete-${d.id}`}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" /> Delete
                     </Button>
-                  </a>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -292,6 +365,31 @@ export function DocumentUploader({
       <p className="text-xs text-muted-foreground">
         Files are stored privately and linked to your reference record only.
       </p>
+
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this document?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDelete?.fileName ?? "This document"} will be removed from
+              your reference record. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={isDeleting}
+              data-testid="button-confirm-delete"
+            >
+              {isDeleting ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

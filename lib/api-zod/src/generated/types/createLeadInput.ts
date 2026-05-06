@@ -16,7 +16,7 @@ export interface CreateLeadInput {
   /** valid | expired | lost | none */
   passportStatus?: string;
   visaHistory?: string;
-  /** valid | expired | overstay | undesirable | prohibited | unknown */
+  /** valid | expired | overstay | undesirable | prohibited | visa_required | unknown */
   immigrationSituation: string;
   visaExpiryDate?: Date;
   exitDate?: Date;
@@ -29,4 +29,6 @@ export interface CreateLeadInput {
   /** email | whatsapp | phone */
   preferredContactMethod?: string;
   consentAccepted: boolean;
+  /** UUID returned by POST /api/otp/verify. Required in production — server enforces that the verified channel matches the submitted email or canonical whatsapp. Set DISABLE_OTP_VERIFICATION=1 (non-prod only) to bypass for CLI/automated smoke tests. */
+  verifiedOtpId?: string;
 }

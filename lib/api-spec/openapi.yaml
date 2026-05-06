@@ -260,7 +260,7 @@ components:
           type: string
         immigrationSituation:
           type: string
-          description: 'valid | expired | overstay | undesirable | prohibited | unknown'
+          description: 'valid | expired | overstay | undesirable | prohibited | visa_required | unknown'
         visaExpiryDate:
           type: string
           format: date
@@ -282,6 +282,14 @@ components:
           description: 'email | whatsapp | phone'
         consentAccepted:
           type: boolean
+        verifiedOtpId:
+          type: string
+          format: uuid
+          description: >-
+            UUID returned by POST /api/otp/verify. Required in production —
+            server enforces that the verified channel matches the submitted
+            email or canonical whatsapp. Set DISABLE_OTP_VERIFICATION=1
+            (non-prod only) to bypass for CLI/automated smoke tests.
       required:
         - fullName
         - email
@@ -467,7 +475,7 @@ components:
           type: string
         documentType:
           type: string
-          description: 'passport | visa_permit | entry_stamp | exit_stamp | undesirable_declaration | medical_evidence | travel_evidence | written_explanation | other'
+          description: 'passport | visa_permit | entry_stamp | exit_stamp | undesirable_declaration | medical_evidence | travel_evidence | written_explanation | id_document | proof_of_address | employment_letter | financial_statement | marriage_certificate | birth_certificate | other'
         fileUrl:
           type: string
           description: 'Internal object storage path. Use /api/documents/{id}/download to fetch the bytes.'

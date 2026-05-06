@@ -9,7 +9,7 @@
 export interface Document {
   id: string;
   leadId: string;
-  /** passport | visa_permit | entry_stamp | exit_stamp | undesirable_declaration | medical_evidence | travel_evidence | written_explanation | other */
+  /** passport | visa_permit | entry_stamp | exit_stamp | undesirable_declaration | medical_evidence | travel_evidence | written_explanation | id_document | proof_of_address | employment_letter | financial_statement | marriage_certificate | birth_certificate | other */
   documentType: string;
   /** Internal object storage path. Use /api/documents/{id}/download to fetch the bytes. */
   fileUrl: string;

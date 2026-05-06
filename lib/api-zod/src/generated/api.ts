@@ -32,7 +32,7 @@ export const CreateLeadBody = zod.object({
   immigrationSituation: zod
     .string()
     .describe(
-      "valid | expired | overstay | undesirable | prohibited | unknown",
+      "valid | expired | overstay | undesirable | prohibited | visa_required | unknown",
     ),
   visaExpiryDate: zod.coerce.date().optional(),
   exitDate: zod.coerce.date().optional(),
@@ -48,6 +48,13 @@ export const CreateLeadBody = zod.object({
     .optional()
     .describe("email | whatsapp | phone"),
   consentAccepted: zod.boolean(),
+  verifiedOtpId: zod
+    .string()
+    .uuid()
+    .optional()
+    .describe(
+      "UUID returned by POST \/api\/otp\/verify. Required in production — server enforces that the verified channel matches the submitted email or canonical whatsapp. Set DISABLE_OTP_VERIFICATION=1 (non-prod only) to bypass for CLI\/automated smoke tests.",
+    ),
 });
 
 export const CreateLeadResponse = zod.object({
@@ -386,7 +393,7 @@ export const ListDocumentsResponseItem = zod.object({
   documentType: zod
     .string()
     .describe(
-      "passport | visa_permit | entry_stamp | exit_stamp | undesirable_declaration | medical_evidence | travel_evidence | written_explanation | other",
+      "passport | visa_permit | entry_stamp | exit_stamp | undesirable_declaration | medical_evidence | travel_evidence | written_explanation | id_document | proof_of_address | employment_letter | financial_statement | marriage_certificate | birth_certificate | other",
     ),
   fileUrl: zod
     .string()

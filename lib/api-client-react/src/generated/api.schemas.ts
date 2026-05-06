@@ -19,7 +19,7 @@ export interface CreateLeadInput {
   /** valid | expired | lost | none */
   passportStatus?: string;
   visaHistory?: string;
-  /** valid | expired | overstay | undesirable | prohibited | unknown */
+  /** valid | expired | overstay | undesirable | prohibited | visa_required | unknown */
   immigrationSituation: string;
   visaExpiryDate?: string;
   exitDate?: string;
@@ -32,6 +32,8 @@ export interface CreateLeadInput {
   /** email | whatsapp | phone */
   preferredContactMethod?: string;
   consentAccepted: boolean;
+  /** UUID returned by POST /api/otp/verify. Required in production — server enforces that the verified channel matches the submitted email or canonical whatsapp. Set DISABLE_OTP_VERIFICATION=1 (non-prod only) to bypass for CLI/automated smoke tests. */
+  verifiedOtpId?: string;
 }
 
 export interface Lead {
@@ -105,7 +107,7 @@ export interface AnalyticsEventResponse {
 export interface Document {
   id: string;
   leadId: string;
-  /** passport | visa_permit | entry_stamp | exit_stamp | undesirable_declaration | medical_evidence | travel_evidence | written_explanation | other */
+  /** passport | visa_permit | entry_stamp | exit_stamp | undesirable_declaration | medical_evidence | travel_evidence | written_explanation | id_document | proof_of_address | employment_letter | financial_statement | marriage_certificate | birth_certificate | other */
   documentType: string;
   /** Internal object storage path. Use /api/documents/{id}/download to fetch the bytes. */
   fileUrl: string;

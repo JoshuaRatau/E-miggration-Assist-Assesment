@@ -2,7 +2,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import multer from "multer";
 import { fileTypeFromBuffer } from "file-type";
 import { db, prelaunchLeadsTable, prelaunchDocumentsTable } from "@workspace/db";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { ObjectStorageService } from "../lib/objectStorage";
 
@@ -22,8 +22,12 @@ const ALLOWED_MIME_TYPES = new Set<string>([
   "application/pdf",
   "image/jpeg",
   "image/png",
+  "application/msword", // .doc
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
 ]);
 
+// Expanded V2 document type list. The DB column is `text` so legacy values
+// from earlier rows continue to display in admin without migration.
 const ALLOWED_DOCUMENT_TYPES = new Set<string>([
   "passport",
   "visa_permit",
@@ -33,6 +37,12 @@ const ALLOWED_DOCUMENT_TYPES = new Set<string>([
   "medical_evidence",
   "travel_evidence",
   "written_explanation",
+  "id_document",
+  "proof_of_address",
+  "employment_letter",
+  "financial_statement",
+  "marriage_certificate",
+  "birth_certificate",
   "other",
 ]);
 
@@ -103,7 +113,10 @@ router.post(
         if (err instanceof Error && err.message === "UNSUPPORTED_TYPE") {
           return res
             .status(415)
-            .json({ error: "Only PDF, JPG, and PNG files are allowed" });
+            .json({
+              error:
+                "Only PDF, JPG, PNG, DOC, and DOCX files are allowed",
+            });
         }
         return next(err);
       }
@@ -210,6 +223,50 @@ router.get("/documents", async (req, res) => {
     .where(eq(prelaunchDocumentsTable.leadId, parsed.data))
     .orderBy(desc(prelaunchDocumentsTable.createdAt));
   return res.json(rows.map(serializeDocument));
+});
+
+router.delete("/documents/:id", async (req, res) => {
+  const parsedId = uuidSchema.safeParse(req.params.id);
+  if (!parsedId.success) {
+    return res.status(400).json({ error: "Invalid document id" });
+  }
+  // `leadId` scope is REQUIRED for this public route — there is no auth
+  // boundary so without it a leaked document UUID would be a global
+  // delete-by-id primitive. Admin/back-office deletion is intentionally
+  // not exposed here; if needed, build a separate admin-token-gated
+  // route for that.
+  const scopeLeadId =
+    typeof req.body?.leadId === "string"
+      ? req.body.leadId
+      : typeof req.query.leadId === "string"
+        ? req.query.leadId
+        : null;
+  if (!scopeLeadId) {
+    return res.status(400).json({ error: "leadId scope is required" });
+  }
+  const parsedScope = uuidSchema.safeParse(scopeLeadId);
+  if (!parsedScope.success) {
+    return res.status(400).json({ error: "Invalid leadId scope" });
+  }
+
+  const deleted = await db
+    .delete(prelaunchDocumentsTable)
+    .where(
+      and(
+        eq(prelaunchDocumentsTable.id, parsedId.data),
+        eq(prelaunchDocumentsTable.leadId, parsedScope.data),
+      ),
+    )
+    .returning({ id: prelaunchDocumentsTable.id });
+
+  if (deleted.length === 0) {
+    return res.status(404).json({ error: "Document not found" });
+  }
+
+  // NOTE (V1 limitation): we delete the DB row but do NOT remove the
+  // underlying object from storage. Orphaned blobs are tolerable for the
+  // pre-launch volume; a future job can sweep them based on missing rows.
+  return res.status(204).end();
 });
 
 router.get("/documents/:id/download", async (req, res) => {

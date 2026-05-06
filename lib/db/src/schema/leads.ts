@@ -133,6 +133,37 @@ export const caseMessagesTable = pgTable("case_messages", {
     .defaultNow(),
 });
 
+// Lead OTPs ------------------------------------------------------------
+//
+// Pre-submission verification rows. Created on POST /api/otp/request and
+// consumed on POST /api/otp/verify. The verification result is then attached
+// to lead creation via `verifiedOtpId` in the body — server enforces that
+// the verified contact (email OR canonical whatsapp) matches the lead.
+//
+//   channel ∈ email | whatsapp
+//   codeHash = sha256(code) hex; raw code is NEVER stored.
+//   attempts caps verification tries at 5 (anti-bruteforce).
+//   expiresAt = createdAt + 10 minutes.
+//   consumedAt set when a verify succeeds; row becomes a one-shot proof.
+//
+// Rows are NOT cleaned up by the application (operator/cron concern).
+export const leadOtpsTable = pgTable("lead_otps", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  channel: text("channel").notNull(),
+  email: text("email"),
+  whatsapp: text("whatsapp"),
+  codeHash: text("code_hash").notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  consumedAt: timestamp("consumed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export type LeadOtp = typeof leadOtpsTable.$inferSelect;
+export type InsertLeadOtp = typeof leadOtpsTable.$inferInsert;
+
 export type PrelaunchLead = typeof prelaunchLeadsTable.$inferSelect;
 export type InsertPrelaunchLead = typeof prelaunchLeadsTable.$inferInsert;
 export type PrelaunchDocument = typeof prelaunchDocumentsTable.$inferSelect;
