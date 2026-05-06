@@ -15,7 +15,24 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { COUNTRIES, findByIso, flagEmoji } from "@/lib/countries";
+import { COUNTRIES, findByIso } from "@/lib/countries";
+
+function FlagImg({ iso2, size = 20 }: { iso2: string; size?: number }) {
+  const code = iso2.toLowerCase();
+  return (
+    <img
+      src={`https://flagcdn.com/${size * 2}x${Math.round(size * 1.5)}/${code}.png`}
+      srcSet={`https://flagcdn.com/${size * 4}x${Math.round(size * 3)}/${code}.png 2x`}
+      width={size}
+      height={Math.round(size * 0.75)}
+      alt=""
+      aria-hidden
+      loading="lazy"
+      className="rounded-sm shrink-0 object-cover"
+      style={{ width: size, height: Math.round(size * 0.75) }}
+    />
+  );
+}
 
 type Mode = "country" | "dial";
 
@@ -65,9 +82,7 @@ export function CountryCombobox({
           <span className="flex items-center gap-2 truncate">
             {selected ? (
               <>
-                <span aria-hidden className="text-base leading-none">
-                  {flagEmoji(selected.iso2)}
-                </span>
+                <FlagImg iso2={selected.iso2} size={18} />
                 <span className="truncate">
                   {mode === "dial"
                     ? `${selected.name} (${selected.dial})`
@@ -108,8 +123,8 @@ export function CountryCombobox({
                       setOpen(false);
                     }}
                   >
-                    <span aria-hidden className="mr-2 text-base leading-none">
-                      {flagEmoji(c.iso2)}
+                    <span className="mr-2">
+                      <FlagImg iso2={c.iso2} size={18} />
                     </span>
                     <span className="flex-1 truncate">{c.name}</span>
                     <span className="ml-2 text-xs text-muted-foreground tabular-nums">

@@ -1,0 +1,90 @@
+This change applies to E-Migration Assist lead system only.
+
+Add country dropdowns with flags and phone country-code selector.
+
+GOAL:
+Improve /assessment form quality and reduce bad country/phone inputs.
+
+1. Country dropdowns
+
+Replace free-text country fields on /assessment with searchable dropdowns:
+- nationality
+- currentCountry
+
+Each option must show:
+- country flag emoji
+- country name
+- ISO country code
+
+Example:
+🇿🇦 South Africa (ZA)
+🇿🇼 Zimbabwe (ZW)
+🇳🇬 Nigeria (NG)
+
+Use a complete country list, not only African countries.
+
+Store:
+- country name
+- ISO alpha-2 code where possible
+
+Do not break existing saved leads.
+
+2. Phone / WhatsApp field
+
+Replace WhatsApp free-text input with:
+- country code dropdown on the left
+- phone number input on the right
+
+Country code dropdown must show:
+- flag
+- country name
+- dialing code
+
+Example:
+🇿🇦 +27
+🇿🇼 +263
+🇳🇬 +234
+
+Default:
+- South Africa +27
+
+When user selects country code and enters number:
+- normalize to E.164 format server-side
+- display validation clearly
+- accept numbers with or without leading zero
+- store canonical WhatsApp number
+
+3. UX requirements
+
+- Searchable dropdown.
+- Mobile-friendly.
+- Keyboard accessible.
+- Clear validation messages.
+- Keep existing navy/teal branding.
+- Do not add payments.
+- Do not change admin funnel logic.
+- Do not expose PII publicly.
+
+4. Backend safety
+
+- Server must still validate WhatsApp.
+- Invalid optional WhatsApp must not block assessment if field is cleared.
+- If provided but invalid, show clear error before submission.
+- Public /status must remain PII-safe.
+
+5. Verification
+
+Confirm:
+- nationality dropdown works
+- current country dropdown works
+- flags render correctly
+- South Africa defaults to +27
+- Zimbabwe +263 works
+- Nigeria +234 works
+- local SA number 0821234567 normalizes to +27821234567
+- public /assessment still submits successfully
+- admin lead dashboard still displays the stored country/phone values correctly
+- typecheck passes
+
+OUTPUT:
+Assessment form now uses country dropdowns with flags and WhatsApp country-code selector.
