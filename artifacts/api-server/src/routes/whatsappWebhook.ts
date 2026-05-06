@@ -69,13 +69,25 @@ router.post("/webhooks/whatsapp", async (req, res) => {
       .send("<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response/>");
 
   try {
-    const authToken = (process.env["TWILIO_AUTH_TOKEN"] ?? "").trim();
+    // Pre-traffic hardening: fail closed on missing secret. Prefer the
+    // spec-mandated WHATSAPP_APP_SECRET env var name; fall back to
+    // TWILIO_AUTH_TOKEN for back-compat with existing deployments. If
+    // NEITHER is set we cannot verify the request is authentic, so we
+    // 503 to make the misconfiguration loud (instead of silently
+    // accepting and storing potentially-spoofed messages).
+    const authToken = (
+      process.env["WHATSAPP_APP_SECRET"] ??
+      process.env["TWILIO_AUTH_TOKEN"] ??
+      ""
+    ).trim();
     if (!authToken) {
       req.log.error(
-        "TWILIO_AUTH_TOKEN env var is not set; dropping webhook event " +
-          "(cannot verify authenticity)",
+        "WHATSAPP_APP_SECRET (or TWILIO_AUTH_TOKEN) env var is not set; " +
+          "rejecting webhook event with 503 — cannot verify authenticity",
       );
-      return ack();
+      return res
+        .status(503)
+        .json({ error: "WhatsApp webhook is not configured" });
     }
 
     // Reconstruct the URL Twilio signed. `originalUrl` includes the
@@ -87,7 +99,7 @@ router.post("/webhooks/whatsapp", async (req, res) => {
         : req.header("host");
     if (!host) {
       req.log.error("No Host header on webhook request; cannot verify");
-      return ack();
+      return res.status(401).json({ error: "Invalid signature" });
     }
     const url = `https://${host}${req.originalUrl}`;
 
@@ -99,6 +111,17 @@ router.post("/webhooks/whatsapp", async (req, res) => {
       }
     }
 
+    // Pre-traffic hardening: missing or invalid signature → 401 and
+    // refuse to persist anything. Twilio will retry, but a real
+    // misconfiguration surfaces immediately instead of silently
+    // accepting forged messages.
+    if (!sig) {
+      req.log.warn(
+        { ip: req.ip },
+        "Twilio webhook missing X-Twilio-Signature header — rejecting",
+      );
+      return res.status(401).json({ error: "Missing signature" });
+    }
     const ok = verifyTwilioSignature({
       signatureHeader: sig,
       authToken,
@@ -108,15 +131,15 @@ router.post("/webhooks/whatsapp", async (req, res) => {
     if (!ok) {
       req.log.warn(
         { ip: req.ip },
-        "Twilio webhook signature verification failed — dropping event",
+        "Twilio webhook signature verification failed — rejecting (no message stored)",
       );
-      return ack();
+      return res.status(401).json({ error: "Invalid signature" });
     }
 
     const msg = extractInboundMessage(params);
     if (!msg) {
-      // Status callbacks, non-text MMS, or unparseable payloads — Twilio
-      // still gets a 200.
+      // Status callbacks, non-text MMS, or unparseable payloads — the
+      // request was authentic, just not actionable. Ack with 200.
       return ack();
     }
 

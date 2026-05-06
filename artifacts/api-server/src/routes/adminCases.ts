@@ -4,6 +4,14 @@ import { and, eq, inArray, notInArray, or } from "drizzle-orm";
 import { requireAdminToken } from "../lib/adminAuth";
 import { deriveNextStep } from "../lib/classification";
 import { CASE_STATUS_VALUES } from "../lib/caseStatus";
+import { writeAudit } from "../lib/audit";
+
+// PATCH /admin/cases/:id implementation lives below. Audit semantics:
+//   * Capture the prior status with a SELECT before the atomic UPDATE so
+//     same-status no-op PATCHes don't pollute the audit log.
+//   * The SELECT/UPDATE is racy w.r.t. concurrent writers, but the audit
+//     row is observational; the funnel-regression guard inside the
+//     UPDATE's WHERE clause is the actual correctness boundary.
 
 const router: IRouter = Router();
 
@@ -140,6 +148,18 @@ router.patch("/admin/cases/:caseId", async (req, res) => {
   const allowedPredecessors = CASE_STATUS_VALUES.slice(0, requestedIdx + 1);
   const allKnown = [...CASE_STATUS_VALUES];
 
+  // Capture prior status for the audit row. Racy w.r.t. the atomic
+  // UPDATE below, but the audit hook is observational; the WHERE-clause
+  // funnel guard remains the correctness boundary. We tolerate a null
+  // prior (case missing at SELECT but present at UPDATE) by simply
+  // skipping the audit write — the change still happened.
+  const [priorRow] = await db
+    .select({ status: leadCasesTable.status })
+    .from(leadCasesTable)
+    .where(eq(leadCasesTable.id, caseId))
+    .limit(1);
+  const priorStatus: string | null = priorRow?.status ?? null;
+
   const [updated] = await db
     .update(leadCasesTable)
     .set({ status: requestedStatus, updatedAt: new Date() })
@@ -172,6 +192,22 @@ router.patch("/admin/cases/:caseId", async (req, res) => {
         `"${existing.status}" back to "${requestedStatus}". ` +
         `Status may only move forward in the order: ` +
         `${CASE_STATUS_VALUES.join(" → ")}.`,
+    });
+  }
+
+  // Audit trail (fire-and-forget). Skip same-status no-ops so admin
+  // dashboards refreshing the same value don't pollute the log. We
+  // re-read the row solely to detect "did the status actually change?";
+  // since the atomic UPDATE already succeeded, the read is racy w.r.t.
+  // a subsequent writer but cannot affect correctness.
+  if (priorStatus !== null && priorStatus !== updated.status) {
+    void writeAudit({
+      req,
+      action: "case_status_changed",
+      leadId: updated.leadId,
+      caseId: updated.id,
+      before: { caseStatus: priorStatus },
+      after: { caseStatus: updated.status },
     });
   }
 

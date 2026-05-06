@@ -1,0 +1,71 @@
+This change applies to E-Migration Assist lead system only.
+
+Implement the pre-traffic hardening sprint.
+
+Priority fixes:
+
+1. WhatsApp webhook security
+- /api/webhooks/whatsapp must fail closed if WHATSAPP_APP_SECRET is missing.
+- If secret is missing, return 503.
+- If signature is invalid/missing, return 401.
+- Do not accept or store inbound WhatsApp messages unless HMAC validation passes.
+
+2. Lead conversion guard
+- In PATCH /api/admin/leads/:id, only allow conversion to converted from ready_for_case.
+- Any other status → converted must return HTTP 409.
+- Same-status converted → converted remains 200 no-op.
+- Notes/priority-only updates on converted leads must still work.
+
+3. Admin audit log
+Add lead_audit table:
+- id UUID primary key
+- lead_id UUID nullable
+- case_id UUID nullable
+- actor_token_hash TEXT
+- action TEXT
+- before JSONB
+- after JSONB
+- created_at timestamp default now()
+
+Write audit rows for:
+- lead status change
+- priority change
+- notes change
+- conversion to case
+- case status change
+- document download
+- manual contact click
+- outbound message send attempt
+
+Never store raw admin token.
+
+4. POST /api/leads rate limit
+Add rate limiting to public lead submission:
+- per IP
+- per canonical WhatsApp number if provided
+- per email if provided
+Add hidden honeypot field. If filled, silently reject or return generic success without creating a real lead.
+
+5. Document download logging
+Every admin document download must create an audit row showing:
+- document id
+- lead id
+- actor token hash
+- timestamp
+- action = document_downloaded
+
+6. Verification
+Test:
+- WhatsApp webhook 503 when secret missing
+- WhatsApp webhook 401 on bad signature
+- valid signed webhook still works
+- new/reviewing/contacted/qualified → converted returns 409
+- ready_for_case → converted succeeds
+- duplicate conversion returns same case id
+- lead PATCH writes audit log
+- case PATCH writes audit log
+- document download writes audit log
+- POST /api/leads rate limit works
+- honeypot submission does not create real lead
+- public status endpoint still leaks no PII
+- typecheck passes

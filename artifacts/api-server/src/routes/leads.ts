@@ -19,6 +19,26 @@ import { sendMessage } from "../lib/messaging";
 import { normalizeWhatsapp } from "../lib/whatsapp";
 import { requireAdminToken } from "../lib/adminAuth";
 import { findUsableVerifiedOtp } from "../lib/otp";
+import { createRateBucket } from "../lib/rateLimit";
+
+// Pre-traffic hardening: per-key sliding-window limiters guarding the
+// public lead-submission endpoint against scripted abuse. Three
+// independent buckets — IP, canonical WhatsApp number, normalised email
+// — so an attacker cannot rotate one dimension to bypass the others.
+// Generous enough that a real user resubmitting the form a few times
+// (typo fix, cold-feet retry) is never blocked.
+const leadRateLimitByIp = createRateBucket({
+  windowMs: 60 * 60 * 1000, // 1h
+  max: 10,
+});
+const leadRateLimitByEmail = createRateBucket({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+});
+const leadRateLimitByWhatsapp = createRateBucket({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+});
 
 const router: IRouter = Router();
 
@@ -242,6 +262,41 @@ function buildConfirmationDispatcher(req: import("express").Request) {
 }
 
 router.post("/leads", async (req, res) => {
+  // Pre-traffic hardening: honeypot field. The form must NOT render a
+  // visible input named `website`; legitimate submissions therefore
+  // never include it. Bots that scrape and fill every input will set
+  // it. We respond 201 with a synthetic-but-realistic-looking shape
+  // (no DB write, no email, no WhatsApp) so the bot believes it
+  // succeeded and does not retry.
+  const honeypot = (req.body as { website?: unknown } | null | undefined)
+    ?.website;
+  if (typeof honeypot === "string" && honeypot.trim().length > 0) {
+    req.log.warn(
+      { ip: req.ip },
+      "Lead honeypot tripped — silently rejecting (no row created)",
+    );
+    return res.status(201).json({
+      id: "00000000-0000-0000-0000-000000000000",
+      referenceNumber: "EMA-PENDING-OK",
+      ok: true,
+    });
+  }
+
+  // Pre-traffic hardening: rate-limit on three orthogonal axes so an
+  // attacker cannot rotate one dimension to bypass the others. We
+  // evaluate IP first (cheapest) then the contact dimensions; the
+  // first bucket that trips returns 429 with Retry-After. We do this
+  // BEFORE zod parsing so a malformed-but-spammy request still pays
+  // the IP-bucket cost.
+  const ipKey = req.ip ?? "unknown";
+  const ipDecision = leadRateLimitByIp.hit(ipKey);
+  if (!ipDecision.ok) {
+    res.setHeader("Retry-After", String(ipDecision.retryAfterSec));
+    return res
+      .status(429)
+      .json({ error: "Too many submissions. Please try again later." });
+  }
+
   const parsed = CreateLeadBody.safeParse(req.body);
   if (!parsed.success) {
     return res
@@ -249,6 +304,11 @@ router.post("/leads", async (req, res) => {
       .json({ error: "Invalid input", details: parsed.error.issues });
   }
   const data = parsed.data;
+
+  // NOTE: per-email and per-WhatsApp rate-limit buckets are charged
+  // ONLY AFTER OTP verification succeeds (further down). Charging them
+  // here would let an attacker burn a victim's contact bucket (5/hr)
+  // with un-verified spam, locking the real user out of submitting.
   // V2: the assessment UI sends `finalize: false` when it just needs a
   // lead row to attach documents to.  The confirmation message is then
   // dispatched via POST /leads/:id/finalize at the very end of the flow
@@ -297,6 +357,35 @@ router.post("/leads", async (req, res) => {
         error:
           "Verified contact does not match — please verify again with the contact you are submitting",
       });
+    }
+  }
+
+  // Pre-traffic hardening: per-email and per-canonical-WhatsApp rate
+  // limits. Charged HERE (post-OTP) rather than alongside the IP bucket
+  // so an attacker cannot burn a victim's contact bucket (5/hr) with
+  // unverified spam — every charge is preceded by a successful OTP
+  // proof that the submitter controls that contact channel. In dev /
+  // OTP-disabled mode the buckets still apply, just without the
+  // proof-of-work gate.
+  const normalizedEmailForLimit = data.email
+    ? data.email.trim().toLowerCase()
+    : null;
+  if (normalizedEmailForLimit) {
+    const dec = leadRateLimitByEmail.hit(normalizedEmailForLimit);
+    if (!dec.ok) {
+      res.setHeader("Retry-After", String(dec.retryAfterSec));
+      return res
+        .status(429)
+        .json({ error: "Too many submissions. Please try again later." });
+    }
+  }
+  if (normalizedWhatsappEarly) {
+    const dec = leadRateLimitByWhatsapp.hit(normalizedWhatsappEarly);
+    if (!dec.ok) {
+      res.setHeader("Retry-After", String(dec.retryAfterSec));
+      return res
+        .status(429)
+        .json({ error: "Too many submissions. Please try again later." });
     }
   }
 

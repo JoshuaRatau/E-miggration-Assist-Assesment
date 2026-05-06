@@ -5,6 +5,7 @@ import { db, prelaunchLeadsTable, prelaunchDocumentsTable } from "@workspace/db"
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { ObjectStorageService } from "../lib/objectStorage";
+import { writeAudit } from "../lib/audit";
 
 // NOTE on auth: this app deliberately has no authentication layer (matching
 // every other admin/leads endpoint in the API). Document UUIDs are random v4
@@ -299,6 +300,21 @@ router.get("/documents/:id/download", async (req, res) => {
       `attachment; filename="${safeName}"`,
     );
     res.setHeader("Cache-Control", "private, max-age=0, no-store");
+
+    // Audit trail (fire-and-forget). Records every download attempt with
+    // the actor's hashed credential — anonymous downloads (no admin
+    // session, no x-admin-token) still create a row but with a null
+    // hash so they are clearly distinguishable from operator activity.
+    void writeAudit({
+      req,
+      action: "document_downloaded",
+      leadId: doc.leadId,
+      after: {
+        documentId: doc.id,
+        fileName: doc.fileName,
+        mimeType: doc.mimeType,
+      },
+    });
     objectFile
       .createReadStream()
       .on("error", (err: unknown) => {

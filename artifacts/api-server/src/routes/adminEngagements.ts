@@ -9,6 +9,7 @@ import {
 import { eq, desc } from "drizzle-orm";
 import { sendMessage, type MessagingChannel } from "../lib/messaging";
 import { requireAdminToken } from "../lib/adminAuth";
+import { writeAudit } from "../lib/audit";
 
 const ALLOWED_CHANNELS: readonly MessagingChannel[] = ["email", "whatsapp"];
 
@@ -184,6 +185,23 @@ router.post("/admin/leads/:id/send-update", async (req, res) => {
     .catch((err) =>
       req.log.warn({ err }, "Failed to log engagement.sent analytics"),
     );
+
+  // Audit trail (fire-and-forget). Records the attempt regardless of
+  // delivery outcome so a forensic review can correlate "we tried to
+  // send X to lead Y at T" with provider logs. We never persist the
+  // raw message body in the audit row — that's already in the
+  // engagement row, which is admin-gated.
+  void writeAudit({
+    req,
+    action: "outbound_message_attempted",
+    leadId: lead.id,
+    after: {
+      engagementId: engagement.id,
+      channel,
+      type: "manual",
+      status: nextStatus,
+    },
+  });
 
   return res.status(201).json({
     engagement: serializeEngagement(engagement),

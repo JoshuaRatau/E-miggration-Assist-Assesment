@@ -14,17 +14,30 @@ import { eq, sql } from "drizzle-orm";
  * that `referenceNumber` matches the lead's reference at the moment of
  * conversion — it is snapshotted into the case row as a stable label.
  */
+export interface EnsureCaseResult {
+  row: typeof leadCasesTable.$inferSelect;
+  /**
+   * `true` only when THIS call inserted the row. The signal is sourced
+   * from the atomic INSERT … ON CONFLICT DO NOTHING RETURNING, so it is
+   * race-free: at most one of N concurrent callers will observe
+   * `created: true` for a given lead.  Audit hooks must use this flag
+   * (NOT a pre-check SELECT) to decide whether to log a `lead_converted`
+   * event, otherwise concurrent conversions can both log it.
+   */
+  created: boolean;
+}
+
 export async function ensureCaseForLead(
   leadId: string,
   referenceNumber: string,
-): Promise<typeof leadCasesTable.$inferSelect> {
+): Promise<EnsureCaseResult> {
   const [inserted] = await db
     .insert(leadCasesTable)
     .values({ leadId, referenceNumber })
     .onConflictDoNothing({ target: leadCasesTable.leadId })
     .returning();
 
-  if (inserted) return inserted;
+  if (inserted) return { row: inserted, created: true };
 
   // Conflict path — a case already exists for this lead.  Fetch and
   // return it so the caller can surface the same caseId either way.
@@ -41,7 +54,7 @@ export async function ensureCaseForLead(
       `ensureCaseForLead: conflict reported for lead ${leadId} but no case row found`,
     );
   }
-  return existing;
+  return { row: existing, created: false };
 }
 
 /** Touch a case's updatedAt — kept here to centralise the column update. */

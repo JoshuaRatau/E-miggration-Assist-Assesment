@@ -1,5 +1,10 @@
 import { Router, type IRouter } from "express";
-import { db, prelaunchLeadsTable, analyticsEventsTable } from "@workspace/db";
+import {
+  db,
+  prelaunchLeadsTable,
+  analyticsEventsTable,
+  leadCasesTable as leadCasesQueryRef,
+} from "@workspace/db";
 import { and, eq, inArray, notInArray, or } from "drizzle-orm";
 import {
   LEAD_STATUS_VALUES,
@@ -8,6 +13,7 @@ import {
 } from "../lib/classification";
 import { requireAdminToken } from "../lib/adminAuth";
 import { ensureCaseForLead } from "../lib/cases";
+import { writeAudit } from "../lib/audit";
 
 const router: IRouter = Router();
 
@@ -112,6 +118,21 @@ router.patch("/admin/leads/:id", async (req, res) => {
 
   updates.updatedAt = new Date();
 
+  // Capture the BEFORE snapshot for the audit trail. Racy w.r.t. the
+  // atomic UPDATE below (a concurrent writer could land between the
+  // SELECT and the UPDATE), but the audit row is observational so the
+  // small window is acceptable. The funnel-regression guard remains in
+  // the UPDATE's WHERE clause and is the actual correctness boundary.
+  const [before] = await db
+    .select({
+      leadStatus: prelaunchLeadsTable.leadStatus,
+      leadPriority: prelaunchLeadsTable.leadPriority,
+      adminNotes: prelaunchLeadsTable.adminNotes,
+    })
+    .from(prelaunchLeadsTable)
+    .where(eq(prelaunchLeadsTable.id, id))
+    .limit(1);
+
   // Funnel-regression guard — enforced ATOMICALLY in the UPDATE's WHERE
   // clause to close the TOCTOU race where two concurrent operators could
   // each pass a separate read-then-update check and the second write
@@ -122,19 +143,46 @@ router.patch("/admin/leads/:id", async (req, res) => {
   // never locked out by the funnel.  When status isn't in the patch,
   // no extra predicate is added so priority/notes-only updates skip the
   // check entirely.
+  //
+  // Pre-traffic hardening: the `converted` terminal status is GATED to
+  // a single allowed predecessor — `ready_for_case`. Operators must
+  // walk the lead all the way through the funnel before flipping the
+  // conversion bit; any earlier state → converted is a 409. Same-status
+  // converted → converted is still a no-op so notes/priority edits on
+  // an already-converted lead keep working.
   const whereParts = [eq(prelaunchLeadsTable.id, id)];
   if (requestedStatus !== null) {
-    const requestedIdx = LEAD_STATUS_VALUES.indexOf(
-      requestedStatus as (typeof LEAD_STATUS_VALUES)[number],
-    );
-    const allowedPredecessors = LEAD_STATUS_VALUES.slice(0, requestedIdx + 1);
-    const allKnown = [...LEAD_STATUS_VALUES];
-    whereParts.push(
-      or(
-        inArray(prelaunchLeadsTable.leadStatus, allowedPredecessors),
-        notInArray(prelaunchLeadsTable.leadStatus, allKnown),
-      )!,
-    );
+    if (requestedStatus === "converted") {
+      // Strict converted-predecessor lock. NO legacy escape hatch here:
+      // a lead carrying an unknown/legacy status MUST first be moved
+      // forward to `ready_for_case` (which the legacy-status branch
+      // below DOES allow) before it can be converted. Without this
+      // restriction an unknown status would slip past the lock.
+      whereParts.push(
+        inArray(prelaunchLeadsTable.leadStatus, [
+          "ready_for_case",
+          "converted",
+        ]),
+      );
+    } else {
+      const requestedIdx = LEAD_STATUS_VALUES.indexOf(
+        requestedStatus as (typeof LEAD_STATUS_VALUES)[number],
+      );
+      const allowedPredecessors = LEAD_STATUS_VALUES.slice(
+        0,
+        requestedIdx + 1,
+      );
+      const allKnown = [...LEAD_STATUS_VALUES];
+      whereParts.push(
+        or(
+          inArray(
+            prelaunchLeadsTable.leadStatus,
+            allowedPredecessors as string[],
+          ),
+          notInArray(prelaunchLeadsTable.leadStatus, allKnown),
+        )!,
+      );
+    }
   }
 
   const [updated] = await db
@@ -177,13 +225,20 @@ router.patch("/admin/leads/:id", async (req, res) => {
   // safe to call repeatedly — the unique (lead_id) constraint guarantees
   // no duplicate cases can ever be created.
   let caseId: string | null = null;
+  let caseCreatedThisCall = false;
   if (updated.leadStatus === "converted") {
     try {
-      const caseRow = await ensureCaseForLead(
+      // ensureCaseForLead's `created` flag is sourced from the atomic
+      // INSERT … ON CONFLICT RETURNING, so concurrent PATCHes that both
+      // flip the same lead to converted will see `created:true` for at
+      // most one of them — eliminating the race that an earlier
+      // SELECT-then-INSERT pre-check would have introduced.
+      const result = await ensureCaseForLead(
         updated.id,
         updated.referenceNumber,
       );
-      caseId = caseRow.id;
+      caseId = result.row.id;
+      caseCreatedThisCall = result.created;
     } catch (err) {
       req.log.error(
         { err, leadId: updated.id },
@@ -193,6 +248,58 @@ router.patch("/admin/leads/:id", async (req, res) => {
         error: "Lead status updated but case creation failed",
       });
     }
+  }
+
+  // Audit trail (fire-and-forget). One row per actually-changed field
+  // so a single PATCH that flips status + notes produces two audit
+  // entries with identical actor + timestamp pairing. The `before`
+  // snapshot may be undefined on a brand-new lead that vanished between
+  // SELECT and UPDATE — defensively guard with `before?`.
+  if (
+    fieldsUpdated.includes("status") &&
+    before?.leadStatus !== updated.leadStatus
+  ) {
+    void writeAudit({
+      req,
+      action: "lead_status_changed",
+      leadId: updated.id,
+      before: { leadStatus: before?.leadStatus ?? null },
+      after: { leadStatus: updated.leadStatus },
+    });
+  }
+  if (
+    fieldsUpdated.includes("priority") &&
+    before?.leadPriority !== updated.leadPriority
+  ) {
+    void writeAudit({
+      req,
+      action: "lead_priority_changed",
+      leadId: updated.id,
+      before: { leadPriority: before?.leadPriority ?? null },
+      after: { leadPriority: updated.leadPriority },
+    });
+  }
+  if (
+    fieldsUpdated.includes("notes") &&
+    (before?.adminNotes ?? null) !== (updated.adminNotes ?? null)
+  ) {
+    void writeAudit({
+      req,
+      action: "lead_notes_changed",
+      leadId: updated.id,
+      before: { adminNotes: before?.adminNotes ?? null },
+      after: { adminNotes: updated.adminNotes ?? null },
+    });
+  }
+  if (caseId !== null && caseCreatedThisCall) {
+    void writeAudit({
+      req,
+      action: "lead_converted",
+      leadId: updated.id,
+      caseId,
+      before: { leadStatus: before?.leadStatus ?? null, caseId: null },
+      after: { leadStatus: "converted", caseId },
+    });
   }
 
   // Fire-and-forget analytics. Telemetry minimisation per spec: ONLY the

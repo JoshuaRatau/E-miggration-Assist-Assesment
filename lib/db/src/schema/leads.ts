@@ -164,6 +164,35 @@ export const leadOtpsTable = pgTable("lead_otps", {
 export type LeadOtp = typeof leadOtpsTable.$inferSelect;
 export type InsertLeadOtp = typeof leadOtpsTable.$inferInsert;
 
+// Lead Audit ----------------------------------------------------------------
+//
+// Append-only admin action log used for compliance / forensics. Every
+// privileged mutation (status change, priority change, notes change, lead
+// → case conversion, case status change, document download, manual contact
+// click, outbound message send attempt) writes one row.
+//
+//   actorTokenHash  sha256 hex of the credential used (cookie session id
+//                   for V3 auth, or raw x-admin-token for legacy callers).
+//                   The raw credential is NEVER stored.
+//   action          short snake_case verb identifying what happened.
+//   before / after  JSONB snapshots of the relevant fields, scoped to the
+//                   minimum needed to reconstruct the change.
+export const leadAuditTable = pgTable("lead_audit", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  leadId: uuid("lead_id"),
+  caseId: uuid("case_id"),
+  actorTokenHash: text("actor_token_hash"),
+  action: text("action").notNull(),
+  before: jsonb("before"),
+  after: jsonb("after"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export type LeadAudit = typeof leadAuditTable.$inferSelect;
+export type InsertLeadAudit = typeof leadAuditTable.$inferInsert;
+
 export type PrelaunchLead = typeof prelaunchLeadsTable.$inferSelect;
 export type InsertPrelaunchLead = typeof prelaunchLeadsTable.$inferInsert;
 export type PrelaunchDocument = typeof prelaunchDocumentsTable.$inferSelect;
