@@ -1,0 +1,118 @@
+We will proceed in a controlled Phase 1 update.
+
+CRITICAL:
+Do NOT modify backend logic, API contracts, database schema, reference generation logic, or admin system.
+All changes must be frontend flow + validation only.
+
+PHASE 1 OBJECTIVE:
+Fix flow correctness and user journey without breaking existing system.
+
+---
+
+1. RESTRUCTURE ASSESSMENT FLOW
+
+Step 1:
+- Nationality dropdown (with flags)
+- THEN:
+  "Where are you currently located?"
+    ○ Inside South Africa
+    ○ Outside South Africa
+
+RULE:
+- If "outside South Africa" is selected:
+  - REMOVE South Africa from "Current Country of Residence" dropdown
+  - Prevent user from selecting it
+
+Step 2:
+- Add new option:
+  ○ "I want to apply for a visa"
+- Keep existing options
+
+Step 2 (Passport question):
+- Change wording to:
+  "Is your passport valid for at least 6 months from today?"
+
+---
+
+2. ADD OTP VERIFICATION (MANDATORY STEP)
+
+After contact details step:
+- Add OTP verification step BEFORE proceeding
+
+Flow:
+- User selects email or WhatsApp
+- Send OTP
+- Input field for OTP
+- Must verify before continuing
+
+Do NOT allow skipping this step.
+
+---
+
+3. CONDITIONAL DOCUMENT FLOW
+
+Add question before documents step:
+"Do you have supporting documents?"
+
+If:
+- YES → show document upload step
+- NO → SKIP document step entirely
+
+IMPORTANT:
+- Document step must NOT appear if NO is selected
+
+---
+
+4. DOCUMENT UPLOAD FIXES
+
+- Remove any previously hardcoded or cached documents
+- Each session must start clean
+- Add DELETE button per document
+- Allow ALL file types (remove strict mime restrictions on frontend only)
+- Keep backend validation untouched
+
+---
+
+5. FIX EARLY REFERENCE GENERATION
+
+- DO NOT generate reference number before final submission
+- Only generate reference AFTER:
+  - OTP verified
+  - Documents step completed or skipped
+  - Final submit
+
+---
+
+6. TERMS & DISCLAIMER POSITION
+
+Move Terms & Disclaimer to FINAL step (just before submission)
+
+---
+
+7. FINAL PAGE INTELLIGENCE (IMPORTANT)
+
+Enhance final screen:
+
+Instead of generic:
+"Your case requires further review"
+
+Add dynamic messaging based on user input:
+Examples:
+- If outside SA → mention cross-border process
+- If passport near expiry → highlight risk
+- If no documents → suggest preparing documents
+- If overstay → mention appeal/review process
+
+This must feel intelligent and personalised.
+
+---
+
+RULES:
+- DO NOT break existing API calls
+- DO NOT change DB schema
+- DO NOT change admin behaviour
+- All changes must be additive and isolated to UI/flow
+
+If any change risks breaking existing system, STOP and ask.
+
+Proceed with Phase 1 only.
