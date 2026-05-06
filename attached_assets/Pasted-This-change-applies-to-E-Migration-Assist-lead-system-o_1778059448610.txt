@@ -1,0 +1,226 @@
+This change applies to E-Migration Assist lead system only.
+
+Implement the assessment-flow fixes from product owner QA. Do not add payments. Do not discuss or implement Offscript.
+
+1. STEP 1 — BASIC INFO RESTRUCTURE
+
+Current Step 1 must be changed to this order:
+
+A. Nationality / Country of Citizenship
+- Keep as country dropdown with flag.
+
+B. Location status
+Add two clear selectable options directly below nationality:
+- I am currently inside South Africa
+- I am currently outside South Africa
+
+This replaces the current checkbox style.
+Only one can be selected.
+
+C. Current Country of Residence
+- Keep as country dropdown with flag.
+- If user selects “inside South Africa”, default this to South Africa but still allow editing if needed.
+- If user selects “outside South Africa”, current country remains required.
+
+2. STEP 2 — SITUATION OPTIONS
+
+Add a new option to the current situation list:
+
+“I require a visa or want to apply for a visa”
+
+Keep existing options:
+- I currently hold a valid visa
+- My visa is expiring or has expired
+- I have remained beyond my visa period (overstay)
+- I have been declared undesirable
+- I may have been listed as a prohibited person
+- Unsure / prefer further review
+
+3. PASSPORT STATUS WORDING
+
+Change the passport question wording to:
+
+“Is your passport still valid for at least 6 months?”
+
+Options:
+- Yes, valid for 6 months or more
+- No, expires in less than 6 months
+- I am not sure
+- I do not currently have a passport
+
+4. OTP VERIFICATION STEP
+
+Add OTP verification before the user can continue to final submission.
+
+Flow:
+- On contact screen, user enters email and/or WhatsApp.
+- Add button: “Send verification code”.
+- User chooses verification method:
+  - Email
+  - WhatsApp, only if WhatsApp number is provided
+- Server generates a 6-digit OTP.
+- Store OTP hash, expiry time, attempts count, and channel.
+- OTP expires after 10 minutes.
+- Add next screen: “Enter Verification Code”.
+- User must enter the code before proceeding.
+- Max 5 attempts.
+- Do not allow final submission until verified.
+- For now, if real email/WhatsApp provider is not fully configured, create a development fallback that logs the OTP server-side and shows a safe dev-only message only in non-production.
+- In production, never expose OTP on screen.
+
+5. TERMS OF USE + DISCLAIMER
+
+Add a proper Terms of Use and Disclaimer acceptance section before final submission.
+
+Required checkbox wording:
+
+“I confirm that the information I have provided is true and accurate to the best of my knowledge. I understand that E-Migration Assist provides a preliminary, system-generated assessment only and does not provide legal advice, immigration advice, representation, or any guarantee of outcome.”
+
+Add clickable links or expandable modals:
+- Terms of Use
+- Privacy Notice
+- Disclaimer
+
+The submit/final continue button must remain disabled until:
+- OTP verified
+- Terms/disclaimer accepted
+
+6. DOCUMENT UPLOAD FIXES
+
+A. Remove old seeded/demo attachments from the public test flow.
+- Do not show previous test files on new assessments.
+- Uploaded documents must only belong to the current assessment/session/lead.
+
+B. Add Delete button for each uploaded document.
+- User can delete uploaded documents before final submission.
+- Admin can also delete/remove documents where applicable.
+- Use confirmation before delete.
+- Delete must remove or soft-delete the document record and remove it from the visible list.
+
+C. Add Back button to the document upload screen.
+- User must be able to return to previous step without losing saved form data.
+
+D. Add Review Documents section.
+Before final submission, show:
+- Uploaded document list
+- Document type selected
+- File name
+- File size
+- Delete option
+- Add another document option
+
+E. Document type dropdown must include:
+- Passport
+- Visa / Permit
+- Entry / Exit Stamp
+- DHA / VFS Letter
+- Appeal / Explanation Letter
+- Medical Document
+- Proof of Travel
+- Proof of Address
+- Employment / Study Document
+- Marriage / Relationship Document
+- Other Supporting Document
+
+F. File type acceptance
+The user said “any document”, but keep system safe:
+- Allow common document/image formats:
+  PDF, JPG, JPEG, PNG, DOC, DOCX
+- Max 10MB per file
+- Keep server-side validation
+- Do not allow executable/script files
+- Reject unsafe formats clearly
+
+7. REFERENCE NUMBER TIMING CHANGE
+
+Do not show the reference number immediately after initial contact information.
+
+New flow:
+- User completes assessment.
+- User verifies OTP.
+- User accepts terms/disclaimer.
+- User uploads/reviews documents or chooses “Skip documents for now”.
+- Only after this final review/submission step should the reference number be generated and shown.
+
+Important:
+- Backend can still create a temporary draft/session ID internally if needed.
+- Public-facing EMA reference must only appear after final submission stage.
+
+8. FINAL RESULT PAGE IMPROVEMENT
+
+Final page must be more intelligent and engaging.
+
+Instead of only saying:
+“General Status Check / further review”
+
+Generate a short personalised preliminary comment based on user inputs.
+
+Examples:
+- If visa expired: explain that the matter requires review because the declared visa status may affect lawful stay or future application options.
+- If overstay: explain that the matter requires review because overstay history may require supporting explanation and document checking.
+- If passport validity under 6 months: explain that passport validity may affect eligibility or readiness.
+- If outside South Africa and wants to apply for visa: explain that the next review will consider the intended visa route and document readiness.
+- If undesirable/prohibited: explain that the matter is more complex and needs careful review of letters, dates, and supporting documents.
+
+Rules:
+- Do not say approved, rejected, guaranteed, qualify, or eligible.
+- Do not give legal advice.
+- Use wording like:
+  “Based on the information you provided…”
+  “Your matter may require further review because…”
+  “The next practical step is to review your supporting information and documents.”
+
+Show:
+- Reference number
+- Preliminary assessment note
+- Why further review is needed
+- Next step
+- Check Status button
+- Return Home button
+
+9. SCREEN COUNT / FLOW
+
+Revise flow to approximately:
+
+Step 1: Nationality + inside/outside SA + current country
+Step 2: Situation + passport validity
+Step 3: Contact details + preferred contact channel
+Step 4: OTP verification
+Step 5: Terms, disclaimer, and consent
+Step 6: Upload and review documents
+Step 7: Final confirmation / reference generated / intelligent preliminary note
+
+Update progress bar accordingly.
+
+10. ADMIN / BACKEND SAFETY
+
+- Admin dashboard must still work.
+- Public status lookup must remain PII-safe.
+- Existing lead funnel statuses must remain.
+- Do not break lead dashboard, contact action, case conversion, or admin token gating.
+- Do not expose OTP, notes, lead score, internal classification, or documents publicly.
+- Typecheck must pass.
+
+11. VERIFICATION
+
+Test:
+- Inside South Africa / outside South Africa selection works
+- Current country dropdown works
+- New visa application option works
+- Passport question wording updated
+- OTP send and verify works
+- Wrong OTP blocks continuation
+- Expired OTP blocks continuation
+- Terms checkbox blocks continuation until accepted
+- Document upload accepts PDF, JPG, PNG, DOC, DOCX
+- Unsafe file types are rejected
+- Delete document works
+- Back buttons work
+- Reference is only generated after final submission
+- Final page gives personalised explanation
+- Admin dashboard still shows submitted lead
+- Status lookup still shows only public-safe information
+- Typecheck passes
+
+OUTPUT:
+Assessment flow revised, OTP added, document review/delete added, reference generation moved to final submission, and final result page now gives an intelligent preliminary explanation.
