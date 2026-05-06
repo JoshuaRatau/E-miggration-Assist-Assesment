@@ -51,14 +51,11 @@ const DOCUMENT_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "other", label: "Other" },
 ];
 
-const ALLOWED_MIME = [
-  "application/pdf",
-  "image/jpeg",
-  "image/png",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-];
-const ALLOWED_EXT = [".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx"];
+// Phase 1: the frontend MIME/extension allow-list has been removed at the
+// user's request — the file picker now accepts any type. The server's
+// canonical allow-list in `routes/documents.ts` is unchanged and remains
+// the source of truth; rejected uploads surface the server's error message
+// in the inline error banner below the dropzone.
 const MAX_BYTES = 10 * 1024 * 1024;
 
 type DocumentRow = {
@@ -151,11 +148,6 @@ export function DocumentUploader({
     async (file: File) => {
       setErrorMsg(null);
 
-      const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
-      if (!ALLOWED_MIME.includes(file.type) || !ALLOWED_EXT.includes(ext)) {
-        setErrorMsg("Only PDF, JPG, PNG, DOC, and DOCX files are accepted.");
-        return;
-      }
       if (file.size > MAX_BYTES) {
         setErrorMsg("File is larger than the 10MB limit.");
         return;
@@ -290,12 +282,16 @@ export function DocumentUploader({
             : "Drag a file here or click to browse"}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          PDF, JPG, PNG, DOC or DOCX · up to 10MB
+          Any file type · up to 10MB
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground/80">
+          Tip: PDF, JPG, PNG, DOC and DOCX are processed fastest — other
+          formats may be rejected by our processor.
         </p>
         <input
           ref={fileInputRef}
           type="file"
-          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,application/pdf,image/jpeg,image/png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          accept="*/*"
           className="hidden"
           onChange={(e) => onPickFiles(e.target.files)}
           data-testid="input-file"

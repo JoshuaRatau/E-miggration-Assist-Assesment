@@ -63,19 +63,19 @@ export function buildPersonalisedNote(
     );
   } else if (input.currentlyInSouthAfrica === false) {
     body.push(
-      "You indicated you are currently outside South Africa. Cross-border options will be considered as part of your case review.",
+      "You indicated you are currently outside South Africa. Your case will be reviewed against the relevant cross-border process — including visa-on-arrival, embassy application, or pre-authorisation routes — and our team will flag the right pathway for your situation.",
     );
   }
 
   switch (input.passportStatus) {
     case "expired":
       body.push(
-        "Your passport is expiring soon — renewing it early gives the most flexibility for whichever path is recommended.",
+        "Your passport is expiring within six months — for most pathways this is a meaningful risk factor that needs to be addressed before any formal application can be submitted. Renewing it early keeps your options open.",
       );
       break;
     case "none":
       body.push(
-        "You indicated you do not currently hold a passport. A valid passport is generally required before a formal application can proceed.",
+        "You indicated you do not currently hold a passport. A valid passport is generally required before a formal application can proceed — securing one should be your first step.",
       );
       break;
     case "unsure":
@@ -85,6 +85,15 @@ export function buildPersonalisedNote(
       break;
     default:
       break;
+  }
+
+  // Overstay context — surface the appeal/review pathway explicitly so the
+  // user understands that a remedy exists rather than feeling the situation
+  // is closed.
+  if (input.immigrationSituation === "overstay") {
+    body.push(
+      "Overstays are typically reviewed against the supporting circumstances and any reasons for the delay. Where applicable, an appeal or formal review process may be available — our team will walk you through what's possible in your case.",
+    );
   }
 
   // Document-status sentence — driven primarily by the actual upload count
@@ -98,16 +107,19 @@ export function buildPersonalisedNote(
     );
   } else {
     body.push(
-      "You have not uploaded supporting documents yet. If needed, our team may request them during review.",
+      "You have not uploaded any supporting documents. Where possible, start gathering your passport, visa or permit, entry/exit stamps, ID, and any letters or evidence relevant to your situation — having them ready will make your consultation move faster.",
     );
   }
 
   let nextStep = "A consultant will be in touch using your preferred contact channel.";
   switch (input.immigrationSituation) {
     case "expired":
+      nextStep =
+        "A consultant will reach out shortly to discuss the time-sensitive aspects of your visa renewal or change of status.";
+      break;
     case "overstay":
       nextStep =
-        "A consultant will reach out shortly to discuss the time-sensitive aspects of your case.";
+        "A consultant will reach out shortly to discuss the time-sensitive aspects of your case, including any review or appeal options that may apply.";
       break;
     case "undesirable":
     case "prohibited":

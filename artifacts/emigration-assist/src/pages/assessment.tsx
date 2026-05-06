@@ -395,6 +395,16 @@ export function Assessment() {
           // strand the user on the upload screen.
         }
       }
+      // Phase 1 (Q2 = X): the reference number is intentionally never
+      // displayed inside the assessment flow. Redirect straight to the
+      // public thank-you page, which is the single confirmation surface
+      // that reveals the reference + personalised note. The in-page
+      // summary block below is left in place as a defensive fallback in
+      // case `referenceNumber` is somehow missing.
+      if (createdLead.referenceNumber) {
+        setLocation(`/thank-you/${createdLead.referenceNumber}`);
+        return;
+      }
       setStep(SUMMARY_STEP);
       window.scrollTo(0, 0);
     } finally {
@@ -648,7 +658,7 @@ export function Assessment() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>
-                          Do you have a valid passport with at least 6 months remaining?
+                          Is your passport valid for at least 6 months from today?
                         </FormLabel>
                         <Select
                           onValueChange={field.onChange}
@@ -1216,17 +1226,14 @@ export function Assessment() {
                     {personalised.headline}
                   </p>
 
-                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-left">
-                    <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
-                      Your Reference Number
-                    </p>
-                    <p
-                      className="text-2xl font-mono tracking-widest text-primary mt-1 break-all"
-                      data-testid="text-reference-number"
-                    >
-                      {createdLead!.referenceNumber}
-                    </p>
-                  </div>
+                  {/*
+                    Phase 1 (Q2 = X): the reference number is generated
+                    server-side at lead insert (end of Terms step) but is
+                    intentionally NOT shown to the user here. It is only
+                    revealed on the final Thank-You confirmation page after
+                    `finalize` is called, so the user only sees it once at
+                    the very end of their journey.
+                  */}
 
                   <div className="text-left space-y-3 text-sm leading-relaxed text-muted-foreground">
                     {personalised.body.map((line, i) => (
