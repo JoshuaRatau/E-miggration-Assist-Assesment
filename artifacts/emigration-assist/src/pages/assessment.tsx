@@ -18,10 +18,13 @@ import { Disclaimer } from "@/components/disclaimer";
 import { BrandHeader } from "@/components/brand-header";
 import { trackEvent } from "@/lib/analytics";
 import { DocumentUploader } from "@/components/DocumentUploader";
+import { CountryCombobox } from "@/components/country-combobox";
+import { WhatsAppInput } from "@/components/whatsapp-input";
+import { findByIso, findByName } from "@/lib/countries";
 
 const assessmentSchema = z.object({
   // Step 1
-  nationality: z.string().min(2, "Nationality is required"),
+  nationality: z.string().min(2, "Please select your nationality"),
   countryOfResidence: z.string().optional(),
   currentlyInSouthAfrica: z.boolean().default(false),
 
@@ -57,14 +60,11 @@ const assessmentSchema = z.object({
     .refine(
       (val) => {
         if (!val || val.trim() === "") return true;
-        const stripped = val.replace(/[\s()/.\-]/g, "");
-        if (stripped.startsWith("+")) return /^\+\d{10,15}$/.test(stripped);
-        if (/^0\d{9}$/.test(stripped)) return true;
-        return false;
+        return /^\+\d{8,15}$/.test(val.trim());
       },
       {
         message:
-          "Enter a valid WhatsApp number, e.g. 0821234567 or +27821234567.",
+          "Enter a valid WhatsApp number for the selected country.",
       },
     ),
   preferredContactMethod: z.enum(["email", "whatsapp", "phone"]).default("email"),
@@ -98,11 +98,20 @@ export function Assessment() {
       passportStatus: "valid",
       preferredContactMethod: "email",
       consentAccepted: false,
+      whatsapp: "",
+      nationality: "",
+      countryOfResidence: "",
     },
     mode: "onTouched",
   });
 
   const situation = form.watch("immigrationSituation");
+  const [nationalityIso, setNationalityIso] = useState<string | undefined>(
+    undefined,
+  );
+  const [residenceIso, setResidenceIso] = useState<string | undefined>(
+    undefined,
+  );
 
   const nextStep = async () => {
     let fieldsToValidate: any[] = [];
@@ -190,11 +199,20 @@ export function Assessment() {
                   <FormField
                     control={form.control}
                     name="nationality"
-                    render={({ field }) => (
+                    render={({ field, fieldState }) => (
                       <FormItem>
-                        <FormLabel>Nationality</FormLabel>
+                        <FormLabel>Nationality (Country of Citizenship)</FormLabel>
                         <FormControl>
-                          <Input placeholder="E.g. Zimbabwean, British..." {...field} />
+                          <CountryCombobox
+                            value={nationalityIso ?? findByName(field.value)?.iso2}
+                            ariaInvalid={fieldState.invalid}
+                            onChange={(iso2) => {
+                              setNationalityIso(iso2);
+                              field.onChange(findByIso(iso2)?.name ?? "");
+                            }}
+                            placeholder="Select your country of citizenship"
+                            testId="select-nationality"
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -204,11 +222,20 @@ export function Assessment() {
                   <FormField
                     control={form.control}
                     name="countryOfResidence"
-                    render={({ field }) => (
+                    render={({ field, fieldState }) => (
                       <FormItem>
                         <FormLabel>Current Country of Residence</FormLabel>
                         <FormControl>
-                          <Input placeholder="Where do you currently live?" {...field} />
+                          <CountryCombobox
+                            value={residenceIso ?? findByName(field.value)?.iso2}
+                            ariaInvalid={fieldState.invalid}
+                            onChange={(iso2) => {
+                              setResidenceIso(iso2);
+                              field.onChange(findByIso(iso2)?.name ?? "");
+                            }}
+                            placeholder="Where do you currently live?"
+                            testId="select-residence"
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -492,19 +519,16 @@ export function Assessment() {
                     name="whatsapp"
                     render={({ field, fieldState }) => (
                       <FormItem>
-                        <FormLabel>WhatsApp Number (Preferred)</FormLabel>
+                        <FormLabel>WhatsApp Number (Optional)</FormLabel>
                         <FormControl>
-                          <Input
-                            type="tel"
-                            inputMode="tel"
-                            placeholder="0821234567 or +27821234567"
-                            aria-invalid={fieldState.invalid || undefined}
-                            data-testid="input-whatsapp"
-                            {...field}
+                          <WhatsAppInput
+                            value={field.value ?? ""}
+                            ariaInvalid={fieldState.invalid}
+                            onChange={(next) => field.onChange(next)}
                           />
                         </FormControl>
                         <FormDescription>
-                          We use WhatsApp for faster updates where possible.
+                          Pick your country and enter your number. Leading zero is fine — we'll normalise to the international format.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
