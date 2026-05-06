@@ -87,19 +87,18 @@ export function buildPersonalisedNote(
       break;
   }
 
-  if (input.hasSupportingDocuments === "no") {
+  // Document-status sentence — driven primarily by the actual upload count
+  // captured in this session, with the legacy `hasSupportingDocuments` field
+  // as a fallback for older callers.
+  const uploadedCount =
+    typeof input.documentsUploaded === "number" ? input.documentsUploaded : 0;
+  if (uploadedCount > 0) {
     body.push(
-      "You have not yet provided supporting documents. Where relevant, having these ready (medical letters, employer notes, family-tie evidence) tends to make case review faster and more accurate.",
+      `You uploaded ${uploadedCount} document${uploadedCount === 1 ? "" : "s"} — they are linked privately to your reference.`,
     );
-  } else if (input.hasSupportingDocuments === "some") {
+  } else {
     body.push(
-      "You provided partial supporting documents. Our team will let you know if anything additional would strengthen the picture.",
-    );
-  }
-
-  if (typeof input.documentsUploaded === "number" && input.documentsUploaded > 0) {
-    body.push(
-      `You uploaded ${input.documentsUploaded} document${input.documentsUploaded === 1 ? "" : "s"} — they are linked privately to your reference and will be reviewed alongside the rest of your case.`,
+      "You have not uploaded supporting documents yet. If needed, our team may request them during review.",
     );
   }
 

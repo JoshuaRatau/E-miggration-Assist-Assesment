@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, Link } from "wouter";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -47,8 +47,6 @@ const assessmentSchema = z.object({
   // Step 1
   nationality: z.string().min(2, "Please select your nationality"),
   countryOfResidence: z.string().optional(),
-  // Stored as boolean: true = inside SA, false = outside SA. The radio
-  // forces an explicit choice (no implicit "false" default).
   insideSouthAfrica: z.enum(["inside", "outside"], {
     required_error: "Please tell us where you are currently located",
   }),
@@ -63,12 +61,11 @@ const assessmentSchema = z.object({
     "visa_required",
     "unknown",
   ]),
-  // "unsure" added for V2 ("I am not sure") alongside the legacy enum.
   passportStatus: z
     .enum(["valid", "expired", "unsure", "lost", "none"])
     .optional(),
 
-  // Step 3 (Conditional)
+  // Step 3 (Conditional context only — no documents question here in V2)
   visaExpiryDate: z.string().optional(),
   exitDate: z.string().optional(),
   borderDocumentIssued: z.string().optional(),
@@ -77,7 +74,6 @@ const assessmentSchema = z.object({
     .optional(),
   overstayReasonNotes: z.string().optional(),
   previousOverstay: z.enum(["yes", "no"]).optional(),
-  hasSupportingDocuments: z.enum(["yes", "some", "no"]).optional(),
   visaHistory: z.string().optional(),
 
   // Step 4
@@ -97,10 +93,17 @@ const assessmentSchema = z.object({
     .enum(["email", "whatsapp", "phone"])
     .default("email"),
 
-  // Step 6
+  // Step 6 — Terms gate
   consentAccepted: z
     .boolean()
     .refine((val) => val === true, "You must accept the terms"),
+
+  // Step 7 — Documents gate (Yes/No). Optional in the schema because
+  // step 6's Continue button is type=submit and zod-resolver would
+  // otherwise block submission before the user has reached step 7.
+  // The Submit/Finalize buttons enforce the choice with their own
+  // disabled gates (`!wantsDocs`).
+  wantsToUploadDocuments: z.enum(["yes", "no"]).optional(),
 });
 
 type AssessmentFormValues = z.infer<typeof assessmentSchema>;
@@ -112,8 +115,6 @@ interface OtpRequestState {
   expiresAt: string;
   devCode?: string;
 }
-
-const TOTAL_STEPS = 8;
 
 export function Assessment() {
   const [, setLocation] = useLocation();
@@ -134,6 +135,13 @@ export function Assessment() {
     referenceNumber: string;
   } | null>(null);
   const [documentsUploaded, setDocumentsUploaded] = useState(0);
+  const [finalizing, setFinalizing] = useState(false);
+  const [finalized, setFinalized] = useState(false);
+
+  // Session-local cutoff for the document scope filter. Anything uploaded
+  // BEFORE this moment (e.g. by a previous session for the same email)
+  // must not appear when this user reaches step 8.
+  const sessionStartedAtRef = useRef<Date>(new Date());
 
   const createLead = useCreateLead();
 
@@ -161,12 +169,16 @@ export function Assessment() {
   const preferred = form.watch("preferredContactMethod");
   const whatsappValue = form.watch("whatsapp");
   const emailValue = form.watch("email");
+  const wantsDocs = form.watch("wantsToUploadDocuments");
 
   const [nationalityIso, setNationalityIso] = useState<string | undefined>();
   const [residenceIso, setResidenceIso] = useState<string | undefined>();
 
-  // When the user switches to "inside SA", default residence to South Africa
-  // unless they have already chosen something else.
+  // Inside-SA defaulting + outside-SA exclusion logic. When the user
+  // says "inside", residence auto-fills to South Africa (only if empty).
+  // When they switch to "outside", we proactively clear any South Africa
+  // selection so the (now-hidden) ZA option isn't a stale value sent on
+  // submit.
   useEffect(() => {
     if (insideSA === "inside") {
       const za = findByIso("ZA");
@@ -174,16 +186,32 @@ export function Assessment() {
         setResidenceIso("ZA");
         form.setValue("countryOfResidence", za.name, { shouldValidate: true });
       }
+    } else if (insideSA === "outside") {
+      const current = form.getValues("countryOfResidence");
+      if (current && findByName(current)?.iso2 === "ZA") {
+        setResidenceIso(undefined);
+        form.setValue("countryOfResidence", "", { shouldValidate: true });
+      }
     }
   }, [insideSA, form]);
 
-  // When the contact step renders, seed the OTP channel from the user's
-  // preferred contact method (email/whatsapp). "phone" falls back to email.
   useEffect(() => {
     if (step === 5 && !otpRequest) {
       setOtpChannel(preferred === "whatsapp" ? "whatsapp" : "email");
     }
   }, [step, preferred, otpRequest]);
+
+  // Step numbering is dynamic: when the user opts out of documents we
+  // skip the upload step entirely (steps 1–7, ending at the summary).
+  // When they opt in, we render the upload step (steps 1–8). Until the
+  // user has answered the gate, we optimistically show 8 so the bar
+  // doesn't jump backwards on selection.
+  const totalSteps = wantsDocs === "no" ? 7 : 8;
+
+  // Per-step indices used by the JSX. After the gate (step 7), the
+  // summary lives at step 7 (no docs) or step 8 (with docs).
+  const SUMMARY_STEP = wantsDocs === "no" ? 7 : 8;
+  const UPLOAD_STEP = 7; // Only rendered when wantsDocs === "yes".
 
   const nextStep = async () => {
     let fieldsToValidate: Array<keyof AssessmentFormValues> = [];
@@ -196,30 +224,18 @@ export function Assessment() {
       ];
     if (step === 2)
       fieldsToValidate = ["immigrationSituation", "passportStatus"];
-    if (step === 3)
-      fieldsToValidate = [
-        "visaExpiryDate",
-        "exitDate",
-        "borderDocumentIssued",
-        "overstayReason",
-        "overstayReasonNotes",
-        "previousOverstay",
-        "hasSupportingDocuments",
-        "visaHistory",
-      ];
     if (step === 4)
-      fieldsToValidate = ["fullName", "email", "whatsapp", "preferredContactMethod"];
+      fieldsToValidate = [
+        "fullName",
+        "email",
+        "whatsapp",
+        "preferredContactMethod",
+      ];
 
     const isValid = await form.trigger(fieldsToValidate as any);
     if (!isValid) return;
 
-    if (step === 4) {
-      // Don't auto-advance past the contact step until validation passes.
-      // OTP is requested explicitly on step 5.
-      setStep(5);
-    } else {
-      setStep((s) => Math.min(s + 1, TOTAL_STEPS));
-    }
+    setStep((s) => s + 1);
     window.scrollTo(0, 0);
   };
 
@@ -292,14 +308,13 @@ export function Assessment() {
     }
   };
 
-  // Lead creation (called when leaving the T&C step) ------------------------
+  // Lead creation — the row is committed AFTER terms acceptance but
+  // BEFORE the documents gate, so the documents step (when chosen) has
+  // a real lead.id to attach uploads to.  finalize:false defers the
+  // confirmation send until the very end of the flow.
   const submitLead = (data: AssessmentFormValues) => {
-    // Hard-lock against double-submit: once the lead exists for this
-    // session, the only valid forward move is documents → summary. A
-    // user navigating Back into step 6 and re-clicking submit must not
-    // create a second row (server dedupes by email but the client UX
-    // would be confusing).
     if (createdLead) {
+      // Already saved this session — just advance to the documents gate.
       setStep(7);
       window.scrollTo(0, 0);
       return;
@@ -326,6 +341,9 @@ export function Assessment() {
       visaHistory: visaHistoryWithNotes,
       currentlyInSouthAfrica: insideSouthAfrica === "inside",
       verifiedOtpId,
+      // Defer confirmation to the explicit finalize step. No outbound
+      // email/WhatsApp is sent on this call.
+      finalize: false,
     } as any;
 
     createLead.mutate(
@@ -339,6 +357,7 @@ export function Assessment() {
             id: result.id,
             referenceNumber: result.referenceNumber,
           });
+          // Move into the documents-gate step.
           setStep(7);
           window.scrollTo(0, 0);
         },
@@ -356,7 +375,33 @@ export function Assessment() {
     );
   };
 
-  // Personalised note for the final step.
+  // Finalize — flips the lead from "draft" (no confirmation sent) to
+  // "final" by hitting the deferred dispatcher, then reveals the
+  // summary page. Called from BOTH the "no documents" branch (skip
+  // straight from the gate) AND the upload-completion branch.
+  const finalizeAndShowSummary = async () => {
+    if (!createdLead || finalizing) return;
+    setFinalizing(true);
+    try {
+      if (!finalized) {
+        try {
+          await fetch(`${BASE_URL}/api/leads/${createdLead.id}/finalize`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          });
+          setFinalized(true);
+        } catch (err) {
+          // Confirmation send is non-blocking — never let a network blip
+          // strand the user on the upload screen.
+        }
+      }
+      setStep(SUMMARY_STEP);
+      window.scrollTo(0, 0);
+    } finally {
+      setFinalizing(false);
+    }
+  };
+
   const personalised = useMemo(() => {
     const v = form.getValues();
     const input: PersonalisedNoteInput = {
@@ -369,11 +414,20 @@ export function Assessment() {
           : v.insideSouthAfrica === "outside"
             ? false
             : null,
-      hasSupportingDocuments: v.hasSupportingDocuments,
       documentsUploaded,
     };
     return buildPersonalisedNote(input);
   }, [createdLead, documentsUploaded, step]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Showing the upload UI on step 7 only when the user opted in; the
+  // same step number renders the summary when they opted out.
+  const onSummaryStep = step === SUMMARY_STEP && createdLead;
+  const onUploadStep =
+    step === UPLOAD_STEP && createdLead && wantsDocs === "yes";
+  const onGateStep =
+    step === 7 && createdLead && (wantsDocs === undefined || wantsDocs === "no");
+  // (When wantsDocs === "no" the gate radio still renders on step 7 so
+  // the user can flip back to "yes" before clicking Continue.)
 
   return (
     <div className="min-h-screen bg-background py-12 px-4 sm:px-6 lg:px-8">
@@ -383,9 +437,12 @@ export function Assessment() {
           <h1 className="text-3xl font-display font-semibold text-center">
             Your Preliminary Assessment
           </h1>
-          <Progress value={(step / TOTAL_STEPS) * 100} className="h-2" />
+          <Progress
+            value={(Math.min(step, totalSteps) / totalSteps) * 100}
+            className="h-2"
+          />
           <p className="text-center text-sm text-muted-foreground">
-            Step {step} of {TOTAL_STEPS}
+            Step {Math.min(step, totalSteps)} of {totalSteps}
           </p>
         </div>
 
@@ -489,11 +546,21 @@ export function Assessment() {
                             }}
                             placeholder="Where do you currently live?"
                             testId="select-residence"
+                            // When the user is OUTSIDE South Africa, ZA
+                            // must not be a selectable option.  V2 spec.
+                            excludeIso={
+                              insideSA === "outside" ? ["ZA"] : undefined
+                            }
                           />
                         </FormControl>
                         {insideSA === "inside" && (
                           <FormDescription>
                             Defaulted to South Africa — change it if you live elsewhere.
+                          </FormDescription>
+                        )}
+                        {insideSA === "outside" && (
+                          <FormDescription>
+                            South Africa is hidden because you indicated you are currently outside the country.
                           </FormDescription>
                         )}
                         <FormMessage />
@@ -714,35 +781,6 @@ export function Assessment() {
                       />
                     </>
                   )}
-
-                  <FormField
-                    control={form.control}
-                    name="hasSupportingDocuments"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Do you have supporting documents?</FormLabel>
-                        <FormDescription>
-                          For example: medical records, proof of incident, employer letters, family-tie documents.
-                        </FormDescription>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select an option" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="yes">Yes, I have full supporting documents</SelectItem>
-                            <SelectItem value="some">I have some supporting documents</SelectItem>
-                            <SelectItem value="no">No supporting documents at this time</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
 
                   <FormField
                     control={form.control}
@@ -1070,13 +1108,73 @@ export function Assessment() {
                 </div>
               )}
 
-              {step === 7 && createdLead && (
+              {/* Step 7 — branches based on wantsToUploadDocuments. The
+                  gate radio is always rendered first; when "yes" the
+                  uploader appears below the radio. When "no" the
+                  Continue button finalizes immediately. */}
+              {step === 7 && createdLead && wantsDocs !== "yes" && (
+                <div
+                  className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500"
+                  data-testid="step-docs-gate"
+                >
+                  <h2 className="text-xl font-medium border-b pb-2">
+                    Supporting Documents
+                  </h2>
+                  <FormField
+                    control={form.control}
+                    name="wantsToUploadDocuments"
+                    render={({ field }) => (
+                      <FormItem className="space-y-3">
+                        <FormLabel>
+                          Do you have supporting documents to upload?
+                        </FormLabel>
+                        <FormDescription>
+                          Examples: passport scans, visa permits, medical letters, employment letters, financial statements.
+                        </FormDescription>
+                        <FormControl>
+                          <RadioGroup
+                            onValueChange={field.onChange}
+                            value={field.value}
+                            className="flex flex-col space-y-2"
+                          >
+                            <FormItem className="flex items-center space-x-3 space-y-0 p-3 rounded border hover:bg-accent/50 transition-colors">
+                              <FormControl>
+                                <RadioGroupItem
+                                  value="yes"
+                                  data-testid="radio-docs-yes"
+                                />
+                              </FormControl>
+                              <FormLabel className="font-normal cursor-pointer w-full">
+                                Yes, I want to upload documents
+                              </FormLabel>
+                            </FormItem>
+                            <FormItem className="flex items-center space-x-3 space-y-0 p-3 rounded border hover:bg-accent/50 transition-colors">
+                              <FormControl>
+                                <RadioGroupItem
+                                  value="no"
+                                  data-testid="radio-docs-no"
+                                />
+                              </FormControl>
+                              <FormLabel className="font-normal cursor-pointer w-full">
+                                No, I will submit without documents
+                              </FormLabel>
+                            </FormItem>
+                          </RadioGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+
+              {step === 7 && createdLead && wantsDocs === "yes" && (
                 <div
                   className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500"
                   data-testid="step-documents"
                 >
                   <h2 className="text-xl font-medium border-b pb-2">
-                    Upload Supporting Documents (Optional)
+                    Upload Supporting Documents
                   </h2>
                   <p className="text-sm text-muted-foreground">
                     Add any documents that may help your case review. You can
@@ -1085,12 +1183,25 @@ export function Assessment() {
                   </p>
                   <DocumentUploader
                     leadId={createdLead.id}
+                    sessionStartedAt={sessionStartedAtRef.current}
                     onChange={(docs) => setDocumentsUploaded(docs.length)}
                   />
+                  <button
+                    type="button"
+                    className="text-sm underline text-muted-foreground hover:text-foreground"
+                    onClick={() =>
+                      form.setValue("wantsToUploadDocuments", "no", {
+                        shouldValidate: true,
+                      })
+                    }
+                    data-testid="link-skip-docs"
+                  >
+                    Actually, I don't have documents to upload — skip
+                  </button>
                 </div>
               )}
 
-              {step === 8 && createdLead && (
+              {onSummaryStep && (
                 <div
                   className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 text-center"
                   data-testid="step-summary"
@@ -1113,7 +1224,7 @@ export function Assessment() {
                       className="text-2xl font-mono tracking-widest text-primary mt-1 break-all"
                       data-testid="text-reference-number"
                     >
-                      {createdLead.referenceNumber}
+                      {createdLead!.referenceNumber}
                     </p>
                   </div>
 
@@ -1136,9 +1247,7 @@ export function Assessment() {
 
               {/* Footer / nav buttons -------------------------------------- */}
               <div className="flex justify-between pt-6 border-t">
-                {/* Back is shown on every step except step 1 and step 8.
-                    On step 5 (OTP) Back is allowed to fix contact details. */}
-                {step > 1 && step < 8 ? (
+                {step > 1 && step < SUMMARY_STEP ? (
                   <Button
                     type="button"
                     variant="outline"
@@ -1175,24 +1284,35 @@ export function Assessment() {
                   >
                     {createLead.isPending
                       ? "Saving…"
-                      : "Continue to documents"}
+                      : "Continue"}
                   </Button>
                 )}
 
-                {step === 7 && createdLead && (
+                {step === 7 &&
+                  createdLead &&
+                  wantsDocs !== "yes" && (
+                    <Button
+                      type="button"
+                      onClick={finalizeAndShowSummary}
+                      disabled={!wantsDocs || finalizing}
+                      data-testid="button-skip-docs-continue"
+                    >
+                      {finalizing ? "Submitting…" : "Submit assessment"}
+                    </Button>
+                  )}
+
+                {step === 7 && createdLead && wantsDocs === "yes" && (
                   <Button
                     type="button"
-                    onClick={() => {
-                      setStep(8);
-                      window.scrollTo(0, 0);
-                    }}
+                    onClick={finalizeAndShowSummary}
+                    disabled={finalizing}
                     data-testid="button-finalize"
                   >
-                    Finish & view summary
+                    {finalizing ? "Submitting…" : "Finish & view summary"}
                   </Button>
                 )}
 
-                {step === 8 && createdLead && (
+                {onSummaryStep && (
                   <div className="flex gap-3">
                     <Link href="/status">
                       <Button

@@ -1,0 +1,81 @@
+This change applies to E-Migration Assist lead system only.
+
+Fix the assessment flow issues from latest QA screenshots.
+
+1. Step 1 country logic
+If user selects “I am currently outside South Africa”:
+- Current Country of Residence dropdown must NOT allow South Africa.
+- Remove/disable South Africa from that dropdown.
+- If South Africa was already selected, clear it and force user to choose another country.
+
+If user selects “I am currently inside South Africa”:
+- Current Country of Residence should default to South Africa.
+
+2. Reference + confirmation timing bug
+Do NOT send confirmation email/WhatsApp or show “case received” status after Step 6.
+
+Reference number and confirmation message must only be triggered after final submission:
+- If user has documents: after Step 7 upload/review and final continue.
+- If user has no documents: after skipping Step 7 and submitting final assessment.
+
+No outbound confirmation must be sent before the final submission point.
+
+3. Supporting documents conditional flow
+Add/repair the question:
+“Do you have supporting documents to upload?”
+
+Options:
+- Yes, I want to upload documents
+- No, I will submit without documents
+
+If NO:
+- Skip Step 7 entirely.
+- Go directly to final submission / final result page.
+- Final page should say no supporting documents were uploaded and explain they may be requested later if needed.
+
+If YES:
+- Show Step 7 upload/review documents.
+- Then final submit.
+
+4. Remove old documents from every application
+Hard fix: Step 7 must only show documents uploaded in the current assessment/session/temporary lead flow.
+
+Do not show:
+- old seeded test documents
+- documents from other references
+- documents from previous sessions
+- hardcoded files
+
+Filter documents strictly by current draft/lead/session id only.
+
+If no documents were uploaded in this assessment, show:
+“No documents uploaded yet.”
+
+5. Step numbering
+Update progress numbering dynamically:
+- If user says YES to documents: show full flow including document upload.
+- If user says NO to documents: skip upload step and do not show an empty Step 7.
+
+6. Terms & Disclaimer placement
+Keep Terms & Disclaimer before final submission. Recommended order:
+Contact → OTP verification → Terms & Disclaimer → Supporting documents question → Upload if yes → Final result.
+
+Terms must be accepted before final submission, whether documents are uploaded or skipped.
+
+7. Final page
+Keep Page 8 wording/design as-is because it is working well.
+Only adjust the document sentence:
+- If documents uploaded: “You uploaded X documents — they are linked privately to your reference.”
+- If skipped/no documents: “You have not uploaded supporting documents yet. If needed, our team may request them during review.”
+
+8. Verification
+Test:
+- Outside South Africa blocks South Africa residence.
+- Inside South Africa defaults residence to South Africa.
+- No confirmation email/WhatsApp before final submit.
+- Selecting no documents skips upload step.
+- Selecting yes shows upload step.
+- Old documents never appear in a new application.
+- Final page still generates reference and intelligent comment.
+- Admin dashboard still receives the lead.
+- Typecheck passes.

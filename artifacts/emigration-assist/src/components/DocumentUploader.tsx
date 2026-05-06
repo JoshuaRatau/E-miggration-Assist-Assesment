@@ -100,12 +100,21 @@ interface DocumentUploaderProps {
   hideList?: boolean;
   /** Notified when the documents list changes (after upload or delete). */
   onChange?: (docs: DocumentRow[]) => void;
+  /**
+   * Hard cutoff: only documents created at or after this timestamp are
+   * displayed. V2 uses this to ensure that when a returning user (same
+   * email/whatsapp) lands on an existing lead via dedup, any documents
+   * uploaded in *previous* sessions stay hidden. Pass the moment the
+   * current assessment session started.
+   */
+  sessionStartedAt?: Date;
 }
 
 export function DocumentUploader({
   leadId,
   hideList = false,
   onChange,
+  sessionStartedAt,
 }: DocumentUploaderProps) {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -118,11 +127,20 @@ export function DocumentUploader({
   const [pendingDelete, setPendingDelete] = useState<DocumentRow | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const queryKey = ["documents", leadId];
+  const sessionCutoffMs = sessionStartedAt?.getTime() ?? 0;
+  const queryKey = ["documents", leadId, sessionCutoffMs];
   const { data: docs = [], isLoading } = useQuery({
     queryKey,
     queryFn: async () => {
-      const list = await fetchDocuments(leadId);
+      const all = await fetchDocuments(leadId);
+      // V2 strict scope: drop anything uploaded before this session began.
+      // Prevents documents from a previous attempt (same email/WhatsApp →
+      // dedup match) from leaking into a brand-new assessment.
+      const list = sessionCutoffMs
+        ? all.filter(
+            (d) => new Date(d.createdAt).getTime() >= sessionCutoffMs,
+          )
+        : all;
       onChange?.(list);
       return list;
     },

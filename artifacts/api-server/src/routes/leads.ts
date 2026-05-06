@@ -97,72 +97,16 @@ const toDateString = (d: Date | undefined): string | null =>
     ? d.toISOString().slice(0, 10)
     : null;
 
-router.post("/leads", async (req, res) => {
-  const parsed = CreateLeadBody.safeParse(req.body);
-  if (!parsed.success) {
-    return res
-      .status(400)
-      .json({ error: "Invalid input", details: parsed.error.issues });
-  }
-  const data = parsed.data;
-
-  if (!data.consentAccepted) {
-    return res.status(400).json({ error: "Consent is required" });
-  }
-
-  // V2: contact verification is mandatory.  The frontend obtains a
-  // verifiedOtpId from POST /api/otp/verify and forwards it here.  We
-  // confirm the proof is fresh (consumed within 30 min) AND that the
-  // verified channel matches the contact we are about to persist.
-  // Bypass for non-production environments only when the explicit env
-  // flag is set, so automated/CLI smoke tests can still create leads.
-  const bypass =
-    process.env["NODE_ENV"] !== "production" &&
-    process.env["DISABLE_OTP_VERIFICATION"] === "1";
-  const normalizedWhatsappEarly = normalizeWhatsapp(data.whatsapp);
-  if (!bypass) {
-    const otpId = (req.body as { verifiedOtpId?: unknown }).verifiedOtpId;
-    if (typeof otpId !== "string" || otpId.length === 0) {
-      return res
-        .status(400)
-        .json({ error: "Contact verification is required" });
-    }
-    const verified = await findUsableVerifiedOtp(otpId);
-    if (!verified) {
-      return res
-        .status(400)
-        .json({ error: "Verification has expired — please verify again" });
-    }
-    const matchesEmail =
-      verified.channel === "email" &&
-      typeof verified.email === "string" &&
-      verified.email.toLowerCase() === data.email.toLowerCase();
-    const matchesWhatsapp =
-      verified.channel === "whatsapp" &&
-      typeof verified.whatsapp === "string" &&
-      verified.whatsapp === normalizedWhatsappEarly;
-    if (!matchesEmail && !matchesWhatsapp) {
-      return res.status(400).json({
-        error:
-          "Verified contact does not match — please verify again with the contact you are submitting",
-      });
-    }
-  }
-
-  // Local fire-and-forget confirmation dispatcher used by BOTH the
-  // new-insert branch AND the dedup-update branch.  Resubmissions are
-  // first-class: a real client filling the form a second time should
-  // get acknowledged, not silently ignored.
-  //
-  // `cooldownMinutes` (only relevant for the dedup branch) suppresses a
-  // fresh send only if the SAME channel was already successfully delivered
-  // to within the window — so accidental double-clicks don't spam, while
-  // a legitimate retry a couple of minutes later still goes through.
-  // status='sent' is the only blocker; pending/failed never block a retry.
-  const dispatchConfirmation = (
+// Build a request-scoped confirmation dispatcher.  Extracted from the
+// inline closure in POST /leads so the same logic can run from the new
+// POST /leads/:id/finalize route — V2 defers confirmation send until the
+// user reaches the documents-question gate (or skips documents and goes
+// straight to the summary).
+function buildConfirmationDispatcher(req: import("express").Request) {
+  return function dispatchConfirmation(
     lead: typeof prelaunchLeadsTable.$inferSelect,
     cooldownMinutes: number,
-  ): void => {
+  ): void {
     if (!lead.consentAccepted) return;
 
     const hasWhatsApp =
@@ -295,6 +239,68 @@ router.post("/leads", async (req, res) => {
       }
     })();
   };
+}
+
+router.post("/leads", async (req, res) => {
+  const parsed = CreateLeadBody.safeParse(req.body);
+  if (!parsed.success) {
+    return res
+      .status(400)
+      .json({ error: "Invalid input", details: parsed.error.issues });
+  }
+  const data = parsed.data;
+  // V2: the assessment UI sends `finalize: false` when it just needs a
+  // lead row to attach documents to.  The confirmation message is then
+  // dispatched via POST /leads/:id/finalize at the very end of the flow
+  // (whether the user uploaded documents or skipped them).  Default true
+  // preserves backwards compatibility for any existing callers (CLI
+  // smoke tests, older clients).
+  const finalize = (req.body as { finalize?: unknown }).finalize !== false;
+
+  if (!data.consentAccepted) {
+    return res.status(400).json({ error: "Consent is required" });
+  }
+
+  // V2: contact verification is mandatory.  The frontend obtains a
+  // verifiedOtpId from POST /api/otp/verify and forwards it here.  We
+  // confirm the proof is fresh (consumed within 30 min) AND that the
+  // verified channel matches the contact we are about to persist.
+  // Bypass for non-production environments only when the explicit env
+  // flag is set, so automated/CLI smoke tests can still create leads.
+  const bypass =
+    process.env["NODE_ENV"] !== "production" &&
+    process.env["DISABLE_OTP_VERIFICATION"] === "1";
+  const normalizedWhatsappEarly = normalizeWhatsapp(data.whatsapp);
+  if (!bypass) {
+    const otpId = (req.body as { verifiedOtpId?: unknown }).verifiedOtpId;
+    if (typeof otpId !== "string" || otpId.length === 0) {
+      return res
+        .status(400)
+        .json({ error: "Contact verification is required" });
+    }
+    const verified = await findUsableVerifiedOtp(otpId);
+    if (!verified) {
+      return res
+        .status(400)
+        .json({ error: "Verification has expired — please verify again" });
+    }
+    const matchesEmail =
+      verified.channel === "email" &&
+      typeof verified.email === "string" &&
+      verified.email.toLowerCase() === data.email.toLowerCase();
+    const matchesWhatsapp =
+      verified.channel === "whatsapp" &&
+      typeof verified.whatsapp === "string" &&
+      verified.whatsapp === normalizedWhatsappEarly;
+    if (!matchesEmail && !matchesWhatsapp) {
+      return res.status(400).json({
+        error:
+          "Verified contact does not match — please verify again with the contact you are submitting",
+      });
+    }
+  }
+
+  const dispatchConfirmation = buildConfirmationDispatcher(req);
 
   // WhatsApp: normalise to canonical +E.164. Invalid → store null. Submission
   // is NEVER blocked on a bad number. Raw user input is intentionally not
@@ -379,10 +385,16 @@ router.post("/leads", async (req, res) => {
       "Duplicate detected — updated existing lead",
     );
 
-    // Resubmissions get acknowledged too. The 1-minute cooldown absorbs
-    // accidental double-clicks; anything beyond that is a real retry and
-    // the client deserves a fresh confirmation.
-    dispatchConfirmation(updated, 1);
+    // V2: only dispatch if the client opted in to finalize on this call.
+    // For the assessment flow (finalize=false) the send is deferred to
+    // POST /leads/:id/finalize after the user has answered the documents
+    // question (and optionally uploaded files).
+    if (finalize) {
+      // Resubmissions get acknowledged too. The 1-minute cooldown absorbs
+      // accidental double-clicks; anything beyond that is a real retry and
+      // the client deserves a fresh confirmation.
+      dispatchConfirmation(updated, 1);
+    }
 
     return res.status(200).json(serializeLead(updated));
   }
@@ -455,10 +467,82 @@ router.post("/leads", async (req, res) => {
       req.log.error({ err }, "Failed to log whatsapp_captured event"),
     );
 
-  // Fresh insert: dispatch confirmation immediately, no cooldown.
-  dispatchConfirmation(inserted, 0);
+  // V2: defer confirmation when the client is just creating the row to
+  // attach documents (finalize=false).  Otherwise dispatch immediately.
+  if (finalize) {
+    dispatchConfirmation(inserted, 0);
+  }
 
   return res.status(201).json(serializeLead(inserted));
+});
+
+/**
+ * POST /leads/:id/finalize
+ *
+ * V2 entry point used by the assessment UI to trigger the confirmation
+ * email/WhatsApp at the *real* end of the flow — after the user has either
+ * uploaded supporting documents or chosen to skip them.  The route is
+ * idempotent: the existing 5-minute send-cooldown on `lead_engagements`
+ * absorbs accidental double-clicks.  No body is required; we just look the
+ * lead up and run the same dispatcher used by POST /leads.
+ *
+ * Intentionally NOT in OpenAPI — frontend uses raw fetch, mirroring the
+ * admin/OTP convention.  Public-safe (no PII echoed).
+ */
+router.post("/leads/:id/finalize", async (req, res) => {
+  const { id } = req.params;
+  // Defensive: only accept a UUID, reject anything else fast so we don't
+  // even hit the DB on a probe.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    return res.status(400).json({ error: "Invalid lead id" });
+  }
+  const rows = await db
+    .select()
+    .from(prelaunchLeadsTable)
+    .where(eq(prelaunchLeadsTable.id, id))
+    .limit(1);
+  const lead = rows[0];
+  if (!lead) {
+    return res.status(404).json({ error: "Lead not found" });
+  }
+
+  // At-most-once defense.  The route is unauthenticated (anyone holding
+  // a valid lead UUID can call it), so we explicitly suppress repeated
+  // sends by checking for ANY confirmation engagement row (sent OR
+  // pending OR failed) before dispatching.  This bounds the abuse
+  // surface to "one extra confirmation per leaked UUID" instead of
+  // "unlimited re-sends every 5 minutes".  The dispatcher's own
+  // cooldown still helps for normal client retries that happen before
+  // the engagement row is written.
+  const existingEngagements = await db
+    .select({ id: leadEngagementsTable.id })
+    .from(leadEngagementsTable)
+    .where(
+      and(
+        eq(leadEngagementsTable.leadId, lead.id),
+        eq(leadEngagementsTable.type, "confirmation"),
+      ),
+    )
+    .limit(1);
+
+  if (existingEngagements.length > 0) {
+    req.log.info(
+      { leadId: lead.id },
+      "finalize: confirmation engagement already exists — skipping send",
+    );
+    return res.json({
+      finalized: true,
+      alreadyFinalized: true,
+      referenceNumber: lead.referenceNumber,
+    });
+  }
+
+  buildConfirmationDispatcher(req)(lead, 5);
+
+  return res.json({
+    finalized: true,
+    referenceNumber: lead.referenceNumber,
+  });
 });
 
 router.get("/leads", async (req, res) => {

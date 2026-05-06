@@ -46,6 +46,12 @@ type CountryComboboxProps = {
   triggerClassName?: string;
   testId?: string;
   ariaInvalid?: boolean;
+  /**
+   * ISO2 codes to omit from the option list. Used to enforce contextual
+   * exclusions (e.g. hide South Africa from "Country of Residence" when
+   * the user has indicated they are currently OUTSIDE South Africa).
+   */
+  excludeIso?: string[];
 };
 
 export function CountryCombobox({
@@ -58,9 +64,21 @@ export function CountryCombobox({
   triggerClassName,
   testId,
   ariaInvalid,
+  excludeIso,
 }: CountryComboboxProps) {
   const [open, setOpen] = useState(false);
   const selected = useMemo(() => findByIso(value), [value]);
+  const excludeSet = useMemo(
+    () => new Set((excludeIso ?? []).map((c) => c.toUpperCase())),
+    [excludeIso],
+  );
+  const visibleCountries = useMemo(
+    () =>
+      excludeSet.size === 0
+        ? COUNTRIES
+        : COUNTRIES.filter((c) => !excludeSet.has(c.iso2.toUpperCase())),
+    [excludeSet],
+  );
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -112,7 +130,7 @@ export function CountryCombobox({
           <CommandList>
             <CommandEmpty>No country found.</CommandEmpty>
             <CommandGroup>
-              {COUNTRIES.map((c) => {
+              {visibleCountries.map((c) => {
                 const itemValue = `${c.name}|${c.iso2}|${c.dial}`;
                 return (
                   <CommandItem
