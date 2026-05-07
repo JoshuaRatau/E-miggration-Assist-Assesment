@@ -45,6 +45,8 @@ import { DashboardGreeting } from "@/components/dashboard-greeting";
 import { LeadMixCharts } from "@/components/lead-mix-charts";
 import { LeadPipelineBoard } from "@/components/lead-pipeline-board";
 import { LeadVelocityChip } from "@/components/lead-velocity-chip";
+import { LeadScoreBadge } from "@/components/lead-score-badge";
+import { deriveLeadScore } from "@/lib/leadScore";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -105,6 +107,7 @@ const WHATSAPP_OPTIONS = [
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest first" },
   { value: "priority", label: "Priority first (high → low)" },
+  { value: "score", label: "Score (hottest first)" },
 ];
 
 // Visual cues for the priority badge — critical = magenta-pink (urgency
@@ -270,7 +273,7 @@ export function Admin() {
   const [priority, setPriority] = useState("ALL");
   const [status, setStatus] = useState("ALL");
   const [whatsappFilter, setWhatsappFilter] = useState("ANY");
-  const [sort, setSort] = useState<"newest" | "priority">("newest");
+  const [sort, setSort] = useState<"newest" | "priority" | "score">("newest");
 
   // B2C / B2B segment selector. Splits the dashboard between leads
   // captured via the public self-assessment ("individual") and leads
@@ -415,6 +418,31 @@ export function Admin() {
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
       });
+    } else if (sort === "score") {
+      // Hottest-first: composite quality+urgency score from `deriveLeadScore`.
+      // Tiebreak on createdAt DESC so among same-score leads the newer
+      // capture surfaces first (matches the mental model of the
+      // "Newest first" default).
+      //
+      // Performance + correctness: snapshot `now` once and pre-compute
+      // each lead's score in a single pass, so the comparator runs
+      // O(n log n) on numeric reads rather than re-deriving the score
+      // per comparison. The shared `now` also avoids any boundary-time
+      // jitter where a follow-up tipping from "due_soon" → "overdue"
+      // mid-sort could break comparator transitivity.
+      const now = new Date();
+      const scored = out.map((lead) => ({
+        lead,
+        score: deriveLeadScore(lead, now).score,
+      }));
+      scored.sort((a, b) => {
+        if (a.score !== b.score) return b.score - a.score;
+        return (
+          new Date(b.lead.createdAt).getTime() -
+          new Date(a.lead.createdAt).getTime()
+        );
+      });
+      out = scored.map((s) => s.lead);
     }
     // sort === "newest" is already the server's default order.
     return out;
@@ -892,7 +920,9 @@ export function Admin() {
                 </label>
                 <Select
                   value={sort}
-                  onValueChange={(v) => setSort(v as "newest" | "priority")}
+                  onValueChange={(v) =>
+                    setSort(v as "newest" | "priority" | "score")
+                  }
                 >
                   <SelectTrigger data-testid="select-sort">
                     <SelectValue />
@@ -1056,15 +1086,21 @@ export function Admin() {
                           className={rowHighlightClass(lead.leadStatus)}
                         >
                           <TableCell>
-                            <div className="font-medium">
-                              {lead.fullName ??
-                                lead.organizationName ??
-                                lead.representativeName ??
-                                lead.email ??
-                                lead.referenceNumber}
+                            <div className="font-medium flex items-center gap-2 flex-wrap">
+                              <LeadScoreBadge
+                                lead={lead}
+                                testIdSuffix={lead.referenceNumber ?? lead.id}
+                              />
+                              <span>
+                                {lead.fullName ??
+                                  lead.organizationName ??
+                                  lead.representativeName ??
+                                  lead.email ??
+                                  lead.referenceNumber}
+                              </span>
                               {lead.leadType === "professional" && (
                                 <span
-                                  className="ml-2 inline-flex items-center rounded border border-blue-300 bg-blue-50 px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wide text-blue-700"
+                                  className="inline-flex items-center rounded border border-blue-300 bg-blue-50 px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wide text-blue-700"
                                   data-testid={`badge-b2b-${lead.referenceNumber}`}
                                 >
                                   B2B

@@ -21,8 +21,26 @@ import type { Lead } from "@workspace/api-client-react";
 
 export type LeadVelocityState = "overdue" | "due_soon" | "stale" | "fresh";
 
+// Canonical urgency rank used by leadScore + the future "Needs attention"
+// filter. Higher = more operator-attention required RIGHT NOW. The order
+// is intentionally NOT (overdue > due_soon > stale > fresh) by chronology
+// — it's by "how mad would the operator be if they missed this":
+//   overdue   > stale     > due_soon > fresh > calm
+// because an explicit broken promise (overdue) and a cooling lead (stale)
+// both represent missed operator action, whereas due_soon is just a
+// reminder and fresh is a pleasant nudge.
+export const VELOCITY_SEVERITY: Record<LeadVelocityState, number> = {
+  overdue: 4,
+  stale: 3,
+  due_soon: 2,
+  fresh: 1,
+};
+
 export interface LeadVelocity {
   state: LeadVelocityState;
+  // Numeric urgency, 0..4. Zero is reserved for the "calm" state which
+  // surfaces as `null` from `deriveLeadVelocity`.
+  severity: number;
   // Short label, e.g. "Overdue 2d", "Due in 4h", "Stale 9d", "New".
   label: string;
   // Tailwind class set for the chip (text + border + bg). Kept in this
@@ -65,6 +83,7 @@ export function deriveLeadVelocity(
     const { value, unit } = fmtDuration(nowMs - nextFollowUp);
     return {
       state: "overdue",
+      severity: VELOCITY_SEVERITY.overdue,
       label: `Overdue ${value}${unit}`,
       className:
         "border-red-500/60 bg-red-500/10 text-red-300 hover:bg-red-500/15",
@@ -77,6 +96,7 @@ export function deriveLeadVelocity(
     const { value, unit } = fmtDuration(nextFollowUp - nowMs);
     return {
       state: "due_soon",
+      severity: VELOCITY_SEVERITY.due_soon,
       label: `Due in ${value}${unit}`,
       className:
         "border-amber-500/60 bg-amber-500/10 text-amber-300 hover:bg-amber-500/15",
@@ -98,6 +118,7 @@ export function deriveLeadVelocity(
       const { value, unit } = fmtDuration(nowMs - lastContactMs);
       return {
         state: "stale",
+        severity: VELOCITY_SEVERITY.stale,
         label: `Stale ${value}${unit}`,
         className:
           "border-orange-500/60 bg-orange-500/10 text-orange-300 hover:bg-orange-500/15",
@@ -111,6 +132,7 @@ export function deriveLeadVelocity(
       const { value, unit } = fmtDuration(nowMs - createdMs);
       return {
         state: "stale",
+        severity: VELOCITY_SEVERITY.stale,
         label: `Untouched ${value}${unit}`,
         className:
           "border-orange-500/60 bg-orange-500/10 text-orange-300 hover:bg-orange-500/15",
@@ -127,6 +149,7 @@ export function deriveLeadVelocity(
     if (lastContactMs === null && nowMs - createdMs <= DAY_MS) {
       return {
         state: "fresh",
+        severity: VELOCITY_SEVERITY.fresh,
         label: "New",
         className:
           "border-blue-500/60 bg-blue-500/10 text-blue-300 hover:bg-blue-500/15",

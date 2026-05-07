@@ -1,0 +1,446 @@
+# REPLIT BUG FIX & UI ENHANCEMENT PROMPT — BAR GRAPH LABELING, TOOLTIP VISIBILITY & KANBAN DRAG-AND-DROP FIX
+
+Enhance and fix the existing CRM dashboard for E-Migration Assist.
+
+The current dashboard functionality is partially working, but there are several UX, analytics visualization, and Kanban interaction issues that must now be corrected and stabilized.
+
+The fixes below are critical for operational usability and executive dashboard clarity.
+
+Do NOT redesign the entire system.
+
+Focus specifically on:
+
+* analytics accuracy
+* graph labeling
+* tooltip readability
+* Kanban pipeline functionality
+* drag-and-drop persistence
+* UI responsiveness
+* interaction reliability
+
+The final experience must feel stable, polished, and enterprise-grade.
+
+---
+
+# 1. BAR GRAPH DATA LABELING ISSUE (CRITICAL)
+
+## CURRENT PROBLEM
+
+The Individual Leads bar graph currently displays bars visually, but when hovering over the graph:
+
+* the visa category/type is not clearly specified
+* users cannot identify which bar represents which immigration category
+* the graph lacks meaningful contextual insight
+
+This makes the analytics operationally unclear.
+
+---
+
+# REQUIRED FIX
+
+The bar graph must explicitly display visa/inquiry categories based on the actual data coming from:
+
+[E-Migration Assist Self-Assessment Form](https://immigrationassist.replit.app/?utm_source=chatgpt.com)
+
+The graph must dynamically group and render data using the following visa/inquiry types:
+
+---
+
+## REQUIRED INDIVIDUAL LEAD CATEGORIES
+
+* Overstay
+* Declared Undesirable Valid Visa Holder
+* First Time Entry
+
+These categories must be treated as:
+
+* primary graph labels
+* primary aggregation groups
+* analytics segmentation categories
+
+---
+
+# GRAPH DATA REQUIREMENTS
+
+The graph must:
+
+* dynamically aggregate records by visa type
+* correctly count entries per category
+* update in real time
+* support filtering by date range
+* support hover interaction
+
+---
+
+# HOVER TOOLTIP REQUIREMENTS (IMPORTANT)
+
+When hovering over a bar, the tooltip must clearly display:
+
+Example:
+
+| Visa Type | Lead Count |
+| --------- | ---------- |
+| Overstay  | 24 Leads   |
+
+or
+
+| Visa Type        | Percentage |
+| ---------------- | ---------- |
+| First Time Entry | 38%        |
+
+---
+
+# TOOLTIP CONTENT MUST INCLUDE
+
+* Visa Type Name
+* Lead Count
+* Percentage of total
+* Optional trend/change indicator
+
+Example:
+“Overstay — 24 Leads (42%)”
+
+---
+
+# AXIS LABEL REQUIREMENTS
+
+The X-axis must clearly display:
+
+* Overstay
+* Declared Undesirable Valid Visa Holder
+* First Time Entry
+
+The labels must:
+
+* wrap properly if long
+* remain readable on smaller screens
+* avoid overlap
+
+---
+
+# 2. TOOLTIP VISIBILITY / COLOUR ISSUE (CRITICAL UI BUG)
+
+## CURRENT PROBLEM
+
+When hovering over:
+
+* bar graph
+* pie graph
+
+the tooltip appears too dark and is difficult to read against the dark dashboard background.
+
+This creates poor visibility and poor UX.
+
+---
+
+# REQUIRED TOOLTIP DESIGN FIX
+
+ALL graph tooltips must use:
+
+## REQUIRED STYLING
+
+Background:
+
+* pure white
+  or
+* near-white
+
+Text:
+
+* black
+  or
+* dark charcoal
+
+---
+
+# TOOLTIP VISUAL REQUIREMENTS
+
+Tooltips must:
+
+* appear clearly above all graph layers
+* use subtle shadowing
+* have rounded corners
+* include padding
+* support dark-theme contrast accessibility
+
+---
+
+# TOOLTIP STYLE SPECIFICATION
+
+Recommended:
+
+* background: #FFFFFF
+* text color: #111111
+* border radius: 10px
+* padding: 10px–14px
+* subtle box shadow
+* smooth fade animation
+
+---
+
+# TOOLTIP INTERACTION REQUIREMENTS
+
+Must work consistently on:
+
+* bar graph
+* pie graph
+* future line graphs
+* future analytics widgets
+
+Tooltips must:
+
+* not flicker
+* not disappear unexpectedly
+* remain visible during hover
+* adapt responsively
+
+---
+
+# 3. PIE GRAPH TOOLTIP FIX
+
+The Professional Leads pie graph must also inherit the improved tooltip styling.
+
+---
+
+# PIE GRAPH TOOLTIP CONTENT
+
+When hovering over a pie segment, display:
+
+Example:
+“Law Firms — 38 Leads (45%)”
+
+Include:
+
+* Professional category
+* Lead count
+* Percentage
+
+---
+
+# REQUIRED PROFESSIONAL CATEGORIES
+
+* Law Firms
+* Immigration Consultancy Firms
+* Global Mobility / Relocation Companies
+* Independent Practitioners
+
+---
+
+# 4. KANBAN PIPELINE DRAG-AND-DROP FAILURE (CRITICAL FUNCTIONAL BUG)
+
+## CURRENT PROBLEM
+
+In the Kanban pipeline view:
+
+* leads visually appear draggable
+* however moving a lead from one stage to another fails
+* the state does not persist
+* the UI may revert
+  or
+* the move does nothing
+
+This is a critical operational workflow failure.
+
+---
+
+# REQUIRED FIX
+
+Implement fully functional CRM-grade drag-and-drop pipeline movement.
+
+The Kanban board must behave like:
+
+* Zoho CRM
+* monday.com
+* HubSpot pipelines
+* modern SaaS CRM systems
+
+---
+
+# REQUIRED PIPELINE FUNCTIONALITY
+
+Users must be able to:
+
+* drag a lead card
+* drop into another stage column
+* instantly see UI update
+* persist changes to database
+* refresh page without losing state
+
+---
+
+# REQUIRED PIPELINE STAGES
+
+## B2C Pipeline
+
+* New Lead
+* Qualified
+* Contacted
+* Subscribed
+* Downgraded Subs
+* Cancelled Subs
+
+---
+
+## B2B Pipeline
+
+* Imported
+* Reviewed
+* Outreach Initiated
+* Engaged
+* Demo Scheduled
+* Proposal / Pilot
+* Partner / Client Converted
+* Inactive / Lost
+
+---
+
+# DRAG-AND-DROP IMPLEMENTATION REQUIREMENTS
+
+Implement:
+
+* stable drag events
+* stable drop zones
+* optimistic UI updates
+* backend persistence
+* rollback if API fails
+
+---
+
+# REQUIRED BACKEND BEHAVIOUR
+
+When a card is dropped into a new stage:
+
+1. Update pipeline stage in database
+2. Update updated_at timestamp
+3. Create activity log event
+4. Refresh stage counters
+5. Trigger automation workflows if applicable
+
+---
+
+# REQUIRED API STRUCTURE
+
+Example endpoint:
+
+PATCH /api/leads/{id}/pipeline-stage
+
+Payload:
+{
+"pipeline_type": "b2c",
+"new_stage": "Qualified"
+}
+
+---
+
+# KANBAN STATE MANAGEMENT REQUIREMENTS
+
+Fix any issues involving:
+
+* stale React state
+* local state mismatch
+* drag context instability
+* improper key usage
+* non-persisted updates
+* asynchronous race conditions
+
+---
+
+# RECOMMENDED FRONTEND BEHAVIOUR
+
+Upon successful drop:
+
+* animate card movement
+* immediately update UI
+* refresh counters dynamically
+
+If failure occurs:
+
+* revert card to original column
+* show error toast notification
+
+---
+
+# REQUIRED KANBAN UX ENHANCEMENTS
+
+Each Kanban card should display:
+
+* lead name
+* visa type or organization type
+* priority badge
+* status indicator
+* created date
+* assigned user
+
+---
+
+# 5. PIPELINE COLUMN COUNTERS
+
+Each Kanban stage column must dynamically display:
+
+* number of leads in that stage
+
+Example:
+Qualified (14)
+
+Counts must update instantly after drag-and-drop.
+
+---
+
+# 6. PIPELINE FILTER COMPATIBILITY
+
+Drag-and-drop functionality must still work correctly while:
+
+* filters are active
+* sorting is active
+* searches are active
+
+---
+
+# 7. REAL-TIME SYNCHRONIZATION
+
+When a lead changes stage:
+
+* dashboard analytics must update automatically
+* graphs must refresh dynamically
+* counters must refresh instantly
+
+No manual page refresh required.
+
+---
+
+# 8. RESPONSIVENESS REQUIREMENTS
+
+All fixes must work on:
+
+* desktop
+* tablet
+* mobile
+
+Tooltips and Kanban interactions must remain stable across screen sizes.
+
+---
+
+# 9. PERFORMANCE REQUIREMENTS
+
+The fixes must:
+
+* avoid excessive re-renders
+* avoid UI lag
+* optimize drag performance
+* debounce expensive updates if necessary
+* support hundreds/thousands of leads
+
+---
+
+# 10. FINAL OBJECTIVE
+
+The completed dashboard must now behave like a stable, premium SaaS CRM operational platform where:
+
+* analytics are visually clear
+* visa categories are properly labelled
+* graph tooltips are fully readable
+* hover interactions are polished
+* pipeline drag-and-drop works reliably
+* stage changes persist correctly
+* operational workflows feel enterprise-grade
+* the dashboard resembles a mature commercial CRM system rather than an early prototype.
