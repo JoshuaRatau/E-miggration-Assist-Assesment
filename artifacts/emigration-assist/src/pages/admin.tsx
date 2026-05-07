@@ -41,6 +41,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BrandHeader } from "@/components/brand-header";
 import { AdminUserMenu } from "@/components/admin-user-menu";
+import { DashboardGreeting } from "@/components/dashboard-greeting";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -584,13 +585,7 @@ export function Admin() {
       <div className="max-w-7xl mx-auto space-y-8">
         <BrandHeader variant="compact" rightSlot={<AdminUserMenu />} />
         <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-display font-bold">Lead Dashboard</h1>
-            <p className="text-muted-foreground">
-              Pre-launch lead monitoring tool. Internal use only — manage
-              status and priority directly from the table.
-            </p>
-          </div>
+          <DashboardGreeting />
           <div className="flex flex-col sm:flex-row gap-2">
             <Button
               variant="outline"

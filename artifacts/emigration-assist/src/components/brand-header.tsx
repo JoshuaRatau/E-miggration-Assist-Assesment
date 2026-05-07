@@ -29,12 +29,17 @@ export function BrandHeader({
         <img
           src={brandLogo}
           alt="E-Migration Assist · Powered by eRide Technologies"
-          className="h-14 w-auto transition-opacity group-hover:opacity-90"
+          className="h-20 sm:h-24 w-auto transition-opacity group-hover:opacity-90"
           // Source asset is black on transparent; flip to pure white so it
           // sits cleanly on the dark navy background. `brightness(0)` first
           // collapses every non-transparent pixel to black, `invert(1)`
           // then maps black → white while leaving transparency untouched.
-          style={{ filter: "brightness(0) invert(1)" }}
+          // The drop-shadow gives the thin tagline strokes inside the PNG a
+          // little contrast halo so they stay legible at small sizes.
+          style={{
+            filter:
+              "brightness(0) invert(1) drop-shadow(0 1px 2px rgba(0,0,0,0.45))",
+          }}
           data-testid="brand-logo"
         />
         {variant === "default" ? (
