@@ -43,6 +43,7 @@ import { BrandHeader } from "@/components/brand-header";
 import { AdminUserMenu } from "@/components/admin-user-menu";
 import { DashboardGreeting } from "@/components/dashboard-greeting";
 import { LeadMixCharts } from "@/components/lead-mix-charts";
+import { LeadPipelineBoard } from "@/components/lead-pipeline-board";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -362,6 +363,20 @@ export function Admin() {
   const { data: stats } = useGetStatsSummary();
   const [sendingUpdate, setSendingUpdate] = useState(false);
   const [exportingCsv, setExportingCsv] = useState(false);
+  // List vs Pipeline view toggle. Persisted in localStorage so an
+  // operator who prefers the kanban doesn't have to re-toggle every
+  // session. Defaults to "list" (the historical view) so first-time
+  // users land somewhere familiar.
+  const [view, setView] = useState<"list" | "pipeline">(() => {
+    if (typeof window === "undefined") return "list";
+    const saved = window.localStorage.getItem("ema:admin:view");
+    return saved === "pipeline" ? "pipeline" : "list";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("ema:admin:view", view);
+    }
+  }, [view]);
   // Per-row "Send update" dialog target. Null = dialog closed. The dialog is
   // rendered once at page level (see SendUpdateDialog) and switched between
   // leads via this state, so we don't pay for one Radix portal per row.
@@ -759,12 +774,51 @@ export function Admin() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Leads</CardTitle>
-            <CardDescription>
-              Inline editor — change status or priority directly in the table.
-              Updates apply optimistically and persist via an admin-only
-              endpoint.
-            </CardDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <CardTitle>Leads</CardTitle>
+                <CardDescription>
+                  {view === "list"
+                    ? "Inline editor — change status or priority directly in the table. Updates apply optimistically and persist via an admin-only endpoint."
+                    : "Drag a card between columns to advance it through the funnel. Forward-only — backwards moves are blocked client-side and again server-side (HTTP 409)."}
+                </CardDescription>
+              </div>
+              <div
+                className="inline-flex rounded-md border bg-background p-0.5 shrink-0"
+                role="tablist"
+                aria-label="Lead view mode"
+                data-testid="leads-view-toggle"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={view === "list"}
+                  onClick={() => setView("list")}
+                  data-testid="leads-view-list"
+                  className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                    view === "list"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  List
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={view === "pipeline"}
+                  onClick={() => setView("pipeline")}
+                  data-testid="leads-view-pipeline"
+                  className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                    view === "pipeline"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Pipeline
+                </button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -795,6 +849,14 @@ export function Admin() {
                   ? "No leads match the current filters."
                   : "No leads yet"}
               </div>
+            ) : view === "pipeline" ? (
+              <LeadPipelineBoard
+                leads={visibleLeads}
+                onMove={async (id, target) => {
+                  const updated = await patchLead(id, { status: target });
+                  return updated !== null;
+                }}
+              />
             ) : (
               <div className="rounded-md border overflow-x-auto">
                 <Table>

@@ -36,7 +36,17 @@ export function canAdvanceStatus(
   const fromIdx = from ? LEAD_STATUS_ORDER.indexOf(from as LeadStatus) : -1;
   const toIdx = LEAD_STATUS_ORDER.indexOf(to as LeadStatus);
   if (fromIdx === -1 || toIdx === -1) return true;
-  return toIdx >= fromIdx;
+  if (toIdx < fromIdx) return false;
+  // Mirror the server-side predecessor lock for `converted`: the only
+  // valid source for the converted status is `ready_for_case` (or the
+  // no-op converted → converted). Any earlier state → converted is
+  // rejected with HTTP 409 in adminLeads.ts; we replicate the rule here
+  // so the pipeline drag and the status dropdown both flag it
+  // up-front instead of letting the user perform a doomed move.
+  if (to === "converted" && from !== "ready_for_case" && from !== "converted") {
+    return false;
+  }
+  return true;
 }
 
 /**

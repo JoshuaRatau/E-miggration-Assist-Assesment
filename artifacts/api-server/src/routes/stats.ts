@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, prelaunchLeadsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { requireAdminAuth } from "../lib/adminAuth";
 
 const router: IRouter = Router();
 
@@ -66,7 +67,12 @@ router.get("/stats/summary", async (_req, res) => {
 // All-time counts (no time window) — operator chose "all_time_inquiry"
 // during product spec. Adding a windowed variant later is a one-line
 // extension via a `WHERE created_at > NOW() - INTERVAL ...` predicate.
-router.get("/stats/lead-mix", async (_req, res) => {
+router.get("/stats/lead-mix", async (req, res) => {
+  // Admin-gated: although the response is aggregate-only, it still
+  // exposes pipeline composition (B2C inquiry mix + B2B partner mix)
+  // which is internal business intelligence. Session-cookie OR legacy
+  // x-admin-token both satisfy the guard via the shared middleware.
+  if (!(await requireAdminAuth(req, res))) return;
   const individualsRows = await db
     .select({
       bucket: sql<string>`COALESCE(${prelaunchLeadsTable.inquiryType}, 'unspecified')`,

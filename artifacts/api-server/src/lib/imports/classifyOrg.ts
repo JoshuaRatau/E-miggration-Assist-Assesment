@@ -20,26 +20,32 @@ export type OrgType = (typeof ORG_TYPE_VALUES)[number];
 // We match on word boundaries to avoid silly false positives — e.g. the
 // substring "law" inside "Lawson Mobility" must NOT classify as a law
 // firm; the `\blaw\b` rule means it would have to be the literal word.
+// Each rule must require an unambiguous *industry* signal — bare tokens
+// like "law", "legal", "visa", "mobility" appear in too many unrelated
+// brand names ("Visa Inc", "Lawson Mobility", "Legal & General Insurance")
+// to be safely conclusive. We therefore demand a qualifying suffix or a
+// well-known professional-body acronym before bucketing.
 const RULES: Array<{ type: OrgType; patterns: RegExp[] }> = [
   {
     type: "law_firm",
     patterns: [
       /\battorneys?\b/i,
-      /\blaw(?:\s+firm|\s+offices?|\s+group)?\b/i,
+      /\blaw\s+(?:firm|offices?|group|practice|chambers|society)\b/i,
       /\blawyers?\b/i,
       /\badvocates?\b/i,
       /\bsolicitors?\b/i,
-      /\blegal(?:\s+counsel|\s+services|\s+practice)?\b/i,
-      /\b(?:llp|inc\.?\s+attorneys)\b/i,
+      /\blegal\s+(?:counsel|services|practice|advisors?|consultants?)\b/i,
+      /\binc\.?\s+attorneys\b/i,
+      /,\s*llp\b/i, // trailing ", LLP" suffix is a strong law-firm signal
     ],
   },
   {
     type: "immigration_consultancy",
     patterns: [
       /\bimmigration\b/i,
-      /\bvisa(?:s)?\b/i,
       /\bemigration\b/i,
-      /\bmigration\s+(?:consultanc|advis|services)/i,
+      /\bvisa\s+(?:services|consultanc|advis|application|processing|solutions)/i,
+      /\bmigration\s+(?:consultanc|advis|services|agents?)/i,
       /\b(?:icc?rc|oisc|miarn|maramap?)\b/i, // recognised consultant bodies
     ],
   },
@@ -47,7 +53,9 @@ const RULES: Array<{ type: OrgType; patterns: RegExp[] }> = [
     type: "global_mobility",
     patterns: [
       /\brelocation\b/i,
-      /\bmobility\b/i,
+      /\bglobal\s+mobility\b/i,
+      /\b(?:employee|workforce|talent|corporate)\s+mobility\b/i,
+      /\bmobility\s+(?:services|solutions|consultanc|advis)/i,
       /\bglobal\s+workforce\b/i,
       /\bexpat(?:riate)?\s+services\b/i,
       /\bdestination\s+services\b/i,
