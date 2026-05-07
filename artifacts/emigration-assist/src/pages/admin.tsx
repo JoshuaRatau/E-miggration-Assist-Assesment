@@ -47,6 +47,8 @@ import { LeadPipelineBoard } from "@/components/lead-pipeline-board";
 import { LeadVelocityChip } from "@/components/lead-velocity-chip";
 import { LeadScoreBadge } from "@/components/lead-score-badge";
 import { SavedViewsBar } from "@/components/saved-views-bar";
+import { PreferredCommunicationCell } from "@/components/preferred-communication-cell";
+import { derivePreferredCommunication } from "@/lib/preferredCommunication";
 import { deriveLeadScore } from "@/lib/leadScore";
 import { Button } from "@/components/ui/button";
 import {
@@ -100,9 +102,9 @@ const STATUS_OPTIONS = [
 ];
 
 const WHATSAPP_OPTIONS = [
-  { value: "ANY", label: "WhatsApp: Any" },
-  { value: "HAS", label: "WhatsApp: Has" },
-  { value: "NONE", label: "WhatsApp: None" },
+  { value: "ANY", label: "Channel: Any" },
+  { value: "HAS", label: "Channel: WhatsApp reachable" },
+  { value: "NONE", label: "Channel: Email / In-App only" },
 ];
 
 const SORT_OPTIONS = [
@@ -131,29 +133,6 @@ function priorityLabel(priority: string | null | undefined): string {
   if (priority === "medium") return "MEDIUM";
   if (priority === "low") return "LOW";
   return "—";
-}
-
-function whatsappCell(hasWhatsapp: boolean) {
-  if (hasWhatsapp) {
-    return (
-      <span
-        className="text-green-600 text-lg font-semibold"
-        aria-label="Has WhatsApp"
-        title="Has WhatsApp"
-      >
-        ✔
-      </span>
-    );
-  }
-  return (
-    <span
-      className="text-muted-foreground text-lg"
-      aria-label="No WhatsApp"
-      title="No WhatsApp"
-    >
-      ✖
-    </span>
-  );
 }
 
 // Order used by the "priority first" sort: critical > high > medium > low > unknown.
@@ -402,11 +381,14 @@ export function Admin() {
     if (!leads) return leads;
     let out = leads;
     if (whatsappFilter !== "ANY") {
+      // Filter by *derived* preferred channel rather than raw whatsapp
+      // presence so the filter result and the column cell can never
+      // disagree (a B2B lead with a captured WA number still derives
+      // to Email and so must be excluded from "WhatsApp reachable").
       out = out.filter((l) => {
-        const has =
-          (l as { hasWhatsapp?: boolean }).hasWhatsapp ??
-          (typeof l.whatsapp === "string" && l.whatsapp.length > 0);
-        return whatsappFilter === "HAS" ? has : !has;
+        const channel = derivePreferredCommunication(l).channel;
+        const isWa = channel === "whatsapp";
+        return whatsappFilter === "HAS" ? isWa : !isWa;
       });
     }
     if (sort === "priority") {
@@ -856,7 +838,7 @@ export function Admin() {
           <CardHeader>
             <CardTitle>Filters & Sort</CardTitle>
             <CardDescription>
-              Narrow the lead list by status, priority or WhatsApp availability.
+              Narrow the lead list by status, priority or preferred channel.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -915,7 +897,7 @@ export function Admin() {
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground">
-                  WhatsApp
+                  Preferred channel
                 </label>
                 <Select
                   value={whatsappFilter}
@@ -1070,7 +1052,9 @@ export function Admin() {
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>Visa Type</TableHead>
-                      <TableHead className="text-center">WhatsApp</TableHead>
+                      <TableHead className="text-center">
+                        Preferred Communication
+                      </TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Priority</TableHead>
                       <TableHead>Next Step</TableHead>
@@ -1134,7 +1118,7 @@ export function Admin() {
                             {visaTypeLabel(lead.immigrationSituation)}
                           </TableCell>
                           <TableCell className="text-center">
-                            {whatsappCell(hasWhatsapp)}
+                            <PreferredCommunicationCell lead={lead} />
                           </TableCell>
                           <TableCell>
                             <Select
