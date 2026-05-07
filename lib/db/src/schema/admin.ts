@@ -7,6 +7,14 @@ export const adminUsersTable = pgTable("admin_users", {
   displayName: text("display_name"),
   isActive: boolean("is_active").notNull().default(true),
   isSuperadmin: boolean("is_superadmin").notNull().default(false),
+  // CRM Phase A: explicit RBAC role. Coexists with `isSuperadmin` for
+  // back-compat (the boolean stays the source of truth for the existing
+  // gateSuperadmin() check; `role` becomes the source of truth in Phase E
+  // when finer-grained permission gates land).
+  //   role ∈ {superadmin, admin, sales, operations, viewer}
+  // Backfilled at migration time: isSuperadmin=true → "superadmin",
+  // isSuperadmin=false → "admin".
+  role: text("role").notNull().default("admin"),
   lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
   createdById: uuid("created_by_id"),
   createdAt: timestamp("created_at", { withTimezone: true })

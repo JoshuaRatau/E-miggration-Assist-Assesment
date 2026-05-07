@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.2.0
  */
 
+export * from "./adminLeadListItem";
 export * from "./analyticsEventInput";
 export * from "./analyticsEventInputPayload";
 export * from "./analyticsEventResponse";
@@ -16,6 +17,7 @@ export * from "./healthStatus";
 export * from "./lead";
 export * from "./listDocumentsParams";
 export * from "./listLeadsParams";
+export * from "./publicLead";
 export * from "./publicStatus";
 export * from "./publicStatusPublicLabel";
 export * from "./statsSummary";

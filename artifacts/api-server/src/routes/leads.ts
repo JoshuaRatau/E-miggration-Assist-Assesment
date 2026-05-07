@@ -82,6 +82,21 @@ function serializeLeadAdminList(
     immigrationSituation: row.immigrationSituation,
     leadStatus: row.leadStatus,
     leadPriority: row.leadPriority,
+    // CRM Phase A — surface the dual-lead discriminator + assignment/follow-up
+    // fields the dashboard will start consuming in Phase C/D. These mirror
+    // AdminLeadListItem in openapi.yaml; if you add a column here, add it
+    // there too (and re-run codegen).
+    leadType: row.leadType,
+    inquiryType: row.inquiryType,
+    source: row.source,
+    assignedTo: row.assignedTo,
+    lastContactedAt: row.lastContactedAt
+      ? row.lastContactedAt.toISOString()
+      : null,
+    nextFollowUpAt: row.nextFollowUpAt
+      ? row.nextFollowUpAt.toISOString()
+      : null,
+    tags: row.tags,
     hasWhatsapp: typeof row.whatsapp === "string" && row.whatsapp.length > 0,
     createdAt: row.createdAt.toISOString(),
     // Conversion-funnel hint derived from leadStatus.  See `deriveNextStep`.

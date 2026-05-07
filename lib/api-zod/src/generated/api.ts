@@ -78,12 +78,53 @@ export const CreateLeadResponse = zod.object({
   internalClassification: zod.string().nullish(),
   leadScore: zod.number().nullish(),
   leadCategory: zod.string().nullish(),
-  leadPriority: zod.string().nullish().describe("high | medium | low"),
+  leadPriority: zod
+    .string()
+    .nullish()
+    .describe("critical | high | medium | low"),
   leadStatus: zod
     .string()
     .describe(
-      "new | reviewing | contacted | qualified | ready_for_case | converted | closed. Forward-only — PATCH \/admin\/leads\/{id} returns 409 on regression.",
+      "new | reviewing | contacted | awaiting_response | engaged | qualified | proposal_sent | ready_for_case | converted | closed. Forward-only — PATCH \/admin\/leads\/{id} returns 409 on regression.",
     ),
+  leadType: zod
+    .string()
+    .describe(
+      'CRM Phase A discriminator. \"individual\" for B2C leads from the public assessment form; \"professional\" for B2B leads from CSV\/XLSX import or future API integrations. Defaults to \"individual\".',
+    ),
+  inquiryType: zod
+    .string()
+    .nullish()
+    .describe(
+      "Meaningful only for individual leads. visa_inquiry | overstay_appeal | travel_entry_assistance.",
+    ),
+  source: zod
+    .string()
+    .nullish()
+    .describe("web_form | csv_import | manual | api"),
+  assignedTo: zod
+    .string()
+    .uuid()
+    .nullish()
+    .describe("admin_users.id of the operator the lead is assigned to."),
+  lastContactedAt: zod.string().nullish(),
+  nextFollowUpAt: zod.string().nullish(),
+  tags: zod.array(zod.string()).nullish(),
+  organizationName: zod.string().nullish(),
+  organizationType: zod
+    .string()
+    .nullish()
+    .describe(
+      "law_firm | immigration_consultancy | global_mobility | independent_practitioner. Null for individual leads.",
+    ),
+  representativeName: zod.string().nullish(),
+  representativeEmail: zod.string().nullish(),
+  representativePhone: zod.string().nullish(),
+  website: zod.string().nullish(),
+  firmSize: zod.string().nullish(),
+  operatingRegions: zod.array(zod.string()).nullish(),
+  serviceFocus: zod.string().nullish(),
+  estimatedClientVolume: zod.number().nullish(),
   nextStep: zod
     .string()
     .nullish()
@@ -135,56 +176,34 @@ export const ListLeadsQueryParams = zod.object({
     .describe("Filter by immigrationSituation enum value"),
 });
 
-export const ListLeadsResponseItem = zod.object({
-  id: zod.string(),
-  referenceNumber: zod.string(),
-  fullName: zod.string().nullish(),
-  email: zod.string().nullish(),
-  whatsapp: zod.string().nullish(),
-  nationality: zod.string().nullish(),
-  countryOfResidence: zod.string().nullish(),
-  currentlyInSouthAfrica: zod.boolean().nullish(),
-  passportStatus: zod.string().nullish(),
-  visaHistory: zod.string().nullish(),
-  immigrationSituation: zod.string().nullish(),
-  visaExpiryDate: zod.string().nullish(),
-  exitDate: zod.string().nullish(),
-  borderDocumentIssued: zod.string().nullish(),
-  overstayReason: zod.string().nullish(),
-  hasSupportingDocuments: zod.string().nullish(),
-  previousOverstay: zod.string().nullish(),
-  internalClassification: zod.string().nullish(),
-  leadScore: zod.number().nullish(),
-  leadCategory: zod.string().nullish(),
-  leadPriority: zod.string().nullish().describe("high | medium | low"),
-  leadStatus: zod
-    .string()
-    .describe(
-      "new | reviewing | contacted | qualified | ready_for_case | converted | closed. Forward-only — PATCH \/admin\/leads\/{id} returns 409 on regression.",
-    ),
-  nextStep: zod
-    .string()
-    .nullish()
-    .describe(
-      'Conversion-funnel hint derived from leadStatus. Values: \"Review lead\" (new), \"Contact lead\" (reviewing), \"Await response\" (contacted), \"Prepare case conversion\" (qualified), \"Initiate case handover\" (ready_for_case), \"Move to case system\" (converted), null (closed\/unknown).',
-    ),
-  caseId: zod
-    .string()
-    .nullish()
-    .describe(
-      "UUID of the linked lead_cases row.  null until the lead reaches `converted` status.  PATCH \/admin\/leads\/{id} populates it as a side-effect of the converted-status transition; the GET list and detail endpoints surface it via LEFT JOIN.  The admin dashboard uses it to deep-link to \/admin\/case\/{caseId}.",
-    ),
-  adminNotes: zod.string().nullish(),
-  hasWhatsapp: zod
-    .boolean()
-    .optional()
-    .describe("True if the lead has a stored canonical WhatsApp number."),
-  preferredContactMethod: zod.string().nullish(),
-  consentAccepted: zod.boolean(),
-  consentTimestamp: zod.string().nullish(),
-  createdAt: zod.string(),
-  updatedAt: zod.string(),
-});
+export const ListLeadsResponseItem = zod
+  .object({
+    id: zod.string(),
+    referenceNumber: zod.string(),
+    fullName: zod.string().nullish(),
+    email: zod.string().nullish(),
+    whatsapp: zod.string().nullish(),
+    immigrationSituation: zod.string().nullish(),
+    leadStatus: zod.string(),
+    leadPriority: zod.string().nullish(),
+    leadType: zod.string().describe("individual | professional"),
+    inquiryType: zod.string().nullish(),
+    source: zod.string().nullish(),
+    assignedTo: zod
+      .string()
+      .nullish()
+      .describe("admin_users.id of the operator assigned to this lead"),
+    lastContactedAt: zod.string().nullish(),
+    nextFollowUpAt: zod.string().nullish(),
+    tags: zod.array(zod.string()).nullish(),
+    hasWhatsapp: zod.boolean(),
+    createdAt: zod.string(),
+    nextStep: zod.string().nullish(),
+    caseId: zod.string().nullish(),
+  })
+  .describe(
+    'Slim row shape returned by GET \/api\/leads for the admin dashboard.\nIntentionally a strict subset of `Lead` — omits internal \"rules\nengine\" fields (internalClassification, leadScore, leadCategory,\nadminNotes) and bulky funnel data the dashboard does not need.\n',
+  );
 export const ListLeadsResponse = zod.array(ListLeadsResponseItem);
 
 /**
@@ -194,56 +213,22 @@ export const GetLeadByReferenceParams = zod.object({
   referenceNumber: zod.coerce.string(),
 });
 
-export const GetLeadByReferenceResponse = zod.object({
-  id: zod.string(),
-  referenceNumber: zod.string(),
-  fullName: zod.string().nullish(),
-  email: zod.string().nullish(),
-  whatsapp: zod.string().nullish(),
-  nationality: zod.string().nullish(),
-  countryOfResidence: zod.string().nullish(),
-  currentlyInSouthAfrica: zod.boolean().nullish(),
-  passportStatus: zod.string().nullish(),
-  visaHistory: zod.string().nullish(),
-  immigrationSituation: zod.string().nullish(),
-  visaExpiryDate: zod.string().nullish(),
-  exitDate: zod.string().nullish(),
-  borderDocumentIssued: zod.string().nullish(),
-  overstayReason: zod.string().nullish(),
-  hasSupportingDocuments: zod.string().nullish(),
-  previousOverstay: zod.string().nullish(),
-  internalClassification: zod.string().nullish(),
-  leadScore: zod.number().nullish(),
-  leadCategory: zod.string().nullish(),
-  leadPriority: zod.string().nullish().describe("high | medium | low"),
-  leadStatus: zod
-    .string()
-    .describe(
-      "new | reviewing | contacted | qualified | ready_for_case | converted | closed. Forward-only — PATCH \/admin\/leads\/{id} returns 409 on regression.",
-    ),
-  nextStep: zod
-    .string()
-    .nullish()
-    .describe(
-      'Conversion-funnel hint derived from leadStatus. Values: \"Review lead\" (new), \"Contact lead\" (reviewing), \"Await response\" (contacted), \"Prepare case conversion\" (qualified), \"Initiate case handover\" (ready_for_case), \"Move to case system\" (converted), null (closed\/unknown).',
-    ),
-  caseId: zod
-    .string()
-    .nullish()
-    .describe(
-      "UUID of the linked lead_cases row.  null until the lead reaches `converted` status.  PATCH \/admin\/leads\/{id} populates it as a side-effect of the converted-status transition; the GET list and detail endpoints surface it via LEFT JOIN.  The admin dashboard uses it to deep-link to \/admin\/case\/{caseId}.",
-    ),
-  adminNotes: zod.string().nullish(),
-  hasWhatsapp: zod
-    .boolean()
-    .optional()
-    .describe("True if the lead has a stored canonical WhatsApp number."),
-  preferredContactMethod: zod.string().nullish(),
-  consentAccepted: zod.boolean(),
-  consentTimestamp: zod.string().nullish(),
-  createdAt: zod.string(),
-  updatedAt: zod.string(),
-});
+export const GetLeadByReferenceResponse = zod
+  .object({
+    id: zod.string(),
+    referenceNumber: zod.string(),
+    fullName: zod.string().nullish(),
+    nationality: zod.string().nullish(),
+    immigrationSituation: zod.string().nullish(),
+    leadCategory: zod.string().nullish(),
+    consentAccepted: zod.boolean(),
+    consentTimestamp: zod.string().nullish(),
+    createdAt: zod.string(),
+    updatedAt: zod.string(),
+  })
+  .describe(
+    "Public-safe view returned by GET \/leads\/{referenceNumber} for the\nuser-facing reference-lookup page. Strips internal CRM fields\n(leadStatus, leadPriority, internalClassification, leadScore,\nadminNotes) and contact PII (email, whatsapp).\n",
+  );
 
 /**
  * @summary Look up a lead by internal UUID (admin)
@@ -273,12 +258,53 @@ export const GetLeadByIdResponse = zod.object({
   internalClassification: zod.string().nullish(),
   leadScore: zod.number().nullish(),
   leadCategory: zod.string().nullish(),
-  leadPriority: zod.string().nullish().describe("high | medium | low"),
+  leadPriority: zod
+    .string()
+    .nullish()
+    .describe("critical | high | medium | low"),
   leadStatus: zod
     .string()
     .describe(
-      "new | reviewing | contacted | qualified | ready_for_case | converted | closed. Forward-only — PATCH \/admin\/leads\/{id} returns 409 on regression.",
+      "new | reviewing | contacted | awaiting_response | engaged | qualified | proposal_sent | ready_for_case | converted | closed. Forward-only — PATCH \/admin\/leads\/{id} returns 409 on regression.",
     ),
+  leadType: zod
+    .string()
+    .describe(
+      'CRM Phase A discriminator. \"individual\" for B2C leads from the public assessment form; \"professional\" for B2B leads from CSV\/XLSX import or future API integrations. Defaults to \"individual\".',
+    ),
+  inquiryType: zod
+    .string()
+    .nullish()
+    .describe(
+      "Meaningful only for individual leads. visa_inquiry | overstay_appeal | travel_entry_assistance.",
+    ),
+  source: zod
+    .string()
+    .nullish()
+    .describe("web_form | csv_import | manual | api"),
+  assignedTo: zod
+    .string()
+    .uuid()
+    .nullish()
+    .describe("admin_users.id of the operator the lead is assigned to."),
+  lastContactedAt: zod.string().nullish(),
+  nextFollowUpAt: zod.string().nullish(),
+  tags: zod.array(zod.string()).nullish(),
+  organizationName: zod.string().nullish(),
+  organizationType: zod
+    .string()
+    .nullish()
+    .describe(
+      "law_firm | immigration_consultancy | global_mobility | independent_practitioner. Null for individual leads.",
+    ),
+  representativeName: zod.string().nullish(),
+  representativeEmail: zod.string().nullish(),
+  representativePhone: zod.string().nullish(),
+  website: zod.string().nullish(),
+  firmSize: zod.string().nullish(),
+  operatingRegions: zod.array(zod.string()).nullish(),
+  serviceFocus: zod.string().nullish(),
+  estimatedClientVolume: zod.number().nullish(),
   nextStep: zod
     .string()
     .nullish()

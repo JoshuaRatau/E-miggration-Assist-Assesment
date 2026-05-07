@@ -57,10 +57,32 @@ export interface Lead {
   internalClassification?: string | null;
   leadScore?: number | null;
   leadCategory?: string | null;
-  /** high | medium | low */
+  /** critical | high | medium | low */
   leadPriority?: string | null;
-  /** new | reviewing | contacted | qualified | ready_for_case | converted | closed. Forward-only — PATCH /admin/leads/{id} returns 409 on regression. */
+  /** new | reviewing | contacted | awaiting_response | engaged | qualified | proposal_sent | ready_for_case | converted | closed. Forward-only — PATCH /admin/leads/{id} returns 409 on regression. */
   leadStatus: string;
+  /** CRM Phase A discriminator. "individual" for B2C leads from the public assessment form; "professional" for B2B leads from CSV/XLSX import or future API integrations. Defaults to "individual". */
+  leadType: string;
+  /** Meaningful only for individual leads. visa_inquiry | overstay_appeal | travel_entry_assistance. */
+  inquiryType?: string | null;
+  /** web_form | csv_import | manual | api */
+  source?: string | null;
+  /** admin_users.id of the operator the lead is assigned to. */
+  assignedTo?: string | null;
+  lastContactedAt?: string | null;
+  nextFollowUpAt?: string | null;
+  tags?: string[] | null;
+  organizationName?: string | null;
+  /** law_firm | immigration_consultancy | global_mobility | independent_practitioner. Null for individual leads. */
+  organizationType?: string | null;
+  representativeName?: string | null;
+  representativeEmail?: string | null;
+  representativePhone?: string | null;
+  website?: string | null;
+  firmSize?: string | null;
+  operatingRegions?: string[] | null;
+  serviceFocus?: string | null;
+  estimatedClientVolume?: number | null;
   /** Conversion-funnel hint derived from leadStatus. Values: "Review lead" (new), "Contact lead" (reviewing), "Await response" (contacted), "Prepare case conversion" (qualified), "Initiate case handover" (ready_for_case), "Move to case system" (converted), null (closed/unknown). */
   nextStep?: string | null;
   /** UUID of the linked lead_cases row.  null until the lead reaches `converted` status.  PATCH /admin/leads/{id} populates it as a side-effect of the converted-status transition; the GET list and detail endpoints surface it via LEFT JOIN.  The admin dashboard uses it to deep-link to /admin/case/{caseId}. */
@@ -73,6 +95,57 @@ export interface Lead {
   consentTimestamp?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * Public-safe view returned by GET /leads/{referenceNumber} for the
+user-facing reference-lookup page. Strips internal CRM fields
+(leadStatus, leadPriority, internalClassification, leadScore,
+adminNotes) and contact PII (email, whatsapp).
+
+ */
+export interface PublicLead {
+  id: string;
+  referenceNumber: string;
+  fullName?: string | null;
+  nationality?: string | null;
+  immigrationSituation?: string | null;
+  leadCategory?: string | null;
+  consentAccepted: boolean;
+  consentTimestamp?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Slim row shape returned by GET /api/leads for the admin dashboard.
+Intentionally a strict subset of `Lead` — omits internal "rules
+engine" fields (internalClassification, leadScore, leadCategory,
+adminNotes) and bulky funnel data the dashboard does not need.
+
+ */
+export interface AdminLeadListItem {
+  id: string;
+  referenceNumber: string;
+  fullName?: string | null;
+  email?: string | null;
+  whatsapp?: string | null;
+  immigrationSituation?: string | null;
+  leadStatus: string;
+  leadPriority?: string | null;
+  /** individual | professional */
+  leadType: string;
+  inquiryType?: string | null;
+  source?: string | null;
+  /** admin_users.id of the operator assigned to this lead */
+  assignedTo?: string | null;
+  lastContactedAt?: string | null;
+  nextFollowUpAt?: string | null;
+  tags?: string[] | null;
+  hasWhatsapp: boolean;
+  createdAt: string;
+  nextStep?: string | null;
+  caseId?: string | null;
 }
 
 export interface CategoryCount {

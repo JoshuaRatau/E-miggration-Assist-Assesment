@@ -56,6 +56,11 @@ export async function writeAudit(args: WriteAuditArgs): Promise<void> {
       leadId: args.leadId ?? null,
       caseId: args.caseId ?? null,
       actorTokenHash: actorTokenHash(args.req),
+      // CRM Phase A: when session-cookie auth populated req.adminUser, ALSO
+      // record the operator's id so the activity-timeline UI can render an
+      // attributed actor without reversing the hash. Legacy x-admin-token
+      // callers leave this null by design.
+      actorUserId: args.req.adminUser?.id ?? null,
       before: (args.before ?? null) as never,
       after: (args.after ?? null) as never,
     });

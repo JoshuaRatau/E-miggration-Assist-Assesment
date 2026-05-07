@@ -17,6 +17,7 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AdminLeadListItem,
   AnalyticsEventInput,
   AnalyticsEventResponse,
   CreateLeadInput,
@@ -25,6 +26,7 @@ import type {
   Lead,
   ListDocumentsParams,
   ListLeadsParams,
+  PublicLead,
   PublicStatus,
   StatsSummary,
 } from "./api.schemas";
@@ -221,8 +223,8 @@ export const getListLeadsUrl = (params?: ListLeadsParams) => {
 export const listLeads = async (
   params?: ListLeadsParams,
   options?: RequestInit,
-): Promise<Lead[]> => {
-  return customFetch<Lead[]>(getListLeadsUrl(params), {
+): Promise<AdminLeadListItem[]> => {
+  return customFetch<AdminLeadListItem[]>(getListLeadsUrl(params), {
     ...options,
     method: "GET",
   });
@@ -303,8 +305,8 @@ export const getGetLeadByReferenceUrl = (referenceNumber: string) => {
 export const getLeadByReference = async (
   referenceNumber: string,
   options?: RequestInit,
-): Promise<Lead> => {
-  return customFetch<Lead>(getGetLeadByReferenceUrl(referenceNumber), {
+): Promise<PublicLead> => {
+  return customFetch<PublicLead>(getGetLeadByReferenceUrl(referenceNumber), {
     ...options,
     method: "GET",
   });

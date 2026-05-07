@@ -53,21 +53,26 @@ import { Textarea } from "@/components/ui/textarea";
 
 // Lowercase canonical enums shared with the server (see classification.ts
 // and lib/leadStatus.ts).  V2 added `ready_for_case` between qualified
-// and converted; the funnel is forward-only (server returns 409 on
-// regression, dropdown disables backward options).
+// and converted; CRM Phase A added awaiting_response, engaged, proposal_sent
+// in funnel-monotonic positions and `critical` above `high`. The funnel is
+// forward-only (server returns 409 on regression).
 const STATUS_VALUES = [
   "new",
   "reviewing",
   "contacted",
+  "awaiting_response",
+  "engaged",
   "qualified",
+  "proposal_sent",
   "ready_for_case",
   "converted",
   "closed",
 ] as const;
-const PRIORITY_VALUES = ["high", "medium", "low"] as const;
+const PRIORITY_VALUES = ["critical", "high", "medium", "low"] as const;
 
 const PRIORITY_OPTIONS = [
   { value: "ALL", label: "All priorities" },
+  { value: "critical", label: "Critical" },
   { value: "high", label: "High" },
   { value: "medium", label: "Medium" },
   { value: "low", label: "Low" },
@@ -78,7 +83,10 @@ const STATUS_OPTIONS = [
   { value: "new", label: "New" },
   { value: "reviewing", label: "Reviewing" },
   { value: "contacted", label: "Contacted" },
+  { value: "awaiting_response", label: "Awaiting response" },
+  { value: "engaged", label: "Engaged" },
   { value: "qualified", label: "Qualified" },
+  { value: "proposal_sent", label: "Proposal sent" },
   { value: "ready_for_case", label: "Ready for case" },
   { value: "converted", label: "Converted" },
   { value: "closed", label: "Closed" },
@@ -95,8 +103,11 @@ const SORT_OPTIONS = [
   { value: "priority", label: "Priority first (high → low)" },
 ];
 
-// Visual cues for the priority badge — high = red, medium = orange, low = grey.
+// Visual cues for the priority badge — critical = magenta-pink (urgency
+// signal above HIGH), high = red, medium = orange, low = grey.
 function priorityBadgeClass(priority: string | null | undefined): string {
+  if (priority === "critical")
+    return "bg-pink-700 hover:bg-pink-800 text-white border-transparent";
   if (priority === "high")
     return "bg-red-600 hover:bg-red-700 text-white border-transparent";
   if (priority === "medium")
@@ -107,6 +118,7 @@ function priorityBadgeClass(priority: string | null | undefined): string {
 }
 
 function priorityLabel(priority: string | null | undefined): string {
+  if (priority === "critical") return "CRITICAL";
   if (priority === "high") return "HIGH";
   if (priority === "medium") return "MEDIUM";
   if (priority === "low") return "LOW";
@@ -136,11 +148,12 @@ function whatsappCell(hasWhatsapp: boolean) {
   );
 }
 
-// Order used by the "priority first" sort: high > medium > low > unknown.
+// Order used by the "priority first" sort: critical > high > medium > low > unknown.
 const PRIORITY_RANK: Record<string, number> = {
-  high: 0,
-  medium: 1,
-  low: 2,
+  critical: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
 };
 
 function priorityRank(p: string | null | undefined): number {
@@ -154,7 +167,10 @@ const NEXT_STEP_BY_STATUS: Record<string, string> = {
   new: "Review lead",
   reviewing: "Contact lead",
   contacted: "Await response",
-  qualified: "Prepare case conversion",
+  awaiting_response: "Follow up",
+  engaged: "Qualify lead",
+  qualified: "Send proposal",
+  proposal_sent: "Prepare case conversion",
   ready_for_case: "Initiate case handover",
   converted: "Move to case system",
 };

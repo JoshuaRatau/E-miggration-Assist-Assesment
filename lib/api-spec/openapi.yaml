@@ -97,7 +97,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Lead"
+                  $ref: "#/components/schemas/AdminLeadListItem"
   /leads/{referenceNumber}:
     get:
       operationId: getLeadByReference
@@ -115,7 +115,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Lead"
+                $ref: "#/components/schemas/PublicLead"
         "404":
           description: Not found
   /leads/by-id/{id}:
@@ -360,13 +360,80 @@ components:
         leadPriority:
           type: string
           nullable: true
-          description: 'high | medium | low'
+          description: 'critical | high | medium | low'
         leadStatus:
           type: string
           description: >-
-            new | reviewing | contacted | qualified |
-            ready_for_case | converted | closed.
+            new | reviewing | contacted | awaiting_response | engaged |
+            qualified | proposal_sent | ready_for_case | converted | closed.
             Forward-only — PATCH /admin/leads/{id} returns 409 on regression.
+        leadType:
+          type: string
+          description: >-
+            CRM Phase A discriminator. "individual" for B2C leads from the
+            public assessment form; "professional" for B2B leads from CSV/XLSX
+            import or future API integrations. Defaults to "individual".
+        inquiryType:
+          type: string
+          nullable: true
+          description: >-
+            Meaningful only for individual leads.
+            visa_inquiry | overstay_appeal | travel_entry_assistance.
+        source:
+          type: string
+          nullable: true
+          description: 'web_form | csv_import | manual | api'
+        assignedTo:
+          type: string
+          format: uuid
+          nullable: true
+          description: admin_users.id of the operator the lead is assigned to.
+        lastContactedAt:
+          type: string
+          nullable: true
+        nextFollowUpAt:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          nullable: true
+          items:
+            type: string
+        organizationName:
+          type: string
+          nullable: true
+        organizationType:
+          type: string
+          nullable: true
+          description: >-
+            law_firm | immigration_consultancy | global_mobility |
+            independent_practitioner. Null for individual leads.
+        representativeName:
+          type: string
+          nullable: true
+        representativeEmail:
+          type: string
+          nullable: true
+        representativePhone:
+          type: string
+          nullable: true
+        website:
+          type: string
+          nullable: true
+        firmSize:
+          type: string
+          nullable: true
+        operatingRegions:
+          type: array
+          nullable: true
+          items:
+            type: string
+        serviceFocus:
+          type: string
+          nullable: true
+        estimatedClientVolume:
+          type: integer
+          nullable: true
         nextStep:
           type: string
           nullable: true
@@ -408,8 +475,118 @@ components:
         - referenceNumber
         - consentAccepted
         - leadStatus
+        - leadType
         - createdAt
         - updatedAt
+    PublicLead:
+      type: object
+      description: |
+        Public-safe view returned by GET /leads/{referenceNumber} for the
+        user-facing reference-lookup page. Strips internal CRM fields
+        (leadStatus, leadPriority, internalClassification, leadScore,
+        adminNotes) and contact PII (email, whatsapp).
+      properties:
+        id:
+          type: string
+        referenceNumber:
+          type: string
+        fullName:
+          type: string
+          nullable: true
+        nationality:
+          type: string
+          nullable: true
+        immigrationSituation:
+          type: string
+          nullable: true
+        leadCategory:
+          type: string
+          nullable: true
+        consentAccepted:
+          type: boolean
+        consentTimestamp:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - referenceNumber
+        - consentAccepted
+        - createdAt
+        - updatedAt
+    AdminLeadListItem:
+      type: object
+      description: |
+        Slim row shape returned by GET /api/leads for the admin dashboard.
+        Intentionally a strict subset of `Lead` — omits internal "rules
+        engine" fields (internalClassification, leadScore, leadCategory,
+        adminNotes) and bulky funnel data the dashboard does not need.
+      properties:
+        id:
+          type: string
+        referenceNumber:
+          type: string
+        fullName:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        whatsapp:
+          type: string
+          nullable: true
+        immigrationSituation:
+          type: string
+          nullable: true
+        leadStatus:
+          type: string
+        leadPriority:
+          type: string
+          nullable: true
+        leadType:
+          type: string
+          description: individual | professional
+        inquiryType:
+          type: string
+          nullable: true
+        source:
+          type: string
+          nullable: true
+        assignedTo:
+          type: string
+          nullable: true
+          description: admin_users.id of the operator assigned to this lead
+        lastContactedAt:
+          type: string
+          nullable: true
+        nextFollowUpAt:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+          nullable: true
+        hasWhatsapp:
+          type: boolean
+        createdAt:
+          type: string
+        nextStep:
+          type: string
+          nullable: true
+        caseId:
+          type: string
+          nullable: true
+      required:
+        - id
+        - referenceNumber
+        - leadStatus
+        - leadType
+        - hasWhatsapp
+        - createdAt
     CategoryCount:
       type: object
       properties:

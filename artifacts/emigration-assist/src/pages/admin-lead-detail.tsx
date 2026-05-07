@@ -32,15 +32,20 @@ const STATUS_OPTIONS = [
   "new",
   "reviewing",
   "contacted",
+  "awaiting_response",
+  "engaged",
   "qualified",
+  "proposal_sent",
   "ready_for_case",
   "converted",
   "closed",
 ] as const;
 
-const PRIORITY_OPTIONS = ["high", "medium", "low"] as const;
+const PRIORITY_OPTIONS = ["critical", "high", "medium", "low"] as const;
 
 function priorityBadgeClass(priority: string | null | undefined): string {
+  if (priority === "critical")
+    return "bg-pink-700 text-white border-transparent";
   if (priority === "high")
     return "bg-red-600 text-white border-transparent";
   if (priority === "medium")

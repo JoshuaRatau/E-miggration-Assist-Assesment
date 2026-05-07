@@ -10,7 +10,37 @@ export interface ClassificationResult {
   label: string;
 }
 
-export type LeadPriority = "high" | "medium" | "low";
+export type LeadPriority = "critical" | "high" | "medium" | "low";
+
+// ── CRM Phase A: dual-lead architecture enums ────────────────────────────────
+// Source of truth for the discriminator and supporting taxonomies. Server-side
+// validators and the OpenAPI spec both reference these via re-export.
+export const LEAD_TYPE_VALUES = ["individual", "professional"] as const;
+export type LeadType = (typeof LEAD_TYPE_VALUES)[number];
+
+export const INQUIRY_TYPE_VALUES = [
+  "visa_inquiry",
+  "overstay_appeal",
+  "travel_entry_assistance",
+] as const;
+export type InquiryType = (typeof INQUIRY_TYPE_VALUES)[number];
+
+export const ORGANIZATION_TYPE_VALUES = [
+  "law_firm",
+  "immigration_consultancy",
+  "global_mobility",
+  "independent_practitioner",
+] as const;
+export type OrganizationType = (typeof ORGANIZATION_TYPE_VALUES)[number];
+
+export const ADMIN_ROLE_VALUES = [
+  "superadmin",
+  "admin",
+  "sales",
+  "operations",
+  "viewer",
+] as const;
+export type AdminRole = (typeof ADMIN_ROLE_VALUES)[number];
 // `LeadStatus` is exported below, derived from `LEAD_STATUS_VALUES` so the
 // type and the runtime allowlist can never drift.
 
@@ -128,11 +158,16 @@ export function deriveAutoPriority(
 
 // Canonical lead-status enum AND funnel order.  The array order is the
 // forward-only progression operators must follow:
-//   new → reviewing → contacted → qualified → ready_for_case → converted → closed
+//   new → reviewing → contacted → awaiting_response → engaged → qualified
+//       → proposal_sent → ready_for_case → converted → closed
 //
-// `ready_for_case` was added in V2: it sits between "qualified" (operator
-// has prepared the case docs) and "converted" (case has been opened in the
-// case system).  Semantically: "all checks passed, awaiting handover".
+// `ready_for_case` (V2) sits between "qualified" and "converted":
+// "all checks passed, awaiting handover".
+//
+// CRM Phase A added `awaiting_response`, `engaged`, and `proposal_sent` to
+// match the SaaS-CRM funnel from the platform brief. The new statuses are
+// inserted such that every previously-valid transition remains monotonic
+// (no existing flow becomes a "regression").
 //
 // Funnel-regression guard: every status PATCH is validated against this
 // order (see `canAdvanceStatus` + the PATCH /api/admin/leads/:id route).
@@ -140,7 +175,10 @@ export const LEAD_STATUS_VALUES = [
   "new",
   "reviewing",
   "contacted",
+  "awaiting_response",
+  "engaged",
   "qualified",
+  "proposal_sent",
   "ready_for_case",
   "converted",
   "closed",
@@ -178,7 +216,10 @@ const NEXT_STEP_BY_STATUS: Record<string, string> = {
   new: "Review lead",
   reviewing: "Contact lead",
   contacted: "Await response",
-  qualified: "Prepare case conversion",
+  awaiting_response: "Follow up",
+  engaged: "Qualify lead",
+  qualified: "Send proposal",
+  proposal_sent: "Prepare case conversion",
   ready_for_case: "Initiate case handover",
   converted: "Move to case system",
 };
@@ -190,7 +231,14 @@ export function deriveNextStep(
   return NEXT_STEP_BY_STATUS[status] ?? null;
 }
 
-export const LEAD_PRIORITY_VALUES = ["high", "medium", "low"] as const;
+// CRM Phase A: `critical` slotted ABOVE `high` for visual urgency badges.
+// All historical rows default to "medium" (DB default unchanged).
+export const LEAD_PRIORITY_VALUES = [
+  "critical",
+  "high",
+  "medium",
+  "low",
+] as const;
 
 export function generateReferenceNumber(): string {
   const ts = Date.now().toString(36).toUpperCase();

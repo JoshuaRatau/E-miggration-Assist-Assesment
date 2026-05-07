@@ -31,10 +31,10 @@ export const prelaunchLeadsTable = pgTable("prelaunch_leads", {
   leadScore: integer("lead_score"),
   leadCategory: text("lead_category"),
   // Business CRM fields. Lowercase canonical enums (see classification.ts):
-  //   leadStatus   ∈ {new, reviewing, contacted, qualified,
-  //                   ready_for_case, converted, closed}
-  //                  (forward-only — funnel regression rejected by PATCH)
-  //   leadPriority ∈ {high, medium, low}
+  //   leadStatus   ∈ {new, reviewing, contacted, awaiting_response, engaged,
+  //                   qualified, proposal_sent, ready_for_case, converted,
+  //                   closed} — forward-only; funnel regression rejected by PATCH.
+  //   leadPriority ∈ {critical, high, medium, low}
   // adminNotes holds internal-only operator notes (never exposed publicly).
   leadPriority: text("lead_priority").default("medium"),
   leadStatus: text("lead_status").notNull().default("new"),
@@ -42,6 +42,47 @@ export const prelaunchLeadsTable = pgTable("prelaunch_leads", {
   preferredContactMethod: text("preferred_contact_method"),
   consentAccepted: boolean("consent_accepted").notNull().default(false),
   consentTimestamp: timestamp("consent_timestamp", { withTimezone: true }),
+
+  // ── CRM Phase A: dual-lead architecture (B2C / B2B) ───────────────────────
+  //
+  // `leadType` discriminates between Individual (public assessment form) and
+  // Professional (CSV/XLSX import or future API integrations). All historical
+  // rows are backfilled to "individual" via a one-shot UPDATE after migration.
+  //   leadType ∈ {individual, professional}
+  //
+  // `inquiryType` is meaningful only for individual leads (null for professional).
+  //   inquiryType ∈ {visa_inquiry, overstay_appeal, travel_entry_assistance}
+  //
+  // `source` tracks where the lead originated (web_form, csv_import, manual,
+  // future api). Backfilled to "web_form" for historical rows.
+  //
+  // `assignedTo` references admin_users.id — no FK constraint enforced here
+  // because Drizzle/drizzle-kit push without a foreign-key declaration keeps
+  // the migration trivial; soft-deletes are checked at the API layer.
+  leadType: text("lead_type").notNull().default("individual"),
+  inquiryType: text("inquiry_type"),
+  source: text("source").default("web_form"),
+  assignedTo: uuid("assigned_to"),
+  lastContactedAt: timestamp("last_contacted_at", { withTimezone: true }),
+  nextFollowUpAt: timestamp("next_follow_up_at", { withTimezone: true }),
+  tags: text("tags").array(),
+
+  // ── Professional-lead (B2B) fields ───────────────────────────────────────
+  // All NULL for individual leads. Populated by the import pipeline (Phase B)
+  // and by the manual "create professional lead" admin form (Phase D).
+  //   organizationType ∈ {law_firm, immigration_consultancy,
+  //                       global_mobility, independent_practitioner}
+  organizationName: text("organization_name"),
+  organizationType: text("organization_type"),
+  representativeName: text("representative_name"),
+  representativeEmail: text("representative_email"),
+  representativePhone: text("representative_phone"),
+  website: text("website"),
+  firmSize: text("firm_size"),
+  operatingRegions: text("operating_regions").array(),
+  serviceFocus: text("service_focus"),
+  estimatedClientVolume: integer("estimated_client_volume"),
+
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -182,6 +223,11 @@ export const leadAuditTable = pgTable("lead_audit", {
   leadId: uuid("lead_id"),
   caseId: uuid("case_id"),
   actorTokenHash: text("actor_token_hash"),
+  // CRM Phase A: when the request was made via cookie session auth, we ALSO
+  // record the admin_users.id so the timeline UI can render "Jane updated
+  // status" without reversing the hash. Null for legacy x-admin-token callers
+  // (which by design have no identifiable user).
+  actorUserId: uuid("actor_user_id"),
   action: text("action").notNull(),
   before: jsonb("before"),
   after: jsonb("after"),
