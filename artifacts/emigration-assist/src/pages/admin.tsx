@@ -46,6 +46,7 @@ import { LeadMixCharts } from "@/components/lead-mix-charts";
 import { LeadPipelineBoard } from "@/components/lead-pipeline-board";
 import { LeadVelocityChip } from "@/components/lead-velocity-chip";
 import { LeadScoreBadge } from "@/components/lead-score-badge";
+import { SavedViewsBar } from "@/components/saved-views-bar";
 import { deriveLeadScore } from "@/lib/leadScore";
 import { Button } from "@/components/ui/button";
 import {
@@ -859,6 +860,24 @@ export function Admin() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="mb-3">
+              <SavedViewsBar
+                currentFilters={{
+                  segment: leadTypeSegment,
+                  status,
+                  priority,
+                  whatsapp: whatsappFilter as "ANY" | "HAS" | "NONE",
+                  sort,
+                }}
+                onApply={(f) => {
+                  setLeadTypeSegment(f.segment);
+                  setStatus(f.status);
+                  setPriority(f.priority);
+                  setWhatsappFilter(f.whatsapp);
+                  setSort(f.sort);
+                }}
+              />
+            </div>
             <div className="grid gap-3 md:grid-cols-4">
               <div>
                 <label className="text-xs font-medium text-muted-foreground">

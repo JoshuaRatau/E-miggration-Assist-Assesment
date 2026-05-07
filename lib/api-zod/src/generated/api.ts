@@ -371,7 +371,7 @@ export const GetStatsLeadMixResponse = zod.object({
         bucket: zod
           .string()
           .describe(
-            "For individuals: inquiry_type (visa_inquiry | overstay_appeal | travel_entry_assistance | unspecified). For professionals: organization_type (law_firm | immigration_consultancy | global_mobility | independent_practitioner | unspecified).",
+            "For individuals: a server-side rollup of immigration_situation into one of three executive-dashboard categories — overstay | in_country_visa | first_time_entry. For professionals: organization_type (law_firm | immigration_consultancy | global_mobility | independent_practitioner | unspecified).",
           ),
         count: zod.number(),
       }),
@@ -384,7 +384,7 @@ export const GetStatsLeadMixResponse = zod.object({
         bucket: zod
           .string()
           .describe(
-            "For individuals: inquiry_type (visa_inquiry | overstay_appeal | travel_entry_assistance | unspecified). For professionals: organization_type (law_firm | immigration_consultancy | global_mobility | independent_practitioner | unspecified).",
+            "For individuals: a server-side rollup of immigration_situation into one of three executive-dashboard categories — overstay | in_country_visa | first_time_entry. For professionals: organization_type (law_firm | immigration_consultancy | global_mobility | independent_practitioner | unspecified).",
           ),
         count: zod.number(),
       }),

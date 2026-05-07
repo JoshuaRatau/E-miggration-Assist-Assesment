@@ -58,9 +58,12 @@ router.get("/stats/summary", async (_req, res) => {
 });
 
 // Dual-funnel mix endpoint feeding the Lead Intelligence Dashboard.
-//   - Individuals are bucketed by `inquiry_type` (visa_inquiry,
-//     overstay_appeal, travel_entry_assistance) — surfaced in the bar
-//     chart so operators see which service line is generating demand.
+//   - Individuals are bucketed by `immigration_situation` rolled up
+//     into three operator-facing categories — overstay / in_country_visa /
+//     first_time_entry — matching the executive-dashboard spec. The raw
+//     enum has 5 values (overstay / valid / expired / visa_required /
+//     job_offer) plus historical NULLs; the rollup collapses them into
+//     the funnel the sales team actually thinks in.
 //   - Professionals are bucketed by `organization_type` (law_firm,
 //     immigration_consultancy, global_mobility, independent_practitioner)
 //     for the donut so partner-mix is visible at a glance.
@@ -73,14 +76,27 @@ router.get("/stats/lead-mix", async (req, res) => {
   // which is internal business intelligence. Session-cookie OR legacy
   // x-admin-token both satisfy the guard via the shared middleware.
   if (!(await requireAdminAuth(req, res))) return;
+  // Rollup expression — kept inline so the bucket key set is fully
+  // visible alongside the SQL. Any new immigration_situation enum
+  // value will land in `first_time_entry` by default (the catch-all),
+  // which is the safest bucket since "we don't yet know" leans pre-entry.
+  const situationBucket = sql<string>`
+    CASE
+      WHEN ${prelaunchLeadsTable.immigrationSituation} = 'overstay'
+        THEN 'overstay'
+      WHEN ${prelaunchLeadsTable.immigrationSituation} IN ('valid', 'expired')
+        THEN 'in_country_visa'
+      ELSE 'first_time_entry'
+    END
+  `;
   const individualsRows = await db
     .select({
-      bucket: sql<string>`COALESCE(${prelaunchLeadsTable.inquiryType}, 'unspecified')`,
+      bucket: situationBucket,
       count: sql<number>`COUNT(*)::int`,
     })
     .from(prelaunchLeadsTable)
     .where(sql`${prelaunchLeadsTable.leadType} = 'individual'`)
-    .groupBy(prelaunchLeadsTable.inquiryType);
+    .groupBy(situationBucket);
 
   const professionalsRows = await db
     .select({

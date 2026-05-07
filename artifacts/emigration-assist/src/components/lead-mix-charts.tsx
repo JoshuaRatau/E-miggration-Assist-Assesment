@@ -28,7 +28,16 @@ import {
 // (e.g. a typo backfilled into the DB) just falls back to a Title-Cased
 // version of the raw key so it still renders, instead of silently being
 // dropped.
+// Bar-chart buckets are now sourced from a server-side rollup of
+// `immigration_situation` into three executive-dashboard categories.
+// The raw bucket keys come from the SQL CASE expression in
+// /stats/lead-mix; labels here translate them for the X-axis + tooltip.
 const INDIVIDUAL_LABELS: Record<string, string> = {
+  overstay: "Overstay",
+  in_country_visa: "In-Country Visa Holder",
+  first_time_entry: "First-Time Entry",
+  // Legacy bucket keys kept for graceful fallback if a stale client
+  // ever talks to a pre-rollup server, or vice-versa.
   visa_inquiry: "Visa Inquiry",
   overstay_appeal: "Overstay Appeal",
   travel_entry_assistance: "Travel / Entry Assistance",
@@ -36,10 +45,10 @@ const INDIVIDUAL_LABELS: Record<string, string> = {
 };
 
 const PROFESSIONAL_LABELS: Record<string, string> = {
-  law_firm: "Law Firm",
-  immigration_consultancy: "Immigration Consultancy",
-  global_mobility: "Global Mobility",
-  independent_practitioner: "Independent Practitioner",
+  law_firm: "Law Firms",
+  immigration_consultancy: "Immigration Consultancy Firms",
+  global_mobility: "Global Mobility / Relocation",
+  independent_practitioner: "Independent Practitioners",
   unspecified: "Unspecified",
 };
 
@@ -73,6 +82,68 @@ function relabel(
     value: b.count,
     rawKey: b.bucket,
   }));
+}
+
+// Shared white-background tooltip used by both the bar chart and the
+// donut. The default recharts tooltip rendered nearly-black-on-navy
+// against the dashboard surface and was unreadable; this swaps in
+// pure white with dark text + soft shadow + percentage of total so a
+// hover surfaces the same info the operator would otherwise read off
+// the legend manually.
+type MixTooltipPayload = {
+  name?: string | number;
+  value?: number | string;
+  payload?: { name?: string; rawKey?: string };
+};
+function MixTooltip({
+  active,
+  payload,
+  total,
+  unit,
+}: {
+  active?: boolean;
+  payload?: MixTooltipPayload[];
+  total: number;
+  unit: string;
+}) {
+  if (!active || !payload || payload.length === 0) return null;
+  const p = payload[0]!;
+  const name =
+    (p.payload && p.payload.name) ||
+    (typeof p.name === "string" ? p.name : "") ||
+    "—";
+  const valueRaw = typeof p.value === "number" ? p.value : Number(p.value ?? 0);
+  const value = Number.isFinite(valueRaw) ? valueRaw : 0;
+  const pct = total > 0 ? Math.round((value / total) * 1000) / 10 : 0;
+  return (
+    <div
+      role="tooltip"
+      data-testid="lead-mix-tooltip"
+      style={{
+        background: "#ffffff",
+        color: "#111111",
+        border: "1px solid #e2e8f0",
+        borderRadius: 10,
+        padding: "8px 12px",
+        boxShadow: "0 4px 12px rgba(15, 23, 42, 0.18)",
+        fontSize: 12,
+        lineHeight: 1.4,
+        minWidth: 160,
+      }}
+    >
+      <div style={{ fontWeight: 600, marginBottom: 2 }}>{name}</div>
+      <div style={{ color: "#334155" }}>
+        <span style={{ fontWeight: 600, color: "#0f172a" }}>{value}</span>{" "}
+        {unit}
+        {total > 0 && (
+          <span style={{ color: "#64748b" }}>
+            {" "}
+            · <span style={{ fontWeight: 600 }}>{pct}%</span> of total
+          </span>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function LeadMixCharts() {
@@ -135,13 +206,12 @@ export function LeadMixCharts() {
                   />
                   <Tooltip
                     cursor={{ fill: "rgba(255,255,255,0.04)" }}
-                    contentStyle={{
-                      background: "hsl(222 47% 11%)",
-                      border: "1px solid hsl(217 33% 24%)",
-                      borderRadius: 6,
-                      fontSize: 12,
-                    }}
-                    labelStyle={{ color: "#e2e8f0" }}
+                    content={
+                      <MixTooltip
+                        total={data?.individuals.total ?? 0}
+                        unit="leads"
+                      />
+                    }
                   />
                   <Bar
                     dataKey="value"
@@ -203,12 +273,12 @@ export function LeadMixCharts() {
                     ))}
                   </Pie>
                   <Tooltip
-                    contentStyle={{
-                      background: "hsl(222 47% 11%)",
-                      border: "1px solid hsl(217 33% 24%)",
-                      borderRadius: 6,
-                      fontSize: 12,
-                    }}
+                    content={
+                      <MixTooltip
+                        total={data?.professionals.total ?? 0}
+                        unit="leads"
+                      />
+                    }
                   />
                   <Legend
                     verticalAlign="bottom"
