@@ -13,6 +13,7 @@ import adminCasesRouter from "./adminCases";
 import adminEngagementsRouter from "./adminEngagements";
 import adminMessagesRouter from "./adminMessages";
 import adminAuditRouter from "./adminAudit";
+import adminImportsRouter from "./adminImports";
 import whatsappWebhookRouter from "./whatsappWebhook";
 import otpRouter from "./otp";
 
@@ -32,6 +33,7 @@ router.use(adminCasesRouter);
 router.use(adminEngagementsRouter);
 router.use(adminMessagesRouter);
 router.use(adminAuditRouter);
+router.use(adminImportsRouter);
 router.use(whatsappWebhookRouter);
 router.use(otpRouter);
 

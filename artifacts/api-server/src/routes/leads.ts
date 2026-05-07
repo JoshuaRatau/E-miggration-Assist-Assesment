@@ -14,9 +14,8 @@ import {
   deriveNextStep,
   generateReferenceNumber,
 } from "../lib/classification";
-import { composeConfirmationBody, sendConfirmationEmail } from "../lib/email";
-import { sendMessage } from "../lib/messaging";
 import { normalizeWhatsapp } from "../lib/whatsapp";
+import { buildConfirmationDispatcher } from "../lib/confirmation";
 import { requireAdminToken } from "../lib/adminAuth";
 import { findUsableVerifiedOtp } from "../lib/otp";
 import { createRateBucket } from "../lib/rateLimit";
@@ -137,144 +136,6 @@ const toDateString = (d: Date | undefined): string | null =>
 // POST /leads/:id/finalize route — V2 defers confirmation send until the
 // user reaches the documents-question gate (or skips documents and goes
 // straight to the summary).
-function buildConfirmationDispatcher(req: import("express").Request) {
-  return function dispatchConfirmation(
-    lead: typeof prelaunchLeadsTable.$inferSelect,
-    cooldownMinutes: number,
-  ): void {
-    if (!lead.consentAccepted) return;
-
-    const hasWhatsApp =
-      typeof lead.whatsapp === "string" && lead.whatsapp.length > 0;
-    const hasEmail =
-      typeof lead.email === "string" && lead.email.length > 0;
-    const wantsWhatsApp = lead.preferredContactMethod === "whatsapp";
-
-    let pickedChannel: "email" | "whatsapp" | null = null;
-    let pickedRecipient: string | null = null;
-    if (wantsWhatsApp && hasWhatsApp) {
-      pickedChannel = "whatsapp";
-      pickedRecipient = lead.whatsapp!;
-    } else if (hasEmail) {
-      pickedChannel = "email";
-      pickedRecipient = lead.email!;
-    } else if (hasWhatsApp) {
-      pickedChannel = "whatsapp";
-      pickedRecipient = lead.whatsapp!;
-    }
-    if (!pickedChannel || !pickedRecipient) return;
-
-    const channel = pickedChannel;
-    const recipient = pickedRecipient;
-    const referenceNumber = lead.referenceNumber;
-    const fullName = lead.fullName;
-    const leadId = lead.id;
-
-    void (async () => {
-      if (cooldownMinutes > 0) {
-        const cutoff = new Date(Date.now() - cooldownMinutes * 60_000);
-        try {
-          const recent = await db
-            .select({ id: leadEngagementsTable.id })
-            .from(leadEngagementsTable)
-            .where(
-              and(
-                eq(leadEngagementsTable.leadId, leadId),
-                eq(leadEngagementsTable.type, "confirmation"),
-                eq(leadEngagementsTable.channel, channel),
-                eq(leadEngagementsTable.status, "sent"),
-                gt(leadEngagementsTable.createdAt, cutoff),
-              ),
-            )
-            .limit(1);
-          if (recent.length > 0) {
-            req.log.info(
-              { leadId, channel, cooldownMinutes },
-              "Skipping resubmission confirmation (recent send within cooldown)",
-            );
-            return;
-          }
-        } catch (err) {
-          req.log.warn(
-            { err },
-            "Confirmation cooldown lookup failed; sending anyway",
-          );
-        }
-      }
-
-      let engagementId: string | null = null;
-      try {
-        const [engagement] = await db
-          .insert(leadEngagementsTable)
-          .values({
-            leadId,
-            channel,
-            type: "confirmation",
-            status: "pending",
-          })
-          .returning({ id: leadEngagementsTable.id });
-        engagementId = engagement?.id ?? null;
-      } catch (err) {
-        req.log.warn({ err }, "Failed to record confirmation engagement row");
-      }
-
-      try {
-        let nextStatus: "sent" | "failed" | "pending" = "pending";
-        let analyticsPayload: Record<string, unknown>;
-
-        if (channel === "whatsapp") {
-          const result = await sendMessage({
-            channel: "whatsapp",
-            to: recipient,
-            message: composeConfirmationBody({ referenceNumber, fullName }),
-            referenceNumber,
-          });
-          if (result.ok) nextStatus = "sent";
-          else if (result.pending) nextStatus = "pending";
-          else nextStatus = "failed";
-          analyticsPayload = result.ok
-            ? { success: true, channel, messageId: result.id }
-            : { success: false, channel, reason: result.reason };
-        } else {
-          const sendResult = await sendConfirmationEmail({
-            to: recipient,
-            referenceNumber,
-            fullName,
-          });
-          nextStatus = sendResult.ok ? "sent" : "failed";
-          analyticsPayload = sendResult.ok
-            ? { success: true, channel, messageId: sendResult.id }
-            : { success: false, channel, reason: sendResult.reason };
-        }
-
-        if (engagementId) {
-          await db
-            .update(leadEngagementsTable)
-            .set({ status: nextStatus })
-            .where(eq(leadEngagementsTable.id, engagementId))
-            .catch((err) =>
-              req.log.warn(
-                { err },
-                "Failed to update confirmation engagement status",
-              ),
-            );
-        }
-
-        await db.insert(analyticsEventsTable).values({
-          eventName:
-            channel === "whatsapp"
-              ? "whatsapp_sent_confirmation"
-              : "email_sent_confirmation",
-          leadId,
-          referenceNumber,
-          payload: analyticsPayload,
-        });
-      } catch (err) {
-        req.log.warn({ err }, "Confirmation pipeline error (silent)");
-      }
-    })();
-  };
-}
 
 router.post("/leads", async (req, res) => {
   // Pre-traffic hardening: honeypot field. The form must NOT render a
@@ -404,7 +265,7 @@ router.post("/leads", async (req, res) => {
     }
   }
 
-  const dispatchConfirmation = buildConfirmationDispatcher(req);
+  const dispatchConfirmation = buildConfirmationDispatcher({ log: req.log });
 
   // WhatsApp: normalise to canonical +E.164. Invalid → store null. Submission
   // is NEVER blocked on a bad number. Raw user input is intentionally not
@@ -641,7 +502,7 @@ router.post("/leads/:id/finalize", async (req, res) => {
     });
   }
 
-  buildConfirmationDispatcher(req)(lead, 5);
+  buildConfirmationDispatcher({ log: req.log })(lead, 5);
 
   return res.json({
     finalized: true,
