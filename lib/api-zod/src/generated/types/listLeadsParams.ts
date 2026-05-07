@@ -5,11 +5,12 @@
  * E-Migration Assist API
  * OpenAPI spec version: 0.2.0
  */
+import type { ListLeadsLeadType } from "./listLeadsLeadType";
 
 export type ListLeadsParams = {
   /**
    * @minimum 1
-   * @maximum 500
+   * @maximum 5000
    */
   limit?: number;
   /**
@@ -25,4 +26,8 @@ export type ListLeadsParams = {
    * Filter by immigrationSituation enum value
    */
   situation?: string;
+  /**
+   * Segment discriminator — individual (B2C) or professional (B2B)
+   */
+  leadType?: ListLeadsLeadType;
 };

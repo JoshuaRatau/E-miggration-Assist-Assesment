@@ -153,7 +153,7 @@ export const CreateLeadResponse = zod.object({
  * @summary List recent leads (admin overview) with optional filters
  */
 export const listLeadsQueryLimitDefault = 50;
-export const listLeadsQueryLimitMax = 500;
+export const listLeadsQueryLimitMax = 5000;
 
 export const ListLeadsQueryParams = zod.object({
   limit: zod.coerce
@@ -174,6 +174,10 @@ export const ListLeadsQueryParams = zod.object({
     .string()
     .optional()
     .describe("Filter by immigrationSituation enum value"),
+  leadType: zod
+    .enum(["individual", "professional"])
+    .optional()
+    .describe("Segment discriminator — individual (B2C) or professional (B2B)"),
 });
 
 export const ListLeadsResponseItem = zod

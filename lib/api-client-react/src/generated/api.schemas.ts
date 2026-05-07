@@ -238,7 +238,7 @@ export interface PublicStatus {
 export type ListLeadsParams = {
   /**
    * @minimum 1
-   * @maximum 500
+   * @maximum 5000
    */
   limit?: number;
   /**
@@ -254,7 +254,19 @@ export type ListLeadsParams = {
    * Filter by immigrationSituation enum value
    */
   situation?: string;
+  /**
+   * Segment discriminator — individual (B2C) or professional (B2B)
+   */
+  leadType?: ListLeadsLeadType;
 };
+
+export type ListLeadsLeadType =
+  (typeof ListLeadsLeadType)[keyof typeof ListLeadsLeadType];
+
+export const ListLeadsLeadType = {
+  individual: "individual",
+  professional: "professional",
+} as const;
 
 export type ListDocumentsParams = {
   leadId: string;

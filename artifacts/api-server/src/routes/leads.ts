@@ -528,17 +528,18 @@ router.get("/leads", async (req, res) => {
       .status(400)
       .json({ error: "Invalid query", details: parsed.error.issues });
   }
-  const { limit = 50, priority, status, nationality, situation } = parsed.data;
-  // `leadType` is parsed off `req.query` directly because adding it to the
-  // codegenned `ListLeadsQueryParams` schema would force a full openapi
-  // regeneration round.  The discriminator is a tiny enum; we validate by
-  // hand against the same values the DB column accepts.
-  const rawLeadType =
-    typeof req.query.leadType === "string" ? req.query.leadType : null;
-  const leadTypeFilter =
-    rawLeadType === "individual" || rawLeadType === "professional"
-      ? rawLeadType
-      : null;
+  const {
+    limit = 50,
+    priority,
+    status,
+    nationality,
+    situation,
+    leadType,
+  } = parsed.data;
+  // `leadType` is now part of the codegenned ListLeadsQueryParams schema
+  // (enum-validated to "individual" | "professional"), so we can trust it
+  // directly here. Anything else is rejected at the parse step above.
+  const leadTypeFilter = leadType ?? null;
 
   const filters = [];
   if (priority) filters.push(eq(prelaunchLeadsTable.leadPriority, priority));

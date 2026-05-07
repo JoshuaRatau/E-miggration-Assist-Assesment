@@ -17,6 +17,7 @@ export * from "./healthStatus";
 export * from "./lead";
 export * from "./leadMixBucket";
 export * from "./listDocumentsParams";
+export * from "./listLeadsLeadType";
 export * from "./listLeadsParams";
 export * from "./publicLead";
 export * from "./publicStatus";

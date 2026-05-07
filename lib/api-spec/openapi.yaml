@@ -64,7 +64,7 @@ paths:
           schema:
             type: integer
             minimum: 1
-            maximum: 500
+            maximum: 5000
             default: 50
         - name: priority
           in: query
@@ -89,6 +89,13 @@ paths:
           description: Filter by immigrationSituation enum value
           schema:
             type: string
+        - name: leadType
+          in: query
+          required: false
+          description: Segment discriminator — individual (B2C) or professional (B2B)
+          schema:
+            type: string
+            enum: [individual, professional]
       responses:
         "200":
           description: List of leads
