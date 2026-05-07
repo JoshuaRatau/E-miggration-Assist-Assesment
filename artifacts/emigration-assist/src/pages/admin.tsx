@@ -783,8 +783,16 @@ export function Admin() {
                     : "Drag a card between columns to advance it through the funnel. Forward-only — backwards moves are blocked client-side and again server-side (HTTP 409)."}
                 </CardDescription>
               </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Link
+                  href="/admin/import"
+                  className="inline-flex items-center rounded-md border border-primary/40 bg-primary/5 px-3 py-1 text-xs font-medium text-primary hover:bg-primary/10"
+                  data-testid="leads-import-button"
+                >
+                  + Import
+                </Link>
               <div
-                className="inline-flex rounded-md border bg-background p-0.5 shrink-0"
+                className="inline-flex rounded-md border bg-background p-0.5"
                 role="tablist"
                 aria-label="Lead view mode"
                 data-testid="leads-view-toggle"
@@ -817,6 +825,7 @@ export function Admin() {
                 >
                   Pipeline
                 </button>
+              </div>
               </div>
             </div>
           </CardHeader>

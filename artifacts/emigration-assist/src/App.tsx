@@ -16,6 +16,7 @@ import { AdminForgot } from "@/pages/admin-forgot";
 import { AdminReset } from "@/pages/admin-reset";
 import { AdminProfile } from "@/pages/admin-profile";
 import { AdminUsers } from "@/pages/admin-users";
+import { AdminImport } from "@/pages/admin-import";
 
 const queryClient = new QueryClient();
 
@@ -48,6 +49,11 @@ function Router() {
       <Route path="/admin/users">
         <RequireAdminAuth>
           <AdminUsers />
+        </RequireAdminAuth>
+      </Route>
+      <Route path="/admin/import">
+        <RequireAdminAuth>
+          <AdminImport />
         </RequireAdminAuth>
       </Route>
       <Route path="/admin/lead/:id">
