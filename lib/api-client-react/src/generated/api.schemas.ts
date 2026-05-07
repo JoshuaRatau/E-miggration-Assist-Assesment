@@ -162,6 +162,27 @@ export interface StatsSummary {
   byStatus: CategoryCount[];
 }
 
+export interface LeadMixBucket {
+  /** For individuals: inquiry_type (visa_inquiry | overstay_appeal | travel_entry_assistance | unspecified). For professionals: organization_type (law_firm | immigration_consultancy | global_mobility | independent_practitioner | unspecified). */
+  bucket: string;
+  count: number;
+}
+
+export type StatsLeadMixIndividuals = {
+  total: number;
+  buckets: LeadMixBucket[];
+};
+
+export type StatsLeadMixProfessionals = {
+  total: number;
+  buckets: LeadMixBucket[];
+};
+
+export interface StatsLeadMix {
+  individuals: StatsLeadMixIndividuals;
+  professionals: StatsLeadMixProfessionals;
+}
+
 export type AnalyticsEventInputPayload = { [key: string]: unknown } | null;
 
 export interface AnalyticsEventInput {

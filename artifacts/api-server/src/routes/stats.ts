@@ -56,4 +56,48 @@ router.get("/stats/summary", async (_req, res) => {
   });
 });
 
+// Dual-funnel mix endpoint feeding the Lead Intelligence Dashboard.
+//   - Individuals are bucketed by `inquiry_type` (visa_inquiry,
+//     overstay_appeal, travel_entry_assistance) — surfaced in the bar
+//     chart so operators see which service line is generating demand.
+//   - Professionals are bucketed by `organization_type` (law_firm,
+//     immigration_consultancy, global_mobility, independent_practitioner)
+//     for the donut so partner-mix is visible at a glance.
+// All-time counts (no time window) — operator chose "all_time_inquiry"
+// during product spec. Adding a windowed variant later is a one-line
+// extension via a `WHERE created_at > NOW() - INTERVAL ...` predicate.
+router.get("/stats/lead-mix", async (_req, res) => {
+  const individualsRows = await db
+    .select({
+      bucket: sql<string>`COALESCE(${prelaunchLeadsTable.inquiryType}, 'unspecified')`,
+      count: sql<number>`COUNT(*)::int`,
+    })
+    .from(prelaunchLeadsTable)
+    .where(sql`${prelaunchLeadsTable.leadType} = 'individual'`)
+    .groupBy(prelaunchLeadsTable.inquiryType);
+
+  const professionalsRows = await db
+    .select({
+      bucket: sql<string>`COALESCE(${prelaunchLeadsTable.organizationType}, 'unspecified')`,
+      count: sql<number>`COUNT(*)::int`,
+    })
+    .from(prelaunchLeadsTable)
+    .where(sql`${prelaunchLeadsTable.leadType} = 'professional'`)
+    .groupBy(prelaunchLeadsTable.organizationType);
+
+  const sum = (rows: { count: number }[]) =>
+    rows.reduce((acc, r) => acc + r.count, 0);
+
+  return res.json({
+    individuals: {
+      total: sum(individualsRows),
+      buckets: individualsRows,
+    },
+    professionals: {
+      total: sum(professionalsRows),
+      buckets: professionalsRows,
+    },
+  });
+});
+
 export default router;

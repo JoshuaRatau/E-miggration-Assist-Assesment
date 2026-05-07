@@ -99,20 +99,30 @@ export function DashboardGreeting() {
   const greeting = greetingForHour(sastHour(now));
   const firstName = firstNameOf(user);
   return (
-    <div data-testid="dashboard-greeting">
-      <h1 className="text-3xl font-display font-bold">
+    <div data-testid="dashboard-greeting" className="min-w-0">
+      <p className="text-lg font-semibold text-foreground/95 leading-tight">
         {greeting}, {firstName}
-      </h1>
+      </p>
       <p
-        className="text-muted-foreground text-sm mt-1"
+        className="text-muted-foreground text-xs mt-0.5"
         data-testid="dashboard-clock"
       >
-        <span className="font-medium text-foreground/80">
+        <span className="font-medium text-foreground/75">
           {dateFmt.format(now)}
         </span>
-        <span className="mx-2 opacity-60">·</span>
+        <span className="mx-1.5 opacity-60">·</span>
         <span className="tabular-nums">{timeFmt.format(now)}</span>
         <span className="ml-1 opacity-70">SAST</span>
+      </p>
+      <h1
+        className="text-2xl sm:text-3xl font-display font-bold mt-2 leading-tight"
+        data-testid="dashboard-heading"
+      >
+        Lead Intelligence Dashboard
+      </h1>
+      <p className="text-muted-foreground text-sm mt-1 max-w-xl">
+        Monitor, analyse and manage individual and professional lead
+        activity in real time.
       </p>
     </div>
   );

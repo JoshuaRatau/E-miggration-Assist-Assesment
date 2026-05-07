@@ -17,6 +17,7 @@ import { buildConfirmationDispatcher } from "../confirmation";
 import { writeAudit } from "../audit";
 import { findDuplicateLead } from "./dedupe";
 import type { DedupeStrategy } from "./mapping";
+import { resolveOrgType } from "./classifyOrg";
 
 export interface CommitSummary {
   imported: number;
@@ -216,6 +217,29 @@ export async function commitImportJob(args: {
         tags: newTags,
         ...(job.uploadedBy ? { assignedTo: job.uploadedBy } : {}),
       };
+
+      // Auto-classification for professional leads — keyword-derive the
+      // organization_type from the org name (and any free-form type hint
+      // the operator mapped) so the dashboard donut chart always has a
+      // valid category to bucket the row into. When the classifier had to
+      // intervene we stamp `auto_classified:org_type` on the tags array
+      // for transparency, so an operator can later filter/spot-check
+      // anything that wasn't explicitly typed by a human.
+      if (job.leadType === "professional") {
+        const resolved = resolveOrgType({
+          organizationName: (fields["organizationName"] as string) ?? null,
+          mappedOrgType: (fields["organizationType"] as string) ?? null,
+        });
+        insertable.organizationType = resolved.value;
+        if (resolved.autoClassified) {
+          (insertable.tags as string[]) = [
+            ...new Set([
+              ...(insertable.tags as string[]),
+              "auto_classified:org_type",
+            ]),
+          ];
+        }
+      }
 
       // Auto-classification for individual leads only — mirrors the public
       // POST /leads path so imported leads behave like form-submitted ones

@@ -155,6 +155,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StatsSummary"
+  /stats/lead-mix:
+    get:
+      operationId: getStatsLeadMix
+      tags: [stats]
+      summary: Lead mix — individuals by inquiry_type, professionals by organization_type
+      responses:
+        "200":
+          description: Lead mix payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatsLeadMix"
   /analytics/events:
     post:
       operationId: trackAnalyticsEvent
@@ -617,6 +629,43 @@ components:
           items:
             $ref: "#/components/schemas/CategoryCount"
       required: [totalAssessments, last24Hours, avgScore, byCategory, byPriority, byStatus]
+    LeadMixBucket:
+      type: object
+      properties:
+        bucket:
+          type: string
+          description: >-
+            For individuals: inquiry_type (visa_inquiry | overstay_appeal |
+            travel_entry_assistance | unspecified). For professionals:
+            organization_type (law_firm | immigration_consultancy |
+            global_mobility | independent_practitioner | unspecified).
+        count:
+          type: integer
+      required: [bucket, count]
+    StatsLeadMix:
+      type: object
+      properties:
+        individuals:
+          type: object
+          properties:
+            total:
+              type: integer
+            buckets:
+              type: array
+              items:
+                $ref: "#/components/schemas/LeadMixBucket"
+          required: [total, buckets]
+        professionals:
+          type: object
+          properties:
+            total:
+              type: integer
+            buckets:
+              type: array
+              items:
+                $ref: "#/components/schemas/LeadMixBucket"
+          required: [total, buckets]
+      required: [individuals, professionals]
     AnalyticsEventInput:
       type: object
       properties:

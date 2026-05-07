@@ -357,6 +357,38 @@ export const GetStatsSummaryResponse = zod.object({
 });
 
 /**
+ * @summary Lead mix — individuals by inquiry_type, professionals by organization_type
+ */
+export const GetStatsLeadMixResponse = zod.object({
+  individuals: zod.object({
+    total: zod.number(),
+    buckets: zod.array(
+      zod.object({
+        bucket: zod
+          .string()
+          .describe(
+            "For individuals: inquiry_type (visa_inquiry | overstay_appeal | travel_entry_assistance | unspecified). For professionals: organization_type (law_firm | immigration_consultancy | global_mobility | independent_practitioner | unspecified).",
+          ),
+        count: zod.number(),
+      }),
+    ),
+  }),
+  professionals: zod.object({
+    total: zod.number(),
+    buckets: zod.array(
+      zod.object({
+        bucket: zod
+          .string()
+          .describe(
+            "For individuals: inquiry_type (visa_inquiry | overstay_appeal | travel_entry_assistance | unspecified). For professionals: organization_type (law_firm | immigration_consultancy | global_mobility | independent_practitioner | unspecified).",
+          ),
+        count: zod.number(),
+      }),
+    ),
+  }),
+});
+
+/**
  * @summary Record a funnel analytics event
  */
 export const TrackAnalyticsEventBody = zod.object({

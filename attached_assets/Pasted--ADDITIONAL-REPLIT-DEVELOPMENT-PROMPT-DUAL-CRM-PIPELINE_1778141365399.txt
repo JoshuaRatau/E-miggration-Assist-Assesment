@@ -1,0 +1,569 @@
+# ADDITIONAL REPLIT DEVELOPMENT PROMPT — DUAL CRM PIPELINE SYSTEM, LEAD QUALIFICATION ENGINE & SUBSCRIPTION LIFECYCLE MANAGEMENT
+
+Enhance the existing internal CRM and Lead Intelligence Platform for E-Migration Assist by implementing two fully structured CRM pipelines:
+
+1. B2C Individual Lead Pipeline
+2. B2B Professional Lead Pipeline
+
+The system must support:
+
+* automated qualification logic
+* lifecycle tracking
+* onboarding workflows
+* subscription tracking
+* lead scoring
+* conversion analytics
+* SaaS customer lifecycle visibility
+
+The pipelines must visually and operationally resemble modern CRM systems such as:
+
+* Zoho CRM
+* monday.com
+* SaaS customer lifecycle dashboards
+
+The system must remain:
+
+* highly visual
+* enterprise-grade
+* modular
+* scalable
+* operationally intelligent
+
+---
+
+# CORE OBJECTIVE
+
+The platform currently receives B2C leads from:
+
+[E-Migration Assist Self-Assessment Form](https://immigrationassist.replit.app/?utm_source=chatgpt.com)
+
+These leads must now move through a structured SaaS conversion lifecycle.
+
+Additionally, imported B2B professional leads must follow a separate commercial pipeline optimized for partnerships, onboarding, and enterprise sales engagement.
+
+---
+
+# 1. B2C INDIVIDUAL LEAD PIPELINE
+
+Create a dedicated CRM pipeline for leads generated from the self-assessment form.
+
+These leads represent:
+
+* visa applicants
+* travellers
+* overstay appeal users
+* immigration assistance users
+* digital nomads
+* travel support clients
+
+The system must automatically assign these leads into the:
+“Individual Leads Pipeline”
+
+---
+
+# B2C PIPELINE STAGES
+
+Create the following CRM stages:
+
+---
+
+## STAGE 1 — NEW LEAD
+
+Definition:
+A user has completed and submitted the self-assessment form.
+
+Trigger:
+
+* successful form submission
+
+Automatic actions:
+
+* create lead record
+* assign lead reference
+* store assessment data
+* add timestamp
+* assign default status = New Lead
+
+---
+
+## STAGE 2 — QUALIFIED
+
+Definition:
+The system determines that the lead has meaningful commercial or onboarding potential.
+
+This stage must support AUTOMATED QUALIFICATION LOGIC.
+
+---
+
+# AUTOMATED LEAD QUALIFICATION ENGINE (IMPORTANT)
+
+Build an automated lead scoring and qualification system.
+
+The system must automatically evaluate:
+
+* assessment responses
+* urgency
+* visa category
+* appeal complexity
+* travel intent
+* willingness to relocate
+* WhatsApp availability
+* engagement activity
+* app interest
+
+---
+
+# QUALIFICATION RULES
+
+Examples:
+
+## High-value indicators:
+
+* Overstay Appeal → high score
+* Urgent immigration need → high score
+* Corporate relocation inquiry → high score
+* User selects “need assistance urgently”
+* User engages multiple times
+* User opens onboarding emails
+* User clicks app download link
+
+---
+
+# AUTO-QUALIFICATION THRESHOLD
+
+Example scoring:
+
+| Criteria             | Score |
+| -------------------- | ----- |
+| Overstay appeal      | +25   |
+| Urgent assistance    | +20   |
+| WhatsApp available   | +5    |
+| App download clicked | +15   |
+| Multiple visits      | +10   |
+
+If total score ≥ threshold:
+→ automatically move to “Qualified”
+
+---
+
+# QUALIFICATION AUTOMATION REQUIREMENTS
+
+The engine must:
+
+* run automatically
+* update lead scores dynamically
+* support configurable rules
+* log qualification reasons
+* show qualification score on dashboard
+
+---
+
+## STAGE 3 — CONTACTED
+
+Definition:
+The system or operations team has initiated first engagement with the lead.
+
+This stage should preferably be automated.
+
+---
+
+# CONTACTED STAGE AUTOMATION
+
+When lead becomes:
+
+* Qualified
+  or
+* manually marked for outreach
+
+Automatically:
+
+1. send welcome email
+2. send onboarding introduction
+3. provide app download link
+4. log communication event
+5. update lead status = Contacted
+
+---
+
+# REQUIRED EMAIL CONTENT
+
+The automated introductory email must:
+
+* welcome the lead
+* acknowledge their assessment
+* explain E-Migration Assist briefly
+* invite them to download the app
+* encourage registration/subscription
+
+Include:
+
+* app download links
+* onboarding guidance
+* support contact details
+
+---
+
+# CONTACTED STAGE DASHBOARD FEATURES
+
+Display:
+
+* date contacted
+* email delivery status
+* email opened status
+* app download clicked status
+
+---
+
+## STAGE 4 — SUBSCRIBED
+
+Definition:
+The lead has:
+
+* downloaded the app
+* registered successfully
+* subscribed to a paid package
+
+This stage represents conversion into an active SaaS customer.
+
+---
+
+# SUBSCRIBED STAGE AUTOMATION
+
+The system must automatically move the lead to:
+“Subscribed”
+
+When:
+
+* account registration completes
+  AND
+* payment/subscription is successful
+
+---
+
+# SUBSCRIPTION TRACKING REQUIREMENTS
+
+Track:
+
+* subscription plan
+* billing cycle
+* activation date
+* renewal date
+* payment status
+* subscription status
+
+---
+
+# SUBSCRIPTION PLAN TYPES
+
+Support:
+
+* Basic
+* Premium
+* Enterprise
+* Future custom plans
+
+---
+
+# SUBSCRIBED STAGE DASHBOARD FEATURES
+
+Display:
+
+* active subscribers
+* monthly recurring revenue indicators
+* subscription distribution
+* package popularity
+
+---
+
+## STAGE 5 — DOWNGRADED SUBS
+
+Definition:
+A subscribed user has downgraded from a higher package to a lower package.
+
+---
+
+# DOWNGRADE TRACKING REQUIREMENTS
+
+Track:
+
+* previous package
+* new package
+* downgrade date
+* downgrade reason
+* subscription history
+
+---
+
+# DOWNGRADE ANALYTICS
+
+Dashboard should display:
+
+* downgrade trends
+* most downgraded plans
+* downgrade percentages
+
+---
+
+## STAGE 6 — CANCELLED SUBS
+
+Definition:
+A previously subscribed user has cancelled or allowed subscription expiry.
+
+---
+
+# CANCELLATION TRACKING REQUIREMENTS
+
+Track:
+
+* cancellation date
+* cancellation reason
+* churn analytics
+* last active date
+* previous plan
+
+---
+
+# CHURN ANALYTICS
+
+Display:
+
+* churn rate
+* cancellations by plan
+* monthly churn trends
+* average subscription lifespan
+
+---
+
+# 2. B2B PROFESSIONAL PIPELINE
+
+Create a separate CRM pipeline specifically for imported professional leads.
+
+These leads originate from:
+
+* CSV imports
+* Excel uploads
+* partnership outreach
+* professional engagement campaigns
+
+---
+
+# B2B PIPELINE STAGES
+
+---
+
+## STAGE 1 — IMPORTED
+
+Definition:
+Professional lead successfully imported.
+
+Automatic actions:
+
+* classify organization type
+* assign lead owner
+* validate records
+
+---
+
+## STAGE 2 — REVIEWED
+
+Definition:
+Operations or sales team reviewed imported lead quality.
+
+---
+
+## STAGE 3 — OUTREACH INITIATED
+
+Definition:
+First communication initiated.
+
+Track:
+
+* email sent
+* LinkedIn outreach
+* WhatsApp contact
+* call attempts
+
+---
+
+## STAGE 4 — ENGAGED
+
+Definition:
+Professional lead has responded or shown active interest.
+
+---
+
+## STAGE 5 — DEMO SCHEDULED
+
+Definition:
+Product demo or onboarding call scheduled.
+
+Track:
+
+* scheduled date
+* assigned representative
+* meeting link
+
+---
+
+## STAGE 6 — PROPOSAL / PILOT
+
+Definition:
+Formal proposal, pilot access, or onboarding trial initiated.
+
+---
+
+## STAGE 7 — PARTNER / CLIENT CONVERTED
+
+Definition:
+Professional lead converted into:
+
+* active client
+  or
+* operational partner
+
+---
+
+## STAGE 8 — INACTIVE / LOST
+
+Definition:
+Professional lead disengaged or did not convert.
+
+---
+
+# 3. PIPELINE VISUALIZATION
+
+Create modern CRM pipeline views.
+
+Support:
+
+* Kanban-style boards
+* drag-and-drop movement
+* pipeline analytics
+* stage counts
+* conversion percentages
+
+---
+
+# 4. PIPELINE DASHBOARD ANALYTICS
+
+Add:
+
+* conversion rates
+* stage drop-offs
+* active pipeline value
+* active subscribers
+* churn indicators
+* onboarding metrics
+
+---
+
+# 5. SUBSCRIPTION LIFECYCLE DASHBOARD
+
+Create a SaaS lifecycle analytics section.
+
+Display:
+
+* active subscriptions
+* downgraded subscriptions
+* cancelled subscriptions
+* upgrade trends
+* plan distribution
+* churn rate
+
+---
+
+# 6. EVENT & ACTIVITY TRACKING
+
+Every pipeline movement must create:
+
+* timestamp
+* event log
+* admin attribution
+* audit history
+
+---
+
+# 7. DATABASE ENHANCEMENTS
+
+Add required tables/modules.
+
+---
+
+## SUBSCRIPTIONS TABLE
+
+Fields:
+
+* id
+* user_id
+* lead_id
+* plan_type
+* billing_cycle
+* activation_date
+* renewal_date
+* cancellation_date
+* subscription_status
+* downgrade_history
+* created_at
+* updated_at
+
+---
+
+## PIPELINE EVENTS TABLE
+
+Fields:
+
+* id
+* lead_id
+* pipeline_type
+* old_stage
+* new_stage
+* changed_by
+* reason
+* timestamp
+
+---
+
+# 8. AUTOMATION ENGINE
+
+Build a reusable CRM workflow engine.
+
+Support:
+
+* automated emails
+* lead scoring
+* status transitions
+* onboarding triggers
+* subscription updates
+* inactivity monitoring
+
+---
+
+# 9. FUTURE-READY FEATURES
+
+Prepare architecture for:
+
+* AI lead scoring
+* AI qualification
+* WhatsApp automation
+* automated follow-ups
+* CRM reminders
+* onboarding workflows
+* Jira integration
+* SLA management
+
+---
+
+# 10. FINAL OBJECTIVE
+
+The completed platform must function as:
+
+“A modern immigration-focused SaaS CRM and operational intelligence platform capable of managing both consumer immigration lead lifecycles and professional partnership pipelines while tracking onboarding, subscriptions, engagement, churn, and conversion performance in real time.”
+
+The platform must:
+
+* support scalable SaaS growth
+* support B2C and B2B lifecycle management
+* provide executive-grade CRM visibility
+* automate qualification and onboarding
+* intelligently track subscriptions and churn
+* feel comparable to premium commercial CRM platforms.

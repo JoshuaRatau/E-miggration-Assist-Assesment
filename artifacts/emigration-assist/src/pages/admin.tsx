@@ -42,6 +42,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { BrandHeader } from "@/components/brand-header";
 import { AdminUserMenu } from "@/components/admin-user-menu";
 import { DashboardGreeting } from "@/components/dashboard-greeting";
+import { LeadMixCharts } from "@/components/lead-mix-charts";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -583,27 +584,45 @@ export function Admin() {
   return (
     <div className="min-h-screen bg-background p-6 md:p-12">
       <div className="max-w-7xl mx-auto space-y-8">
-        <BrandHeader variant="compact" rightSlot={<AdminUserMenu />} />
-        <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-          <DashboardGreeting />
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Button
-              variant="outline"
-              onClick={handleSendUpdateEmail}
-              disabled={sendingUpdate}
-              data-testid="button-send-update-email"
-            >
-              {sendingUpdate ? "Sending..." : "Send Update Email"}
-            </Button>
-            <Button
-              onClick={handleExportCsv}
-              disabled={exportingCsv}
-              data-testid="button-export-leads"
-            >
-              {exportingCsv ? "Exporting…" : "Export Leads (CSV)"}
-            </Button>
-          </div>
-        </header>
+        <BrandHeader
+          variant="compact"
+          leftSlot={<DashboardGreeting />}
+          rightSlot={
+            <div className="flex flex-col-reverse sm:flex-col gap-3 items-stretch sm:items-end">
+              <div className="flex flex-wrap gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSendUpdateEmail}
+                  disabled={sendingUpdate}
+                  data-testid="button-send-update-email"
+                >
+                  {sendingUpdate ? "Sending..." : "Send Update Email"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportCsv}
+                  disabled={exportingCsv}
+                  data-testid="button-export-leads"
+                >
+                  {exportingCsv ? "Exporting…" : "Export Leads (CSV)"}
+                </Button>
+                <Link href="/admin/import?type=professional">
+                  <Button
+                    size="sm"
+                    data-testid="button-import-professionals"
+                  >
+                    Import Professionals
+                  </Button>
+                </Link>
+              </div>
+              <div className="flex justify-end">
+                <AdminUserMenu />
+              </div>
+            </div>
+          }
+        />
 
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
@@ -648,6 +667,8 @@ export function Admin() {
             </CardHeader>
           </Card>
         </div>
+
+        <LeadMixCharts />
 
         <Card>
           <CardHeader>

@@ -28,6 +28,7 @@ import type {
   ListLeadsParams,
   PublicLead,
   PublicStatus,
+  StatsLeadMix,
   StatsSummary,
 } from "./api.schemas";
 
@@ -541,6 +542,81 @@ export function useGetStatsSummary<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetStatsSummaryQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Lead mix — individuals by inquiry_type, professionals by organization_type
+ */
+export const getGetStatsLeadMixUrl = () => {
+  return `/api/stats/lead-mix`;
+};
+
+export const getStatsLeadMix = async (
+  options?: RequestInit,
+): Promise<StatsLeadMix> => {
+  return customFetch<StatsLeadMix>(getGetStatsLeadMixUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetStatsLeadMixQueryKey = () => {
+  return [`/api/stats/lead-mix`] as const;
+};
+
+export const getGetStatsLeadMixQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStatsLeadMix>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getStatsLeadMix>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetStatsLeadMixQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getStatsLeadMix>>> = ({
+    signal,
+  }) => getStatsLeadMix({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStatsLeadMix>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStatsLeadMixQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStatsLeadMix>>
+>;
+export type GetStatsLeadMixQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Lead mix — individuals by inquiry_type, professionals by organization_type
+ */
+
+export function useGetStatsLeadMix<
+  TData = Awaited<ReturnType<typeof getStatsLeadMix>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getStatsLeadMix>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStatsLeadMixQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
