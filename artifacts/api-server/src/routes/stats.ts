@@ -122,4 +122,71 @@ router.get("/stats/lead-mix", async (req, res) => {
   });
 });
 
+// Phase 3 — per-source attribution performance.
+//
+// One row per known `source` channel with three counts:
+//   - leads:     all-time leads bucketed into that source (off-list / NULL
+//                values collapse to "other" the same way the dashboard
+//                badge and filter do, so the row total here matches the
+//                dashboard's filtered view exactly).
+//   - converted: subset whose leadStatus has reached the terminal
+//                "converted" state.
+//   - last30d:   leads created within the last 30 days — momentum signal
+//                that lets the operator see whether a channel is still
+//                producing or has gone cold.
+// Conversion percentage is intentionally NOT pre-computed server-side;
+// the client renders it as `converted/leads` so re-bucketing logic can
+// stay UI-side without an extra trip back to the API.
+router.get("/stats/source-mix", async (req, res) => {
+  if (!(await requireAdminAuth(req, res))) return;
+
+  // Bucket expression mirrors the frontend's `normalizeLeadSource`
+  // (see `lib/leadSource.ts`) byte-for-byte:
+  //   1. NULL collapses to `web_form` (canonical default for legacy
+  //      rows that pre-date Phase 2).
+  //   2. The string is then `lower(trim(...))`-canonicalized BEFORE
+  //      the allow-list check, so historical rows with stray
+  //      whitespace or mixed case (`' LinkedIn '`) bucket the same
+  //      way the dashboard chip / filter would render them.
+  //   3. Anything that survives canonicalization but isn't on the
+  //      allow-list falls into `other` so the response can never
+  //      expose a free-text channel value the UI doesn't render.
+  // The canonicalized form is also what we RETURN, so the column
+  // shape matches `LeadSource` exactly without a second client-side
+  // pass.
+  const canonicalSource = sql<string>`LOWER(TRIM(COALESCE(${prelaunchLeadsTable.source}, 'web_form')))`;
+  const sourceBucket = sql<string>`
+    CASE
+      WHEN ${canonicalSource} IN (
+        'web_form','referral','linkedin','facebook','google','direct',
+        'csv_import','manual','api','other'
+      ) THEN ${canonicalSource}
+      ELSE 'other'
+    END
+  `;
+
+  const rows = await db
+    .select({
+      source: sourceBucket,
+      leads: sql<number>`COUNT(*)::int`,
+      converted: sql<number>`COUNT(*) FILTER (WHERE ${prelaunchLeadsTable.leadStatus} = 'converted')::int`,
+      last30d: sql<number>`COUNT(*) FILTER (WHERE ${prelaunchLeadsTable.createdAt} > NOW() - INTERVAL '30 days')::int`,
+    })
+    .from(prelaunchLeadsTable)
+    .groupBy(sourceBucket);
+
+  // Sort by leads desc so the highest-volume channel is at the top —
+  // the dashboard renders the rows in this order without re-sorting.
+  rows.sort((a, b) => b.leads - a.leads);
+
+  return res.json({
+    rows,
+    totals: {
+      leads: rows.reduce((acc, r) => acc + r.leads, 0),
+      converted: rows.reduce((acc, r) => acc + r.converted, 0),
+      last30d: rows.reduce((acc, r) => acc + r.last30d, 0),
+    },
+  });
+});
+
 export default router;

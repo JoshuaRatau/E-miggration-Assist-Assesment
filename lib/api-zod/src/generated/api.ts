@@ -422,6 +422,25 @@ export const GetStatsLeadMixResponse = zod.object({
 });
 
 /**
+ * @summary Per-source attribution performance (Phase 3)
+ */
+export const GetStatsSourceMixResponse = zod.object({
+  rows: zod.array(
+    zod.object({
+      source: zod.string(),
+      leads: zod.number(),
+      converted: zod.number(),
+      last30d: zod.number(),
+    }),
+  ),
+  totals: zod.object({
+    leads: zod.number(),
+    converted: zod.number(),
+    last30d: zod.number(),
+  }),
+});
+
+/**
  * @summary Record a funnel analytics event
  */
 export const TrackAnalyticsEventBody = zod.object({

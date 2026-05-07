@@ -29,6 +29,7 @@ import type {
   PublicLead,
   PublicStatus,
   StatsLeadMix,
+  StatsSourceMix,
   StatsSummary,
 } from "./api.schemas";
 
@@ -617,6 +618,81 @@ export function useGetStatsLeadMix<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetStatsLeadMixQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Per-source attribution performance (Phase 3)
+ */
+export const getGetStatsSourceMixUrl = () => {
+  return `/api/stats/source-mix`;
+};
+
+export const getStatsSourceMix = async (
+  options?: RequestInit,
+): Promise<StatsSourceMix> => {
+  return customFetch<StatsSourceMix>(getGetStatsSourceMixUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetStatsSourceMixQueryKey = () => {
+  return [`/api/stats/source-mix`] as const;
+};
+
+export const getGetStatsSourceMixQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStatsSourceMix>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getStatsSourceMix>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetStatsSourceMixQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getStatsSourceMix>>
+  > = ({ signal }) => getStatsSourceMix({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStatsSourceMix>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStatsSourceMixQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStatsSourceMix>>
+>;
+export type GetStatsSourceMixQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Per-source attribution performance (Phase 3)
+ */
+
+export function useGetStatsSourceMix<
+  TData = Awaited<ReturnType<typeof getStatsSourceMix>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getStatsSourceMix>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStatsSourceMixQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

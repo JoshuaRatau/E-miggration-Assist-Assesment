@@ -174,6 +174,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StatsLeadMix"
+  /stats/source-mix:
+    get:
+      operationId: getStatsSourceMix
+      tags: [stats]
+      summary: Per-source attribution performance (Phase 3)
+      responses:
+        "200":
+          description: Source-mix payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatsSourceMix"
   /analytics/events:
     post:
       operationId: trackAnalyticsEvent
@@ -695,6 +707,36 @@ components:
                 $ref: "#/components/schemas/LeadMixBucket"
           required: [total, buckets]
       required: [individuals, professionals]
+    StatsSourceMixRow:
+      type: object
+      properties:
+        source:
+          type: string
+        leads:
+          type: integer
+        converted:
+          type: integer
+        last30d:
+          type: integer
+      required: [source, leads, converted, last30d]
+    StatsSourceMix:
+      type: object
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatsSourceMixRow"
+        totals:
+          type: object
+          properties:
+            leads:
+              type: integer
+            converted:
+              type: integer
+            last30d:
+              type: integer
+          required: [leads, converted, last30d]
+      required: [rows, totals]
     AnalyticsEventInput:
       type: object
       properties:

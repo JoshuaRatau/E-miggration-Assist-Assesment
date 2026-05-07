@@ -43,6 +43,8 @@ import { BrandHeader } from "@/components/brand-header";
 import { AdminUserMenu } from "@/components/admin-user-menu";
 import { DashboardGreeting } from "@/components/dashboard-greeting";
 import { LeadMixCharts } from "@/components/lead-mix-charts";
+import { SourcePerformanceCard } from "@/components/source-performance-card";
+import { LeadTimelineDialog } from "@/components/lead-timeline-dialog";
 import { LeadPipelineBoard } from "@/components/lead-pipeline-board";
 import { LeadVelocityChip } from "@/components/lead-velocity-chip";
 import { LeadScoreBadge } from "@/components/lead-score-badge";
@@ -473,6 +475,13 @@ export function Admin() {
     whatsapp: string | null;
   } | null>(null);
 
+  // Phase 3 — single page-level timeline dialog driven by `timelineTarget`,
+  // same rationale as `sendUpdateTarget`: avoids one Radix portal per row.
+  const [timelineTarget, setTimelineTarget] = useState<{
+    id: string;
+    referenceNumber: string | null;
+  } | null>(null);
+
   const sendUpdateUrl = `${import.meta.env.BASE_URL}api/admin/email/update`;
   const adminLeadUrl = (id: string) =>
     `${import.meta.env.BASE_URL}api/admin/leads/${id}`;
@@ -845,6 +854,8 @@ export function Admin() {
         </div>
 
         <LeadMixCharts />
+
+        <SourcePerformanceCard />
 
         <Card>
           <CardHeader>
@@ -1430,6 +1441,21 @@ export function Admin() {
                               >
                                 Send update
                               </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="View full activity timeline"
+                                onClick={() =>
+                                  setTimelineTarget({
+                                    id: lead.id,
+                                    referenceNumber:
+                                      lead.referenceNumber ?? null,
+                                  })
+                                }
+                                data-testid={`button-timeline-${lead.referenceNumber}`}
+                              >
+                                Timeline
+                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -1447,6 +1473,15 @@ export function Admin() {
         target={sendUpdateTarget}
         onClose={() => setSendUpdateTarget(null)}
         onUnauthorized={clearAdminToken}
+      />
+
+      <LeadTimelineDialog
+        open={timelineTarget !== null}
+        onOpenChange={(o) => {
+          if (!o) setTimelineTarget(null);
+        }}
+        leadId={timelineTarget?.id ?? null}
+        referenceNumber={timelineTarget?.referenceNumber ?? null}
       />
     </div>
   );

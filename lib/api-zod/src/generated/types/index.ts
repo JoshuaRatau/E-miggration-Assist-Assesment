@@ -25,4 +25,7 @@ export * from "./publicStatusPublicLabel";
 export * from "./statsLeadMix";
 export * from "./statsLeadMixIndividuals";
 export * from "./statsLeadMixProfessionals";
+export * from "./statsSourceMix";
+export * from "./statsSourceMixRow";
+export * from "./statsSourceMixTotals";
 export * from "./statsSummary";

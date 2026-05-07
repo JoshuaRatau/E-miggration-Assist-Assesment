@@ -190,6 +190,24 @@ export interface StatsLeadMix {
   professionals: StatsLeadMixProfessionals;
 }
 
+export interface StatsSourceMixRow {
+  source: string;
+  leads: number;
+  converted: number;
+  last30d: number;
+}
+
+export type StatsSourceMixTotals = {
+  leads: number;
+  converted: number;
+  last30d: number;
+};
+
+export interface StatsSourceMix {
+  rows: StatsSourceMixRow[];
+  totals: StatsSourceMixTotals;
+}
+
 export type AnalyticsEventInputPayload = { [key: string]: unknown } | null;
 
 export interface AnalyticsEventInput {
