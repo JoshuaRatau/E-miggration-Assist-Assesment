@@ -44,6 +44,7 @@ import { AdminUserMenu } from "@/components/admin-user-menu";
 import { DashboardGreeting } from "@/components/dashboard-greeting";
 import { LeadMixCharts } from "@/components/lead-mix-charts";
 import { LeadPipelineBoard } from "@/components/lead-pipeline-board";
+import { LeadVelocityChip } from "@/components/lead-velocity-chip";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -1167,7 +1168,18 @@ export function Admin() {
                             )}
                           </TableCell>
                           <TableCell className="text-muted-foreground whitespace-nowrap text-xs">
-                            {format(new Date(lead.createdAt), "MMM d, HH:mm")}
+                            <div className="flex flex-col gap-1 items-start">
+                              <span>
+                                {format(
+                                  new Date(lead.createdAt),
+                                  "MMM d, HH:mm",
+                                )}
+                              </span>
+                              <LeadVelocityChip
+                                lead={lead}
+                                testIdSuffix={lead.referenceNumber ?? lead.id}
+                              />
+                            </div>
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center justify-end gap-1">

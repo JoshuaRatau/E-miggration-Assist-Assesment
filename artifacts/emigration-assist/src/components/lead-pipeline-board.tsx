@@ -8,6 +8,7 @@ import {
   type LeadStatus,
 } from "@/lib/leadStatus";
 import { Badge } from "@/components/ui/badge";
+import { LeadVelocityChip } from "@/components/lead-velocity-chip";
 import { useToast } from "@/hooks/use-toast";
 
 // Column accent colours mirror the existing 4-tile dashboard cues
@@ -262,13 +263,17 @@ function PipelineCard({
               {subtitle}
             </p>
           ) : null}
-          <div className="mt-1 flex items-center gap-1.5">
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <Badge
               variant="outline"
               className="text-[10px] py-0 px-1.5 capitalize"
             >
               {lead.leadType ?? "individual"}
             </Badge>
+            <LeadVelocityChip
+              lead={lead}
+              testIdSuffix={`pipeline-${lead.id}`}
+            />
             {lead.referenceNumber ? (
               <span className="text-[10px] text-muted-foreground tabular-nums">
                 {lead.referenceNumber}
