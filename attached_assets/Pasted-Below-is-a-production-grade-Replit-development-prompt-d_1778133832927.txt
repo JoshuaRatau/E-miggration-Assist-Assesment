@@ -1,0 +1,695 @@
+Below is a production-grade Replit development prompt designed to push your existing in-house CRM/lead dashboard into a much more sophisticated operational lead intelligence platform for E-Migration Assist.
+
+This prompt is written as if briefing a senior SaaS engineering team and should produce significantly better implementation quality from Replit AI.
+
+---
+
+# REPLIT DEVELOPMENT PROMPT
+
+Enhance and expand the existing internal Lead Management Dashboard into a fully operational in-house CRM and Lead Intelligence Platform for Eride Technologies’ flagship product, E-Migration Assist.
+
+The current system already exists and includes:
+
+* a lead dashboard
+* lead counters
+* filtering
+* sorting
+* inline editing
+* status updates
+* priority updates
+* export functionality
+* lead tables
+* web-form-fed lead capture
+
+The enhancement must preserve all existing functionality while significantly improving:
+
+* lead architecture
+* lead segmentation
+* import capability
+* reporting
+* analytics
+* operational workflow
+* CRM functionality
+* visual intelligence
+* scalability
+* UI/UX sophistication
+
+The final result must feel like a modern SaaS CRM platform inspired by:
+
+* Zoho CRM
+* monday.com
+
+The platform must remain:
+
+* dark-mode optimized
+* enterprise-grade
+* responsive
+* modular
+* operationally scalable
+* highly visual
+* performant
+
+---
+
+# CORE BUSINESS OBJECTIVE
+
+The system must support two distinct lead ecosystems:
+
+1. Individual Leads (B2C)
+2. Professional Leads (B2B)
+
+The dashboard must become a centralized operational command centre for:
+
+* immigration inquiries
+* travel assistance inquiries
+* professional partnership opportunities
+* onboarding pipelines
+* outreach management
+* future CRM automation
+
+---
+
+# EXISTING SYSTEM CONTEXT
+
+The current dashboard already:
+
+* receives individual leads from a website form
+* stores inquiry data internally
+* displays leads in a dashboard table
+* supports inline status updates
+* supports priority changes
+* supports filtering
+* supports exporting
+
+DO NOT remove or break any existing functionality.
+
+Enhance and extend the system architecture.
+
+---
+
+# PRIMARY SYSTEM ENHANCEMENT REQUIREMENTS
+
+# 1. DUAL LEAD CLASSIFICATION SYSTEM
+
+Introduce a strict lead-type architecture.
+
+Every lead must belong to one of two categories:
+
+## A. Individual Lead
+
+Represents:
+
+* end users
+* travellers
+* visa applicants
+* overstay appeal clients
+* immigration support clients
+
+These originate from:
+
+* public website forms
+* inquiry forms
+* landing pages
+* future chatbot/WhatsApp submissions
+
+---
+
+## B. Professional Lead
+
+Represents:
+
+* law firms
+* immigration consultancy firms
+* relocation companies
+* global mobility firms
+* independent practitioners
+
+These originate from:
+
+* imported CSV files
+* uploaded Excel spreadsheets
+* manual imports
+* future API integrations
+
+---
+
+# 2. NEW INDIVIDUAL LEAD TYPES
+
+Expand the existing visa categories.
+
+The system must support these inquiry types:
+
+* Visa Inquiry
+* Overstay Appeal
+* Travel & Entry Assistance
+
+Travel & Entry Assistance should represent:
+
+* tourism support
+* border-entry clarification
+* travel compliance guidance
+* digital nomad inquiries
+* entry requirement support
+* visa-free travel clarification
+
+---
+
+# 3. PROFESSIONAL LEAD TYPES
+
+Professional categories must include:
+
+* Law Firms
+* Immigration Consultancy Firms
+* Global Mobility / Relocation Companies
+* Independent Practitioners
+
+These categories must be:
+
+* filterable
+* reportable
+* graphable
+* searchable
+
+---
+
+# 4. DATABASE ARCHITECTURE ENHANCEMENT
+
+Refactor the database structure to support scalable CRM operations.
+
+---
+
+## MAIN LEADS TABLE
+
+Required fields:
+
+* id
+* lead_reference
+* lead_type
+* source
+* status
+* priority
+* assigned_to
+* created_at
+* updated_at
+* last_contacted_at
+* next_follow_up_at
+* lead_score
+* tags
+* notes
+* communication_history
+
+---
+
+## INDIVIDUAL LEAD FIELDS
+
+* first_name
+* last_name
+* email
+* phone
+* nationality
+* inquiry_type
+* travel_intent
+* WhatsApp_available
+* visa_type
+* urgency_level
+
+---
+
+## PROFESSIONAL LEAD FIELDS
+
+* organization_name
+* organization_type
+* representative_name
+* representative_email
+* representative_phone
+* website
+* firm_size
+* operating_regions
+* service_focus
+* estimated_client_volume
+
+---
+
+# 5. IMPORT FACILITY (CRITICAL FEATURE)
+
+Build a robust CRM-grade import engine for Professional Leads.
+
+---
+
+## SUPPORTED FILE TYPES
+
+* CSV
+* XLSX
+* XLS
+
+---
+
+## IMPORT WORKFLOW
+
+### STEP 1 — Upload Screen
+
+Support:
+
+* drag-and-drop upload
+* file browser upload
+* upload progress bar
+* validation indicators
+
+---
+
+### STEP 2 — Preview & Validation
+
+Display:
+
+* spreadsheet preview
+* column detection
+* row count
+* duplicate detection
+* validation warnings
+* malformed data warnings
+
+---
+
+### STEP 3 — FIELD MAPPING UI
+
+Allow users to map spreadsheet columns to CRM fields.
+
+Example:
+
+| Uploaded Column | CRM Field            |
+| --------------- | -------------------- |
+| Company         | organization_name    |
+| Contact         | representative_name  |
+| Email           | representative_email |
+| Website         | website              |
+
+---
+
+### STEP 4 — VALIDATION ENGINE
+
+Validate:
+
+* duplicate emails
+* invalid domains
+* malformed phone numbers
+* missing required fields
+* unsupported formats
+
+---
+
+### STEP 5 — IMPORT EXECUTION
+
+Import validated rows into:
+Professional Leads.
+
+Imports must:
+
+* run asynchronously
+* avoid UI freezing
+* show progress state
+
+---
+
+### STEP 6 — IMPORT REPORT
+
+Display:
+
+* total imported
+* duplicates skipped
+* failed rows
+* validation issues
+
+Allow downloadable error reports.
+
+---
+
+# 6. WEBSITE FORM INTEGRATION
+
+Preserve the existing website form integration.
+
+Current web form submissions must:
+
+* continue working automatically
+* continue populating the dashboard
+* automatically classify as Individual Leads
+
+Do not require imports for website-generated leads.
+
+---
+
+# 7. DASHBOARD REDESIGN
+
+Upgrade the dashboard into a CRM-style operational command centre.
+
+The UI must feel:
+
+* modern
+* premium
+* data-driven
+* operationally intelligent
+
+---
+
+# 8. DASHBOARD SUMMARY CARDS
+
+Add high-level operational metrics:
+
+## General Metrics
+
+* Total Leads
+* New Leads
+* Contacted
+* Qualified
+* Converted
+
+## Segmented Metrics
+
+* Total Individual Leads
+* Total Professional Leads
+
+## Operational Metrics
+
+* Leads Awaiting Follow-Up
+* Overdue Follow-Ups
+* High Priority Leads
+* Conversion Rate
+
+---
+
+# 9. VISUAL ANALYTICS (VERY IMPORTANT)
+
+The dashboard must become highly visual.
+
+---
+
+## A. INDIVIDUAL LEADS BAR GRAPH
+
+Create a large CRM-style bar graph showing:
+
+* Visa Inquiry
+* Overstay Appeal
+* Travel & Entry Assistance
+
+Display:
+
+* total inquiries
+* percentages
+* trend movement
+* growth over time
+
+Features:
+
+* hover tooltips
+* click-to-filter
+* date filtering
+
+---
+
+## B. PROFESSIONAL LEADS PIE CHART
+
+Create a professional segmentation pie chart.
+
+Display:
+
+* Law Firms
+* Immigration Consultancy Firms
+* Global Mobility / Relocation Companies
+* Independent Practitioners
+
+Features:
+
+* percentages
+* counts
+* hover analytics
+* clickable segments
+
+---
+
+## C. LEAD TREND GRAPH
+
+Create a line graph showing:
+
+* daily lead growth
+* weekly growth
+* monthly growth
+* conversion trends
+
+---
+
+## D. CRM CONVERSION FUNNEL
+
+Create a funnel visualization.
+
+Stages:
+
+* New
+* Contacted
+* Engaged
+* Qualified
+* Demo Scheduled
+* Converted
+
+Display:
+
+* conversion percentages
+* stage drop-offs
+* lead movement
+
+---
+
+# 10. ADVANCED FILTERING
+
+Enhance filters.
+
+Allow filtering by:
+
+* lead type
+* inquiry type
+* organization type
+* status
+* priority
+* assigned admin
+* date range
+* country
+* source
+* WhatsApp availability
+
+---
+
+# 11. LEAD DETAIL MODAL
+
+Clicking a lead should open:
+
+* a side drawer
+  or
+* a detailed modal
+
+---
+
+## INDIVIDUAL LEAD VIEW
+
+Display:
+
+* personal details
+* inquiry type
+* nationality
+* WhatsApp status
+* communication history
+* notes
+* timeline
+
+---
+
+## PROFESSIONAL LEAD VIEW
+
+Display:
+
+* organization profile
+* representative details
+* website
+* organization type
+* operational regions
+* estimated scale
+* interaction history
+
+---
+
+# 12. INLINE CRM ACTIONS
+
+Enhance inline actions.
+
+Maintain:
+
+* Contact
+* View
+* Send Update
+
+Add:
+
+* Assign Lead
+* Add Internal Note
+* Schedule Follow-Up
+* Mark Qualified
+* Convert Lead
+* Archive Lead
+
+---
+
+# 13. INTERNAL ACTIVITY TIMELINE
+
+Every lead must maintain:
+
+* status history
+* timestamps
+* admin actions
+* communication records
+* notes
+* assignments
+
+This should resemble modern CRM activity feeds.
+
+---
+
+# 14. STATUS SYSTEM
+
+Use CRM-standard statuses:
+
+* New
+* Contacted
+* Awaiting Response
+* Engaged
+* Qualified
+* Proposal Sent
+* Converted
+* Closed
+
+Status changes should:
+
+* update immediately
+* persist in database
+* log in timeline
+
+---
+
+# 15. PRIORITY SYSTEM
+
+Support:
+
+* Low
+* Medium
+* High
+* Critical
+
+Add:
+
+* colour indicators
+* badges
+* urgency highlighting
+
+---
+
+# 16. GLOBAL SEARCH
+
+Implement universal CRM search.
+
+Search by:
+
+* name
+* organization
+* email
+* phone
+* visa type
+* organization type
+* reference number
+
+---
+
+# 17. EXPORT SYSTEM
+
+Enhance exports.
+
+Allow:
+
+* CSV export
+* Excel export
+* filtered exports
+* segmented exports
+
+---
+
+# 18. ROLE-BASED ACCESS CONTROL
+
+Support:
+
+* Admin
+* Sales
+* Operations
+* Viewer
+
+Permissions must be configurable.
+
+---
+
+# 19. FUTURE-READY CRM ARCHITECTURE
+
+Design the codebase to support future integrations:
+
+* WhatsApp API
+* AI lead scoring
+* AI classification
+* automated follow-ups
+* CRM automation
+* onboarding workflows
+* Jira integration
+* email sequencing
+* SLA tracking
+
+---
+
+# 20. PERFORMANCE REQUIREMENTS
+
+The platform must:
+
+* support thousands of leads
+* paginate efficiently
+* load quickly
+* support async imports
+* avoid blocking UI rendering
+* optimize database queries
+
+---
+
+# 21. DESIGN REQUIREMENTS
+
+UI should resemble:
+
+* enterprise SaaS dashboards
+* operational intelligence platforms
+* premium CRM systems
+
+Requirements:
+
+* dark theme consistency
+* clean spacing
+* modern typography
+* smooth transitions
+* responsive design
+* intuitive layout
+* visually balanced analytics
+
+---
+
+# 22. FINAL OBJECTIVE
+
+The final system must feel like:
+
+“A premium internal CRM and operational lead intelligence platform purpose-built for immigration, travel, mobility, and professional partnership lead management.”
+
+The system must:
+
+* support both B2C and B2B lead operations
+* provide deep operational visibility
+* support scalable outreach workflows
+* support future SaaS growth
+* feel enterprise-grade
+* remain intuitive and fast.
