@@ -309,6 +309,18 @@ components:
             server enforces that the verified channel matches the submitted
             email or canonical whatsapp. Set DISABLE_OTP_VERIFICATION=1
             (non-prod only) to bypass for CLI/automated smoke tests.
+        source:
+          type: string
+          description: >-
+            Optional attribution channel. Allow-list:
+            web_form | referral | linkedin | facebook | google | direct |
+            csv_import | manual | api | other. Defaults to "web_form" when
+            omitted. Unknown values are coerced to "other".
+        sourceCampaign:
+          type: string
+          description: >-
+            Optional free-text campaign identifier (utm-style), e.g.
+            "spring_overstay_2026". Trimmed and capped at 120 chars.
       required:
         - fullName
         - email
@@ -401,7 +413,13 @@ components:
         source:
           type: string
           nullable: true
-          description: 'web_form | csv_import | manual | api'
+          description: >-
+            web_form | referral | linkedin | facebook | google | direct |
+            csv_import | manual | api | other
+        sourceCampaign:
+          type: string
+          nullable: true
+          description: Free-text utm-style campaign identifier captured at submission.
         assignedTo:
           type: string
           format: uuid
@@ -572,6 +590,9 @@ components:
           type: string
           nullable: true
         source:
+          type: string
+          nullable: true
+        sourceCampaign:
           type: string
           nullable: true
         assignedTo:

@@ -55,6 +55,18 @@ export const CreateLeadBody = zod.object({
     .describe(
       "UUID returned by POST \/api\/otp\/verify. Required in production — server enforces that the verified channel matches the submitted email or canonical whatsapp. Set DISABLE_OTP_VERIFICATION=1 (non-prod only) to bypass for CLI\/automated smoke tests.",
     ),
+  source: zod
+    .string()
+    .optional()
+    .describe(
+      'Optional attribution channel. Allow-list: web_form | referral | linkedin | facebook | google | direct | csv_import | manual | api | other. Defaults to \"web_form\" when omitted. Unknown values are coerced to \"other\".',
+    ),
+  sourceCampaign: zod
+    .string()
+    .optional()
+    .describe(
+      'Optional free-text campaign identifier (utm-style), e.g. \"spring_overstay_2026\". Trimmed and capped at 120 chars.',
+    ),
 });
 
 export const CreateLeadResponse = zod.object({
@@ -101,7 +113,15 @@ export const CreateLeadResponse = zod.object({
   source: zod
     .string()
     .nullish()
-    .describe("web_form | csv_import | manual | api"),
+    .describe(
+      "web_form | referral | linkedin | facebook | google | direct | csv_import | manual | api | other",
+    ),
+  sourceCampaign: zod
+    .string()
+    .nullish()
+    .describe(
+      "Free-text utm-style campaign identifier captured at submission.",
+    ),
   assignedTo: zod
     .string()
     .uuid()
@@ -193,6 +213,7 @@ export const ListLeadsResponseItem = zod
     leadType: zod.string().describe("individual | professional"),
     inquiryType: zod.string().nullish(),
     source: zod.string().nullish(),
+    sourceCampaign: zod.string().nullish(),
     assignedTo: zod
       .string()
       .nullish()
@@ -285,7 +306,15 @@ export const GetLeadByIdResponse = zod.object({
   source: zod
     .string()
     .nullish()
-    .describe("web_form | csv_import | manual | api"),
+    .describe(
+      "web_form | referral | linkedin | facebook | google | direct | csv_import | manual | api | other",
+    ),
+  sourceCampaign: zod
+    .string()
+    .nullish()
+    .describe(
+      "Free-text utm-style campaign identifier captured at submission.",
+    ),
   assignedTo: zod
     .string()
     .uuid()

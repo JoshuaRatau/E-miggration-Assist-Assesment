@@ -19,6 +19,10 @@ export type SavedViewFilters = {
   status: string; // "ALL" | one of the lead_status enum values
   priority: string; // "ALL" | "critical" | "high" | "medium" | "low"
   whatsapp: "ANY" | "HAS" | "NONE";
+  // Phase 2 — attribution channel. "ANY" or one of LEAD_SOURCES.
+  // Stored as a plain string so adding a new channel doesn't require
+  // a saved-views version bump.
+  source: string;
   sort: "newest" | "priority" | "score";
 };
 
@@ -48,6 +52,7 @@ export const BUILTIN_VIEWS: ReadonlyArray<SavedView & { isBuiltin: true }> = [
       status: "ALL",
       priority: "ALL",
       whatsapp: "ANY",
+      source: "ANY",
       sort: "score",
     },
   },
@@ -62,6 +67,7 @@ export const BUILTIN_VIEWS: ReadonlyArray<SavedView & { isBuiltin: true }> = [
       status: "new",
       priority: "ALL",
       whatsapp: "ANY",
+      source: "ANY",
       sort: "newest",
     },
   },
@@ -112,6 +118,9 @@ export function filtersEqual(
     a.status === b.status &&
     a.priority === b.priority &&
     a.whatsapp === b.whatsapp &&
+    // Treat a missing `source` (legacy persisted view written before
+    // Phase 2) as "ANY" so old presets keep matching cleanly.
+    (a.source ?? "ANY") === (b.source ?? "ANY") &&
     a.sort === b.sort
   );
 }

@@ -61,7 +61,16 @@ export const prelaunchLeadsTable = pgTable("prelaunch_leads", {
   // the migration trivial; soft-deletes are checked at the API layer.
   leadType: text("lead_type").notNull().default("individual"),
   inquiryType: text("inquiry_type"),
+  // `source` is the channel — web_form (public assessment), referral,
+  // linkedin, facebook, google, direct, csv_import, manual, api, other.
+  // The application layer is the source of truth for the allow-list; we
+  // stay on plain `text` so adding a channel doesn't need a migration.
   source: text("source").default("web_form"),
+  // `sourceCampaign` is a free-text utm-style identifier captured at
+  // submission time (e.g. "spring_overstay_2026", "linkedin_post_april").
+  // Phase 2 of the comms-architecture rollout — surfaced in the admin
+  // dashboard as an attribution sub-label under the source badge.
+  sourceCampaign: text("source_campaign"),
   assignedTo: uuid("assigned_to"),
   lastContactedAt: timestamp("last_contacted_at", { withTimezone: true }),
   nextFollowUpAt: timestamp("next_follow_up_at", { withTimezone: true }),

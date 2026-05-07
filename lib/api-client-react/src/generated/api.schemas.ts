@@ -34,6 +34,10 @@ export interface CreateLeadInput {
   consentAccepted: boolean;
   /** UUID returned by POST /api/otp/verify. Required in production — server enforces that the verified channel matches the submitted email or canonical whatsapp. Set DISABLE_OTP_VERIFICATION=1 (non-prod only) to bypass for CLI/automated smoke tests. */
   verifiedOtpId?: string;
+  /** Optional attribution channel. Allow-list: web_form | referral | linkedin | facebook | google | direct | csv_import | manual | api | other. Defaults to "web_form" when omitted. Unknown values are coerced to "other". */
+  source?: string;
+  /** Optional free-text campaign identifier (utm-style), e.g. "spring_overstay_2026". Trimmed and capped at 120 chars. */
+  sourceCampaign?: string;
 }
 
 export interface Lead {
@@ -65,8 +69,10 @@ export interface Lead {
   leadType: string;
   /** Meaningful only for individual leads. visa_inquiry | overstay_appeal | travel_entry_assistance. */
   inquiryType?: string | null;
-  /** web_form | csv_import | manual | api */
+  /** web_form | referral | linkedin | facebook | google | direct | csv_import | manual | api | other */
   source?: string | null;
+  /** Free-text utm-style campaign identifier captured at submission. */
+  sourceCampaign?: string | null;
   /** admin_users.id of the operator the lead is assigned to. */
   assignedTo?: string | null;
   lastContactedAt?: string | null;
@@ -137,6 +143,7 @@ export interface AdminLeadListItem {
   leadType: string;
   inquiryType?: string | null;
   source?: string | null;
+  sourceCampaign?: string | null;
   /** admin_users.id of the operator assigned to this lead */
   assignedTo?: string | null;
   lastContactedAt?: string | null;

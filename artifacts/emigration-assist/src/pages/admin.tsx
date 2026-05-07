@@ -49,6 +49,8 @@ import { LeadScoreBadge } from "@/components/lead-score-badge";
 import { SavedViewsBar } from "@/components/saved-views-bar";
 import { PreferredCommunicationCell } from "@/components/preferred-communication-cell";
 import { derivePreferredCommunication } from "@/lib/preferredCommunication";
+import { LeadSourceBadge } from "@/components/lead-source-badge";
+import { LEAD_SOURCES, leadSourceMeta, normalizeLeadSource } from "@/lib/leadSource";
 import { deriveLeadScore } from "@/lib/leadScore";
 import { Button } from "@/components/ui/button";
 import {
@@ -253,6 +255,7 @@ export function Admin() {
   const [priority, setPriority] = useState("ALL");
   const [status, setStatus] = useState("ALL");
   const [whatsappFilter, setWhatsappFilter] = useState("ANY");
+  const [sourceFilter, setSourceFilter] = useState("ANY");
   const [sort, setSort] = useState<"newest" | "priority" | "score">("newest");
 
   // B2C / B2B segment selector. Splits the dashboard between leads
@@ -391,6 +394,12 @@ export function Admin() {
         return whatsappFilter === "HAS" ? isWa : !isWa;
       });
     }
+    if (sourceFilter !== "ANY") {
+      // Phase 2 attribution filter — match against the normalised value
+      // so legacy / off-list rows funnel into "Other" the same way the
+      // badge does, keeping the filter and the cell perfectly aligned.
+      out = out.filter((l) => normalizeLeadSource(l.source) === sourceFilter);
+    }
     if (sort === "priority") {
       out = [...out].sort((a, b) => {
         const ra = priorityRank(a.leadPriority);
@@ -429,10 +438,13 @@ export function Admin() {
     }
     // sort === "newest" is already the server's default order.
     return out;
-  }, [leads, whatsappFilter, sort]);
+  }, [leads, whatsappFilter, sourceFilter, sort]);
 
   const filtersAreActive =
-    priority !== "ALL" || status !== "ALL" || whatsappFilter !== "ANY";
+    priority !== "ALL" ||
+    status !== "ALL" ||
+    whatsappFilter !== "ANY" ||
+    sourceFilter !== "ANY";
 
   const { data: stats } = useGetStatsSummary();
   const [sendingUpdate, setSendingUpdate] = useState(false);
@@ -849,6 +861,7 @@ export function Admin() {
                   status,
                   priority,
                   whatsapp: whatsappFilter as "ANY" | "HAS" | "NONE",
+                  source: sourceFilter,
                   sort,
                 }}
                 onApply={(f) => {
@@ -856,11 +869,13 @@ export function Admin() {
                   setStatus(f.status);
                   setPriority(f.priority);
                   setWhatsappFilter(f.whatsapp);
+                  // Tolerate legacy presets persisted before Phase 2.
+                  setSourceFilter(f.source ?? "ANY");
                   setSort(f.sort);
                 }}
               />
             </div>
-            <div className="grid gap-3 md:grid-cols-4">
+            <div className="grid gap-3 md:grid-cols-5">
               <div>
                 <label className="text-xs font-medium text-muted-foreground">
                   Status
@@ -910,6 +925,24 @@ export function Admin() {
                     {WHATSAPP_OPTIONS.map((o) => (
                       <SelectItem key={o.value} value={o.value}>
                         {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">
+                  Source
+                </label>
+                <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                  <SelectTrigger data-testid="select-filter-source">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ANY">Source: Any</SelectItem>
+                    {LEAD_SOURCES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {leadSourceMeta(s).label}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1112,6 +1145,12 @@ export function Admin() {
                             </div>
                             <div className="font-mono text-[10px] text-muted-foreground">
                               {lead.referenceNumber}
+                            </div>
+                            <div className="mt-1">
+                              <LeadSourceBadge
+                                source={lead.source}
+                                campaign={lead.sourceCampaign}
+                              />
                             </div>
                           </TableCell>
                           <TableCell className="capitalize">

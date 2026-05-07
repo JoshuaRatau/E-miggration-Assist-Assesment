@@ -35,8 +35,10 @@ export interface Lead {
   leadType: string;
   /** Meaningful only for individual leads. visa_inquiry | overstay_appeal | travel_entry_assistance. */
   inquiryType?: string | null;
-  /** web_form | csv_import | manual | api */
+  /** web_form | referral | linkedin | facebook | google | direct | csv_import | manual | api | other */
   source?: string | null;
+  /** Free-text utm-style campaign identifier captured at submission. */
+  sourceCampaign?: string | null;
   /** admin_users.id of the operator the lead is assigned to. */
   assignedTo?: string | null;
   lastContactedAt?: string | null;

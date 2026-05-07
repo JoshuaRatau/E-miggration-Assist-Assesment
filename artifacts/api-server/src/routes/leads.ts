@@ -41,6 +41,35 @@ const leadRateLimitByWhatsapp = createRateBucket({
 
 const router: IRouter = Router();
 
+// Phase 2 — attribution allow-list. Anything off-list is coerced to
+// "other" rather than rejected so a stale embed doesn't 400 out.
+const ALLOWED_SOURCES = new Set([
+  "web_form",
+  "referral",
+  "linkedin",
+  "facebook",
+  "google",
+  "direct",
+  "csv_import",
+  "manual",
+  "api",
+  "other",
+]);
+
+function normalizeSource(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const t = v.trim().toLowerCase();
+  if (!t) return undefined;
+  return ALLOWED_SOURCES.has(t) ? t : "other";
+}
+
+function normalizeCampaign(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const t = v.trim();
+  if (!t) return null;
+  return t.length > 120 ? t.slice(0, 120) : t;
+}
+
 function serializeLead(
   row: typeof prelaunchLeadsTable.$inferSelect,
   caseId: string | null = null,
@@ -88,6 +117,7 @@ function serializeLeadAdminList(
     leadType: row.leadType,
     inquiryType: row.inquiryType,
     source: row.source,
+    sourceCampaign: row.sourceCampaign,
     // Surface organizationName so professional (B2B) rows have a
     // human-readable identifier in the dashboard list — they typically
     // have a null fullName because the contact-person field is captured
@@ -398,6 +428,12 @@ router.post("/leads", async (req, res) => {
       leadCategory: result.label,
       leadPriority: priority,
       leadStatus: "new",
+      // Phase 2 attribution: trust the client-supplied source only if it
+      // matches the allow-list, otherwise coerce to "other"; absence
+      // falls back to the column default ("web_form"). Campaign is
+      // free-text but trimmed and capped to keep storage bounded.
+      source: normalizeSource(data.source),
+      sourceCampaign: normalizeCampaign(data.sourceCampaign),
     })
     .returning();
 
