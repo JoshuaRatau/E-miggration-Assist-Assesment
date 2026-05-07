@@ -271,6 +271,28 @@ export function Admin() {
   const [whatsappFilter, setWhatsappFilter] = useState("ANY");
   const [sort, setSort] = useState<"newest" | "priority">("newest");
 
+  // B2C / B2B segment selector. Splits the dashboard between leads
+  // captured via the public self-assessment ("individual") and leads
+  // imported / created as professional firms ("professional"). Persisted
+  // in localStorage so an operator who works exclusively on B2B doesn't
+  // re-toggle every session. Defaults to "ALL" so first load shows
+  // everything (back-compat with pre-segmentation behaviour).
+  const [leadTypeSegment, setLeadTypeSegment] = useState<
+    "ALL" | "individual" | "professional"
+  >(() => {
+    if (typeof window === "undefined") return "ALL";
+    const saved = window.localStorage.getItem("ema:admin:leadTypeSegment");
+    return saved === "individual" || saved === "professional" ? saved : "ALL";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(
+        "ema:admin:leadTypeSegment",
+        leadTypeSegment,
+      );
+    }
+  }, [leadTypeSegment]);
+
   // Server-side filters that we forward to GET /api/leads.  WhatsApp is
   // applied client-side because the server contract has no filter for it
   // (`hasWhatsapp` is derived from the `whatsapp` field at serialization).
@@ -278,8 +300,9 @@ export function Admin() {
     const p: Record<string, string | number> = { limit: 200 };
     if (priority !== "ALL") p.priority = priority;
     if (status !== "ALL") p.status = status;
+    if (leadTypeSegment !== "ALL") p.leadType = leadTypeSegment;
     return p;
-  }, [priority, status]);
+  }, [priority, status, leadTypeSegment]);
 
   // We can't use the Orval-generated `useListLeads` here because it does not
   // expose a way to inject the `x-admin-token` header that GET /api/leads now
@@ -776,11 +799,21 @@ export function Admin() {
           <CardHeader>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <CardTitle>Leads</CardTitle>
+                <CardTitle>
+                  {leadTypeSegment === "professional"
+                    ? "Professional Leads (B2B)"
+                    : leadTypeSegment === "individual"
+                      ? "Individual Leads (B2C)"
+                      : "Leads"}
+                </CardTitle>
                 <CardDescription>
-                  {view === "list"
-                    ? "Inline editor — change status or priority directly in the table. Updates apply optimistically and persist via an admin-only endpoint."
-                    : "Drag a card between columns to advance it through the funnel. Forward-only — backwards moves are blocked client-side and again server-side (HTTP 409)."}
+                  {leadTypeSegment === "professional"
+                    ? "Firms, consultancies, and partners — created via CSV/XLSX import or manual entry. Self-assessment submissions never land here."
+                    : leadTypeSegment === "individual"
+                      ? "Public assessment submissions only — captured automatically when someone completes the 7/8-step assessment flow."
+                      : view === "list"
+                        ? "Inline editor — change status or priority directly in the table. Updates apply optimistically and persist via an admin-only endpoint."
+                        : "Drag a card between columns to advance it through the funnel. Forward-only — backwards moves are blocked client-side and again server-side (HTTP 409)."}
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -827,6 +860,39 @@ export function Admin() {
                 </button>
               </div>
               </div>
+            </div>
+            {/* B2C / B2B segment selector — dedicated place for professional
+                leads so they're never visually confused with self-assessment
+                submissions. Persisted in localStorage. */}
+            <div
+              className="mt-4 inline-flex rounded-md border bg-background p-0.5"
+              role="tablist"
+              aria-label="Lead type segment"
+              data-testid="leads-segment-toggle"
+            >
+              {(
+                [
+                  { v: "ALL", label: "All" },
+                  { v: "individual", label: "Individuals (B2C)" },
+                  { v: "professional", label: "Professionals (B2B)" },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.v}
+                  type="button"
+                  role="tab"
+                  aria-selected={leadTypeSegment === opt.v}
+                  onClick={() => setLeadTypeSegment(opt.v)}
+                  data-testid={`leads-segment-${opt.v}`}
+                  className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                    leadTypeSegment === opt.v
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </CardHeader>
           <CardContent>
@@ -909,7 +975,19 @@ export function Admin() {
                         >
                           <TableCell>
                             <div className="font-medium">
-                              {lead.fullName ?? "—"}
+                              {lead.fullName ??
+                                lead.organizationName ??
+                                lead.representativeName ??
+                                lead.email ??
+                                lead.referenceNumber}
+                              {lead.leadType === "professional" && (
+                                <span
+                                  className="ml-2 inline-flex items-center rounded border border-blue-300 bg-blue-50 px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wide text-blue-700"
+                                  data-testid={`badge-b2b-${lead.referenceNumber}`}
+                                >
+                                  B2B
+                                </span>
+                              )}
                             </div>
                             <div className="font-mono text-[10px] text-muted-foreground">
                               {lead.referenceNumber}

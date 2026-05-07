@@ -119,11 +119,30 @@ export async function commitImportJob(args: {
     if (emailLc) fields["email"] = emailLc;
     if (hadWhatsappInput) fields["whatsapp"] = waCanonical; // null wipes invalid
 
+    // Professional contact dimensions — these live on dedicated columns
+    // (`representative_email` / `representative_phone`) and must participate
+    // in dedupe or re-importing the same B2B spreadsheet will produce
+    // duplicates under the `skip` / `update` strategies.
+    const repEmailLc =
+      typeof fields["representativeEmail"] === "string"
+        ? (fields["representativeEmail"] as string).toLowerCase()
+        : null;
+    const hadRepPhoneInput =
+      typeof fields["representativePhone"] === "string" &&
+      (fields["representativePhone"] as string).length > 0;
+    const repPhoneCanonical = hadRepPhoneInput
+      ? normalizeWhatsapp(fields["representativePhone"] as string)
+      : null;
+    if (repEmailLc) fields["representativeEmail"] = repEmailLc;
+    if (hadRepPhoneInput) fields["representativePhone"] = repPhoneCanonical;
+
     let match: typeof prelaunchLeadsTable.$inferSelect | null = null;
     if (strategy !== "create_anyway") {
       const outcome = await findDuplicateLead({
         email: emailLc,
         whatsapp: waCanonical,
+        representativeEmail: repEmailLc,
+        representativePhone: repPhoneCanonical,
       });
       if (outcome.kind === "conflict") {
         // Two DIFFERENT existing leads matched (one by email, one by WA).

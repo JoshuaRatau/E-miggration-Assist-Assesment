@@ -88,6 +88,11 @@ function serializeLeadAdminList(
     leadType: row.leadType,
     inquiryType: row.inquiryType,
     source: row.source,
+    // Surface organizationName so professional (B2B) rows have a
+    // human-readable identifier in the dashboard list — they typically
+    // have a null fullName because the contact-person field is captured
+    // separately in `representativeName`.
+    organizationName: row.organizationName,
     assignedTo: row.assignedTo,
     lastContactedAt: row.lastContactedAt
       ? row.lastContactedAt.toISOString()
@@ -524,6 +529,16 @@ router.get("/leads", async (req, res) => {
       .json({ error: "Invalid query", details: parsed.error.issues });
   }
   const { limit = 50, priority, status, nationality, situation } = parsed.data;
+  // `leadType` is parsed off `req.query` directly because adding it to the
+  // codegenned `ListLeadsQueryParams` schema would force a full openapi
+  // regeneration round.  The discriminator is a tiny enum; we validate by
+  // hand against the same values the DB column accepts.
+  const rawLeadType =
+    typeof req.query.leadType === "string" ? req.query.leadType : null;
+  const leadTypeFilter =
+    rawLeadType === "individual" || rawLeadType === "professional"
+      ? rawLeadType
+      : null;
 
   const filters = [];
   if (priority) filters.push(eq(prelaunchLeadsTable.leadPriority, priority));
@@ -532,6 +547,8 @@ router.get("/leads", async (req, res) => {
     filters.push(eq(prelaunchLeadsTable.nationality, nationality));
   if (situation)
     filters.push(eq(prelaunchLeadsTable.immigrationSituation, situation));
+  if (leadTypeFilter)
+    filters.push(eq(prelaunchLeadsTable.leadType, leadTypeFilter));
 
   // LEFT JOIN lead_cases so each row carries its caseId (null when no
   // case has been created yet).  The unique constraint on lead_cases.lead_id
