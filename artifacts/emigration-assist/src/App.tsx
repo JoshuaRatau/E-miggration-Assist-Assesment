@@ -17,6 +17,9 @@ import { AdminReset } from "@/pages/admin-reset";
 import { AdminProfile } from "@/pages/admin-profile";
 import { AdminUsers } from "@/pages/admin-users";
 import { AdminImport } from "@/pages/admin-import";
+import { AdminCampaigns } from "@/pages/admin-campaigns";
+import { AdminCampaignEditor } from "@/pages/admin-campaign-editor";
+import { AdminCampaignDetail } from "@/pages/admin-campaign-detail";
 
 const queryClient = new QueryClient();
 
@@ -59,6 +62,21 @@ function Router() {
       <Route path="/admin/lead/:id">
         <RequireAdminAuth>
           <AdminLeadDetail />
+        </RequireAdminAuth>
+      </Route>
+      <Route path="/admin/campaigns">
+        <RequireAdminAuth>
+          <AdminCampaigns />
+        </RequireAdminAuth>
+      </Route>
+      <Route path="/admin/campaigns/:id/edit">
+        <RequireAdminAuth>
+          <AdminCampaignEditor />
+        </RequireAdminAuth>
+      </Route>
+      <Route path="/admin/campaigns/:id">
+        <RequireAdminAuth>
+          <AdminCampaignDetail />
         </RequireAdminAuth>
       </Route>
       <Route path="/admin/case/:caseId">

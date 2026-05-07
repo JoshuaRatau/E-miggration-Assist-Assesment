@@ -261,6 +261,139 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Document"
+  /admin/campaigns:
+    get:
+      operationId: listCampaigns
+      tags: [admin]
+      summary: List campaigns (newest first)
+      responses:
+        "200":
+          description: Campaigns
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Campaign"
+    post:
+      operationId: createCampaign
+      tags: [admin]
+      summary: Create a draft campaign
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCampaignInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+  /admin/campaigns/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getCampaign
+      tags: [admin]
+      summary: Get campaign + recipients
+      responses:
+        "200":
+          description: Campaign detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignDetail"
+    patch:
+      operationId: updateCampaign
+      tags: [admin]
+      summary: Edit a draft campaign
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchCampaignInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+    delete:
+      operationId: deleteCampaign
+      tags: [admin]
+      summary: Delete a draft campaign
+      responses:
+        "204":
+          description: Deleted
+  /admin/campaigns/{id}/preview:
+    post:
+      operationId: previewCampaign
+      tags: [admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      summary: Count audience now (with suppression breakdown)
+      responses:
+        "200":
+          description: Preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignAudiencePreview"
+  /admin/campaigns/{id}/test:
+    post:
+      operationId: testCampaign
+      tags: [admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      summary: Send a single test render to the current admin
+      responses:
+        "200":
+          description: Test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignSendResult"
+  /admin/campaigns/{id}/send:
+    post:
+      operationId: sendCampaign
+      tags: [admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      summary: Synchronous bulk send (≤200 recipients)
+      responses:
+        "200":
+          description: Send completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignSendCompleted"
+        "413":
+          description: Audience exceeds 200-recipient cap
 components:
   schemas:
     HealthStatus:
@@ -811,3 +944,259 @@ components:
         documentsUploaded:
           type: boolean
       required: [referenceNumber, publicLabel, createdAt, documentsUploaded]
+    AudienceRule:
+      type: object
+      properties:
+        field:
+          type: string
+          enum:
+            - leadType
+            - leadStatus
+            - leadPriority
+            - source
+            - inquiryType
+            - assignedTo
+            - createdAt
+            - lastContactedAt
+            - nextFollowUpAt
+            - tags
+            - hasEmail
+            - hasWhatsapp
+        op:
+          type: string
+          enum:
+            - eq
+            - neq
+            - in
+            - not_in
+            - gte
+            - lte
+            - is_null
+            - is_not_null
+            - contains
+        value:
+          oneOf:
+            - type: string
+            - type: number
+            - type: boolean
+            - type: array
+              items:
+                type: string
+            - type: "null"
+      required: [field, op]
+    AudienceQuery:
+      type: object
+      properties:
+        combinator:
+          type: string
+          enum: [and, or]
+          default: and
+        rules:
+          type: array
+          maxItems: 32
+          items:
+            $ref: "#/components/schemas/AudienceRule"
+      required: [rules]
+    Campaign:
+      type: object
+      description: |
+        Phase 4 — Campaign row. `status` ∈ draft | sending | completed |
+        cancelled. Counters are denormalized for the dashboard list page.
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        channel:
+          type: string
+          enum: [email, whatsapp]
+        status:
+          type: string
+          enum: [draft, sending, completed, cancelled]
+        templateSubject:
+          type: string
+          nullable: true
+        templateBody:
+          type: string
+          nullable: true
+        whatsappTemplateSid:
+          type: string
+          nullable: true
+        audienceFilter:
+          allOf:
+            - $ref: "#/components/schemas/AudienceQuery"
+          nullable: true
+        audienceSnapshotCount:
+          type: integer
+        recipientsTotal:
+          type: integer
+        recipientsSent:
+          type: integer
+        recipientsFailed:
+          type: integer
+        recipientsSkipped:
+          type: integer
+        recipientsUnsubscribed:
+          type: integer
+        createdBy:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        sentAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - name
+        - channel
+        - status
+        - audienceSnapshotCount
+        - recipientsTotal
+        - recipientsSent
+        - recipientsFailed
+        - recipientsSkipped
+        - recipientsUnsubscribed
+        - createdAt
+        - updatedAt
+    CampaignRecipient:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        campaignId:
+          type: string
+          format: uuid
+        leadId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued, sent, failed, skipped, unsubscribed]
+        reason:
+          type: string
+          nullable: true
+        engagementId:
+          type: string
+          format: uuid
+          nullable: true
+        channelUsed:
+          type: string
+          nullable: true
+        sentAt:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        leadName:
+          type: string
+          nullable: true
+        leadEmail:
+          type: string
+          nullable: true
+        leadWhatsapp:
+          type: string
+          nullable: true
+        leadReference:
+          type: string
+          nullable: true
+      required:
+        - id
+        - campaignId
+        - leadId
+        - status
+        - createdAt
+    CampaignDetail:
+      type: object
+      properties:
+        campaign:
+          $ref: "#/components/schemas/Campaign"
+        recipients:
+          type: array
+          items:
+            $ref: "#/components/schemas/CampaignRecipient"
+      required: [campaign, recipients]
+    CreateCampaignInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        channel:
+          type: string
+          enum: [email, whatsapp]
+        templateSubject:
+          type: string
+        templateBody:
+          type: string
+        whatsappTemplateSid:
+          type: string
+        audienceFilter:
+          $ref: "#/components/schemas/AudienceQuery"
+      required: [name, channel]
+    PatchCampaignInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        templateSubject:
+          type: string
+          nullable: true
+        templateBody:
+          type: string
+          nullable: true
+        whatsappTemplateSid:
+          type: string
+          nullable: true
+        audienceFilter:
+          allOf:
+            - $ref: "#/components/schemas/AudienceQuery"
+          nullable: true
+    CampaignAudiencePreview:
+      type: object
+      properties:
+        total:
+          type: integer
+        unsubscribedCount:
+          type: integer
+        eligibleCount:
+          type: integer
+        cap:
+          type: integer
+      required: [total, unsubscribedCount, eligibleCount, cap]
+    CampaignSendResult:
+      type: object
+      properties:
+        sent:
+          type: boolean
+        reason:
+          type: string
+          nullable: true
+      required: [sent]
+    CampaignSendCompleted:
+      type: object
+      properties:
+        campaign:
+          $ref: "#/components/schemas/Campaign"
+          nullable: true
+        tally:
+          type: object
+          properties:
+            sent:
+              type: integer
+            failed:
+              type: integer
+            skipped:
+              type: integer
+            unsub:
+              type: integer
+          required: [sent, failed, skipped, unsub]
+      required: [tally]

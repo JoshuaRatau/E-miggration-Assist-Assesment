@@ -260,6 +260,192 @@ export interface PublicStatus {
   documentsUploaded: boolean;
 }
 
+export type AudienceRuleField =
+  (typeof AudienceRuleField)[keyof typeof AudienceRuleField];
+
+export const AudienceRuleField = {
+  leadType: "leadType",
+  leadStatus: "leadStatus",
+  leadPriority: "leadPriority",
+  source: "source",
+  inquiryType: "inquiryType",
+  assignedTo: "assignedTo",
+  createdAt: "createdAt",
+  lastContactedAt: "lastContactedAt",
+  nextFollowUpAt: "nextFollowUpAt",
+  tags: "tags",
+  hasEmail: "hasEmail",
+  hasWhatsapp: "hasWhatsapp",
+} as const;
+
+export type AudienceRuleOp =
+  (typeof AudienceRuleOp)[keyof typeof AudienceRuleOp];
+
+export const AudienceRuleOp = {
+  eq: "eq",
+  neq: "neq",
+  in: "in",
+  not_in: "not_in",
+  gte: "gte",
+  lte: "lte",
+  is_null: "is_null",
+  is_not_null: "is_not_null",
+  contains: "contains",
+} as const;
+
+export interface AudienceRule {
+  field: AudienceRuleField;
+  op: AudienceRuleOp;
+  value?: string | number | boolean | string[] | null;
+}
+
+export type AudienceQueryCombinator =
+  (typeof AudienceQueryCombinator)[keyof typeof AudienceQueryCombinator];
+
+export const AudienceQueryCombinator = {
+  and: "and",
+  or: "or",
+} as const;
+
+export interface AudienceQuery {
+  combinator?: AudienceQueryCombinator;
+  /** @maxItems 32 */
+  rules: AudienceRule[];
+}
+
+export type CampaignChannel =
+  (typeof CampaignChannel)[keyof typeof CampaignChannel];
+
+export const CampaignChannel = {
+  email: "email",
+  whatsapp: "whatsapp",
+} as const;
+
+export type CampaignStatus =
+  (typeof CampaignStatus)[keyof typeof CampaignStatus];
+
+export const CampaignStatus = {
+  draft: "draft",
+  sending: "sending",
+  completed: "completed",
+  cancelled: "cancelled",
+} as const;
+
+/**
+ * Phase 4 — Campaign row. `status` ∈ draft | sending | completed |
+cancelled. Counters are denormalized for the dashboard list page.
+
+ */
+export interface Campaign {
+  id: string;
+  name: string;
+  channel: CampaignChannel;
+  status: CampaignStatus;
+  templateSubject?: string | null;
+  templateBody?: string | null;
+  whatsappTemplateSid?: string | null;
+  audienceFilter?: AudienceQuery | null;
+  audienceSnapshotCount: number;
+  recipientsTotal: number;
+  recipientsSent: number;
+  recipientsFailed: number;
+  recipientsSkipped: number;
+  recipientsUnsubscribed: number;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  sentAt?: string | null;
+}
+
+export type CampaignRecipientStatus =
+  (typeof CampaignRecipientStatus)[keyof typeof CampaignRecipientStatus];
+
+export const CampaignRecipientStatus = {
+  queued: "queued",
+  sent: "sent",
+  failed: "failed",
+  skipped: "skipped",
+  unsubscribed: "unsubscribed",
+} as const;
+
+export interface CampaignRecipient {
+  id: string;
+  campaignId: string;
+  leadId: string;
+  status: CampaignRecipientStatus;
+  reason?: string | null;
+  engagementId?: string | null;
+  channelUsed?: string | null;
+  sentAt?: string | null;
+  createdAt: string;
+  leadName?: string | null;
+  leadEmail?: string | null;
+  leadWhatsapp?: string | null;
+  leadReference?: string | null;
+}
+
+export interface CampaignDetail {
+  campaign: Campaign;
+  recipients: CampaignRecipient[];
+}
+
+export type CreateCampaignInputChannel =
+  (typeof CreateCampaignInputChannel)[keyof typeof CreateCampaignInputChannel];
+
+export const CreateCampaignInputChannel = {
+  email: "email",
+  whatsapp: "whatsapp",
+} as const;
+
+export interface CreateCampaignInput {
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  name: string;
+  channel: CreateCampaignInputChannel;
+  templateSubject?: string;
+  templateBody?: string;
+  whatsappTemplateSid?: string;
+  audienceFilter?: AudienceQuery;
+}
+
+export interface PatchCampaignInput {
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  name?: string;
+  templateSubject?: string | null;
+  templateBody?: string | null;
+  whatsappTemplateSid?: string | null;
+  audienceFilter?: AudienceQuery | null;
+}
+
+export interface CampaignAudiencePreview {
+  total: number;
+  unsubscribedCount: number;
+  eligibleCount: number;
+  cap: number;
+}
+
+export interface CampaignSendResult {
+  sent: boolean;
+  reason?: string | null;
+}
+
+export type CampaignSendCompletedTally = {
+  sent: number;
+  failed: number;
+  skipped: number;
+  unsub: number;
+};
+
+export interface CampaignSendCompleted {
+  campaign?: Campaign | null;
+  tally: CampaignSendCompletedTally;
+}
+
 export type ListLeadsParams = {
   /**
    * @minimum 1

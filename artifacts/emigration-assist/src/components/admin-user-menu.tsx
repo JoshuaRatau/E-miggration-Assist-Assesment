@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, User, Users, Settings } from "lucide-react";
+import { LogOut, User, Users, Settings, Send } from "lucide-react";
 
 /**
  * Admin nav menu rendered in the brand header's rightSlot on every
@@ -63,6 +63,11 @@ export function AdminUserMenu() {
         <Link href="/admin/profile">
           <DropdownMenuItem data-testid="menu-profile">
             <User className="mr-2 h-4 w-4" /> Profile / Change password
+          </DropdownMenuItem>
+        </Link>
+        <Link href="/admin/campaigns">
+          <DropdownMenuItem data-testid="menu-campaigns">
+            <Send className="mr-2 h-4 w-4" /> Campaigns
           </DropdownMenuItem>
         </Link>
         {user.isSuperadmin ? (

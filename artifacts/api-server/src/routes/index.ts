@@ -15,6 +15,8 @@ import adminMessagesRouter from "./adminMessages";
 import adminAuditRouter from "./adminAudit";
 import adminImportsRouter from "./adminImports";
 import adminTimelineRouter from "./adminTimeline";
+import adminCampaignsRouter from "./adminCampaigns";
+import unsubscribeRouter from "./unsubscribe";
 import whatsappWebhookRouter from "./whatsappWebhook";
 import otpRouter from "./otp";
 
@@ -36,6 +38,8 @@ router.use(adminMessagesRouter);
 router.use(adminAuditRouter);
 router.use(adminImportsRouter);
 router.use(adminTimelineRouter);
+router.use(adminCampaignsRouter);
+router.use(unsubscribeRouter);
 router.use(whatsappWebhookRouter);
 router.use(otpRouter);
 

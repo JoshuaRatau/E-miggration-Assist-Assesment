@@ -517,3 +517,511 @@ export const ListDocumentsResponseItem = zod.object({
   createdAt: zod.string(),
 });
 export const ListDocumentsResponse = zod.array(ListDocumentsResponseItem);
+
+/**
+ * @summary List campaigns (newest first)
+ */
+export const listCampaignsResponseAudienceFilterOneCombinatorDefault = `and`;
+export const listCampaignsResponseAudienceFilterOneRulesMax = 32;
+
+export const ListCampaignsResponseItem = zod
+  .object({
+    id: zod.string().uuid(),
+    name: zod.string(),
+    channel: zod.enum(["email", "whatsapp"]),
+    status: zod.enum(["draft", "sending", "completed", "cancelled"]),
+    templateSubject: zod.string().nullish(),
+    templateBody: zod.string().nullish(),
+    whatsappTemplateSid: zod.string().nullish(),
+    audienceFilter: zod
+      .object({
+        combinator: zod
+          .enum(["and", "or"])
+          .default(listCampaignsResponseAudienceFilterOneCombinatorDefault),
+        rules: zod
+          .array(
+            zod.object({
+              field: zod.enum([
+                "leadType",
+                "leadStatus",
+                "leadPriority",
+                "source",
+                "inquiryType",
+                "assignedTo",
+                "createdAt",
+                "lastContactedAt",
+                "nextFollowUpAt",
+                "tags",
+                "hasEmail",
+                "hasWhatsapp",
+              ]),
+              op: zod.enum([
+                "eq",
+                "neq",
+                "in",
+                "not_in",
+                "gte",
+                "lte",
+                "is_null",
+                "is_not_null",
+                "contains",
+              ]),
+              value: zod
+                .union([
+                  zod.string(),
+                  zod.number(),
+                  zod.boolean(),
+                  zod.array(zod.string()),
+                  zod.null(),
+                ])
+                .optional(),
+            }),
+          )
+          .max(listCampaignsResponseAudienceFilterOneRulesMax),
+      })
+      .nullish(),
+    audienceSnapshotCount: zod.number(),
+    recipientsTotal: zod.number(),
+    recipientsSent: zod.number(),
+    recipientsFailed: zod.number(),
+    recipientsSkipped: zod.number(),
+    recipientsUnsubscribed: zod.number(),
+    createdBy: zod.string().uuid().nullish(),
+    createdAt: zod.string(),
+    updatedAt: zod.string(),
+    sentAt: zod.string().nullish(),
+  })
+  .describe(
+    "Phase 4 — Campaign row. `status` ∈ draft | sending | completed |\ncancelled. Counters are denormalized for the dashboard list page.\n",
+  );
+export const ListCampaignsResponse = zod.array(ListCampaignsResponseItem);
+
+/**
+ * @summary Create a draft campaign
+ */
+export const createCampaignBodyNameMax = 120;
+
+export const createCampaignBodyAudienceFilterCombinatorDefault = `and`;
+export const createCampaignBodyAudienceFilterRulesMax = 32;
+
+export const CreateCampaignBody = zod.object({
+  name: zod.string().min(1).max(createCampaignBodyNameMax),
+  channel: zod.enum(["email", "whatsapp"]),
+  templateSubject: zod.string().optional(),
+  templateBody: zod.string().optional(),
+  whatsappTemplateSid: zod.string().optional(),
+  audienceFilter: zod
+    .object({
+      combinator: zod
+        .enum(["and", "or"])
+        .default(createCampaignBodyAudienceFilterCombinatorDefault),
+      rules: zod
+        .array(
+          zod.object({
+            field: zod.enum([
+              "leadType",
+              "leadStatus",
+              "leadPriority",
+              "source",
+              "inquiryType",
+              "assignedTo",
+              "createdAt",
+              "lastContactedAt",
+              "nextFollowUpAt",
+              "tags",
+              "hasEmail",
+              "hasWhatsapp",
+            ]),
+            op: zod.enum([
+              "eq",
+              "neq",
+              "in",
+              "not_in",
+              "gte",
+              "lte",
+              "is_null",
+              "is_not_null",
+              "contains",
+            ]),
+            value: zod
+              .union([
+                zod.string(),
+                zod.number(),
+                zod.boolean(),
+                zod.array(zod.string()),
+                zod.null(),
+              ])
+              .optional(),
+          }),
+        )
+        .max(createCampaignBodyAudienceFilterRulesMax),
+    })
+    .optional(),
+});
+
+/**
+ * @summary Get campaign + recipients
+ */
+export const GetCampaignParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const getCampaignResponseCampaignAudienceFilterOneCombinatorDefault = `and`;
+export const getCampaignResponseCampaignAudienceFilterOneRulesMax = 32;
+
+export const GetCampaignResponse = zod.object({
+  campaign: zod
+    .object({
+      id: zod.string().uuid(),
+      name: zod.string(),
+      channel: zod.enum(["email", "whatsapp"]),
+      status: zod.enum(["draft", "sending", "completed", "cancelled"]),
+      templateSubject: zod.string().nullish(),
+      templateBody: zod.string().nullish(),
+      whatsappTemplateSid: zod.string().nullish(),
+      audienceFilter: zod
+        .object({
+          combinator: zod
+            .enum(["and", "or"])
+            .default(
+              getCampaignResponseCampaignAudienceFilterOneCombinatorDefault,
+            ),
+          rules: zod
+            .array(
+              zod.object({
+                field: zod.enum([
+                  "leadType",
+                  "leadStatus",
+                  "leadPriority",
+                  "source",
+                  "inquiryType",
+                  "assignedTo",
+                  "createdAt",
+                  "lastContactedAt",
+                  "nextFollowUpAt",
+                  "tags",
+                  "hasEmail",
+                  "hasWhatsapp",
+                ]),
+                op: zod.enum([
+                  "eq",
+                  "neq",
+                  "in",
+                  "not_in",
+                  "gte",
+                  "lte",
+                  "is_null",
+                  "is_not_null",
+                  "contains",
+                ]),
+                value: zod
+                  .union([
+                    zod.string(),
+                    zod.number(),
+                    zod.boolean(),
+                    zod.array(zod.string()),
+                    zod.null(),
+                  ])
+                  .optional(),
+              }),
+            )
+            .max(getCampaignResponseCampaignAudienceFilterOneRulesMax),
+        })
+        .nullish(),
+      audienceSnapshotCount: zod.number(),
+      recipientsTotal: zod.number(),
+      recipientsSent: zod.number(),
+      recipientsFailed: zod.number(),
+      recipientsSkipped: zod.number(),
+      recipientsUnsubscribed: zod.number(),
+      createdBy: zod.string().uuid().nullish(),
+      createdAt: zod.string(),
+      updatedAt: zod.string(),
+      sentAt: zod.string().nullish(),
+    })
+    .describe(
+      "Phase 4 — Campaign row. `status` ∈ draft | sending | completed |\ncancelled. Counters are denormalized for the dashboard list page.\n",
+    ),
+  recipients: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      campaignId: zod.string().uuid(),
+      leadId: zod.string().uuid(),
+      status: zod.enum(["queued", "sent", "failed", "skipped", "unsubscribed"]),
+      reason: zod.string().nullish(),
+      engagementId: zod.string().uuid().nullish(),
+      channelUsed: zod.string().nullish(),
+      sentAt: zod.string().nullish(),
+      createdAt: zod.string(),
+      leadName: zod.string().nullish(),
+      leadEmail: zod.string().nullish(),
+      leadWhatsapp: zod.string().nullish(),
+      leadReference: zod.string().nullish(),
+    }),
+  ),
+});
+
+/**
+ * @summary Edit a draft campaign
+ */
+export const UpdateCampaignParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const updateCampaignBodyNameMax = 120;
+
+export const updateCampaignBodyAudienceFilterOneCombinatorDefault = `and`;
+export const updateCampaignBodyAudienceFilterOneRulesMax = 32;
+
+export const UpdateCampaignBody = zod.object({
+  name: zod.string().min(1).max(updateCampaignBodyNameMax).optional(),
+  templateSubject: zod.string().nullish(),
+  templateBody: zod.string().nullish(),
+  whatsappTemplateSid: zod.string().nullish(),
+  audienceFilter: zod
+    .object({
+      combinator: zod
+        .enum(["and", "or"])
+        .default(updateCampaignBodyAudienceFilterOneCombinatorDefault),
+      rules: zod
+        .array(
+          zod.object({
+            field: zod.enum([
+              "leadType",
+              "leadStatus",
+              "leadPriority",
+              "source",
+              "inquiryType",
+              "assignedTo",
+              "createdAt",
+              "lastContactedAt",
+              "nextFollowUpAt",
+              "tags",
+              "hasEmail",
+              "hasWhatsapp",
+            ]),
+            op: zod.enum([
+              "eq",
+              "neq",
+              "in",
+              "not_in",
+              "gte",
+              "lte",
+              "is_null",
+              "is_not_null",
+              "contains",
+            ]),
+            value: zod
+              .union([
+                zod.string(),
+                zod.number(),
+                zod.boolean(),
+                zod.array(zod.string()),
+                zod.null(),
+              ])
+              .optional(),
+          }),
+        )
+        .max(updateCampaignBodyAudienceFilterOneRulesMax),
+    })
+    .nullish(),
+});
+
+export const updateCampaignResponseAudienceFilterOneCombinatorDefault = `and`;
+export const updateCampaignResponseAudienceFilterOneRulesMax = 32;
+
+export const UpdateCampaignResponse = zod
+  .object({
+    id: zod.string().uuid(),
+    name: zod.string(),
+    channel: zod.enum(["email", "whatsapp"]),
+    status: zod.enum(["draft", "sending", "completed", "cancelled"]),
+    templateSubject: zod.string().nullish(),
+    templateBody: zod.string().nullish(),
+    whatsappTemplateSid: zod.string().nullish(),
+    audienceFilter: zod
+      .object({
+        combinator: zod
+          .enum(["and", "or"])
+          .default(updateCampaignResponseAudienceFilterOneCombinatorDefault),
+        rules: zod
+          .array(
+            zod.object({
+              field: zod.enum([
+                "leadType",
+                "leadStatus",
+                "leadPriority",
+                "source",
+                "inquiryType",
+                "assignedTo",
+                "createdAt",
+                "lastContactedAt",
+                "nextFollowUpAt",
+                "tags",
+                "hasEmail",
+                "hasWhatsapp",
+              ]),
+              op: zod.enum([
+                "eq",
+                "neq",
+                "in",
+                "not_in",
+                "gte",
+                "lte",
+                "is_null",
+                "is_not_null",
+                "contains",
+              ]),
+              value: zod
+                .union([
+                  zod.string(),
+                  zod.number(),
+                  zod.boolean(),
+                  zod.array(zod.string()),
+                  zod.null(),
+                ])
+                .optional(),
+            }),
+          )
+          .max(updateCampaignResponseAudienceFilterOneRulesMax),
+      })
+      .nullish(),
+    audienceSnapshotCount: zod.number(),
+    recipientsTotal: zod.number(),
+    recipientsSent: zod.number(),
+    recipientsFailed: zod.number(),
+    recipientsSkipped: zod.number(),
+    recipientsUnsubscribed: zod.number(),
+    createdBy: zod.string().uuid().nullish(),
+    createdAt: zod.string(),
+    updatedAt: zod.string(),
+    sentAt: zod.string().nullish(),
+  })
+  .describe(
+    "Phase 4 — Campaign row. `status` ∈ draft | sending | completed |\ncancelled. Counters are denormalized for the dashboard list page.\n",
+  );
+
+/**
+ * @summary Delete a draft campaign
+ */
+export const DeleteCampaignParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+/**
+ * @summary Count audience now (with suppression breakdown)
+ */
+export const PreviewCampaignParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const PreviewCampaignResponse = zod.object({
+  total: zod.number(),
+  unsubscribedCount: zod.number(),
+  eligibleCount: zod.number(),
+  cap: zod.number(),
+});
+
+/**
+ * @summary Send a single test render to the current admin
+ */
+export const TestCampaignParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const TestCampaignResponse = zod.object({
+  sent: zod.boolean(),
+  reason: zod.string().nullish(),
+});
+
+/**
+ * @summary Synchronous bulk send (≤200 recipients)
+ */
+export const SendCampaignParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const sendCampaignResponseCampaignAudienceFilterOneCombinatorDefault = `and`;
+export const sendCampaignResponseCampaignAudienceFilterOneRulesMax = 32;
+
+export const SendCampaignResponse = zod.object({
+  campaign: zod
+    .object({
+      id: zod.string().uuid(),
+      name: zod.string(),
+      channel: zod.enum(["email", "whatsapp"]),
+      status: zod.enum(["draft", "sending", "completed", "cancelled"]),
+      templateSubject: zod.string().nullish(),
+      templateBody: zod.string().nullish(),
+      whatsappTemplateSid: zod.string().nullish(),
+      audienceFilter: zod
+        .object({
+          combinator: zod
+            .enum(["and", "or"])
+            .default(
+              sendCampaignResponseCampaignAudienceFilterOneCombinatorDefault,
+            ),
+          rules: zod
+            .array(
+              zod.object({
+                field: zod.enum([
+                  "leadType",
+                  "leadStatus",
+                  "leadPriority",
+                  "source",
+                  "inquiryType",
+                  "assignedTo",
+                  "createdAt",
+                  "lastContactedAt",
+                  "nextFollowUpAt",
+                  "tags",
+                  "hasEmail",
+                  "hasWhatsapp",
+                ]),
+                op: zod.enum([
+                  "eq",
+                  "neq",
+                  "in",
+                  "not_in",
+                  "gte",
+                  "lte",
+                  "is_null",
+                  "is_not_null",
+                  "contains",
+                ]),
+                value: zod
+                  .union([
+                    zod.string(),
+                    zod.number(),
+                    zod.boolean(),
+                    zod.array(zod.string()),
+                    zod.null(),
+                  ])
+                  .optional(),
+              }),
+            )
+            .max(sendCampaignResponseCampaignAudienceFilterOneRulesMax),
+        })
+        .nullish(),
+      audienceSnapshotCount: zod.number(),
+      recipientsTotal: zod.number(),
+      recipientsSent: zod.number(),
+      recipientsFailed: zod.number(),
+      recipientsSkipped: zod.number(),
+      recipientsUnsubscribed: zod.number(),
+      createdBy: zod.string().uuid().nullish(),
+      createdAt: zod.string(),
+      updatedAt: zod.string(),
+      sentAt: zod.string().nullish(),
+    })
+    .nullish()
+    .describe(
+      "Phase 4 — Campaign row. `status` ∈ draft | sending | completed |\ncancelled. Counters are denormalized for the dashboard list page.\n",
+    ),
+  tally: zod.object({
+    sent: zod.number(),
+    failed: zod.number(),
+    skipped: zod.number(),
+    unsub: zod.number(),
+  }),
+});
