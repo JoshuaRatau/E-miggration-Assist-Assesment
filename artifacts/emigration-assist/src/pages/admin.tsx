@@ -351,6 +351,45 @@ export function Admin() {
     },
   });
 
+  // Dedicated query for the segment-aware stat cards. Crucially this
+  // does NOT carry the user's status/priority/whatsapp filters — those
+  // are intended to narrow the *table* below, not the headline metrics.
+  // (The architect caught this: without the separate query, picking
+  // "Status: New" in the filter row would zero out the Contacted /
+  // Qualified cards.) Limit is generous enough to cover any realistic
+  // single-segment volume in V1; the import wizard caps inputs at 5000.
+  const segmentStatsKey = useMemo(
+    () => ["admin", "segmentStats", leadTypeSegment] as const,
+    [leadTypeSegment],
+  );
+  const { data: segmentLeadsRaw } = useQuery<Lead[], Error>({
+    queryKey: segmentStatsKey,
+    queryFn: async () => {
+      // Match the page's existing admin-fetch pattern (x-admin-token
+      // header + 401 → clearAdminToken) so cards behave identically to
+      // the leads list query under both cookie-session and
+      // legacy-token-only auth paths.
+      const token = getAdminToken();
+      if (!token) throw new Error("Admin token required");
+      const url = new URL(
+        `${import.meta.env.BASE_URL}api/leads`,
+        window.location.origin,
+      );
+      url.searchParams.set("limit", "5000");
+      if (leadTypeSegment !== "ALL")
+        url.searchParams.set("leadType", leadTypeSegment);
+      const res = await fetch(url.toString(), {
+        headers: { "x-admin-token": token },
+      });
+      if (res.status === 401) {
+        clearAdminToken();
+        throw new Error("Invalid admin token");
+      }
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      return (await res.json()) as Lead[];
+    },
+  });
+
   // Apply the WhatsApp filter and the optional priority sort on the client.
   // `hasWhatsapp` lives on the serialized payload; we fall back to checking
   // the raw `whatsapp` field for resilience against older payloads.
@@ -483,6 +522,9 @@ export function Admin() {
       // status change that moves the row out of the current filter) reconcile
       // without disturbing the just-applied optimistic UI.
       qc.invalidateQueries({ queryKey: listQueryKey });
+      // Also refresh the segment-stats query so the headline cards
+      // reflect inline status/priority changes without a page reload.
+      qc.invalidateQueries({ queryKey: ["admin", "segmentStats"] });
       return updated;
     } catch (err) {
       // Per-row rollback — only the row we tried to mutate is restored. Any
@@ -612,12 +654,32 @@ export function Admin() {
     }
   };
 
-  // Status counts for the top summary cards.  The /stats/summary endpoint
-  // returns lowercase canonical statuses in `byStatus`, so we look those up
-  // directly — no priority counts are surfaced as cards in V1 of the
-  // conversion engine (priority is still visible per row via the badge).
-  const statusCount = (key: string) =>
-    stats?.byStatus?.find((c) => c.category === key)?.count ?? 0;
+  // Stat-card counts come from the dedicated `segmentLeadsRaw` query,
+  // which is segment-scoped but free of status/priority filters — so the
+  // headline numbers stay stable when an operator narrows the table.
+  // First-paint fallback: while the segment query is loading we use
+  // /stats/summary for the ALL segment (matches old behaviour) and
+  // suppress to "—" for B2C/B2B (avoid showing global numbers under a
+  // segment-specific label, per the architect's flag).
+  const segmentLoaded = !!segmentLeadsRaw;
+  const segmentTotal: number | string = segmentLoaded
+    ? segmentLeadsRaw!.length
+    : leadTypeSegment === "ALL" && stats
+      ? stats.totalAssessments ?? "—"
+      : "—";
+  const statusCount = (key: string): number | string => {
+    if (segmentLoaded)
+      return segmentLeadsRaw!.filter((l) => l.leadStatus === key).length;
+    if (leadTypeSegment === "ALL" && stats?.byStatus)
+      return stats.byStatus.find((c) => c.category === key)?.count ?? 0;
+    return "—";
+  };
+  const segmentBadge =
+    leadTypeSegment === "professional"
+      ? "B2B only"
+      : leadTypeSegment === "individual"
+        ? "B2C only"
+        : "All segments";
 
   return (
     <div className="min-h-screen bg-background p-6 md:p-12">
@@ -662,12 +724,64 @@ export function Admin() {
           }
         />
 
+        {/* Global B2C / B2B segment selector — promoted from inside the
+            Leads card so the entire dashboard (stat cards + leads list +
+            pipeline view) all reflect the same segment. The lead-mix
+            charts intentionally stay segment-agnostic since they exist
+            specifically to compare both sides. */}
+        <div
+          className="flex flex-wrap items-center gap-3"
+          data-testid="dashboard-segment-bar"
+        >
+          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Segment
+          </span>
+          <div
+            className="inline-flex rounded-md border bg-background p-0.5"
+            role="tablist"
+            aria-label="Lead type segment"
+            data-testid="leads-segment-toggle"
+          >
+            {(
+              [
+                { v: "ALL", label: "All" },
+                { v: "individual", label: "Individuals (B2C)" },
+                { v: "professional", label: "Professionals (B2B)" },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.v}
+                type="button"
+                role="tab"
+                aria-selected={leadTypeSegment === opt.v}
+                onClick={() => setLeadTypeSegment(opt.v)}
+                data-testid={`leads-segment-${opt.v}`}
+                className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                  leadTypeSegment === opt.v
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <span
+            className="text-xs text-muted-foreground"
+            data-testid="dashboard-segment-badge"
+          >
+            All stats and the leads list below are filtered to: {segmentBadge}.
+          </span>
+        </div>
+
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Total Leads</CardDescription>
+              <CardDescription>
+                Total Leads · {segmentBadge}
+              </CardDescription>
               <CardTitle className="text-3xl" data-testid="stat-total-leads">
-                {stats?.totalAssessments ?? 0}
+                {segmentTotal}
               </CardTitle>
             </CardHeader>
           </Card>
@@ -860,39 +974,6 @@ export function Admin() {
                 </button>
               </div>
               </div>
-            </div>
-            {/* B2C / B2B segment selector — dedicated place for professional
-                leads so they're never visually confused with self-assessment
-                submissions. Persisted in localStorage. */}
-            <div
-              className="mt-4 inline-flex rounded-md border bg-background p-0.5"
-              role="tablist"
-              aria-label="Lead type segment"
-              data-testid="leads-segment-toggle"
-            >
-              {(
-                [
-                  { v: "ALL", label: "All" },
-                  { v: "individual", label: "Individuals (B2C)" },
-                  { v: "professional", label: "Professionals (B2B)" },
-                ] as const
-              ).map((opt) => (
-                <button
-                  key={opt.v}
-                  type="button"
-                  role="tab"
-                  aria-selected={leadTypeSegment === opt.v}
-                  onClick={() => setLeadTypeSegment(opt.v)}
-                  data-testid={`leads-segment-${opt.v}`}
-                  className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-                    leadTypeSegment === opt.v
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
             </div>
           </CardHeader>
           <CardContent>
