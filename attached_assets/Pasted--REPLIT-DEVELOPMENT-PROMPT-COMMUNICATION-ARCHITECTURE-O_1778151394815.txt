@@ -1,0 +1,663 @@
+# REPLIT DEVELOPMENT PROMPT — COMMUNICATION ARCHITECTURE, OMNICHANNEL LEAD ORIGINATION, PREFERRED COMMUNICATION ENGINE & CLIENT EXPERIENCE COMMUNICATION HUB
+
+Enhance the internal CRM and Lead Intelligence Platform for E-Migration Assist into a fully integrated omnichannel communication and engagement ecosystem.
+
+The current lead architecture already supports:
+
+* B2C leads
+* B2B leads
+* imports
+* dashboard analytics
+* pipelines
+* Kanban stages
+* operational tracking
+
+This enhancement must now introduce:
+
+* intelligent communication architecture
+* omnichannel lead origination tracking
+* preferred communication logic
+* mass personalized communication workflows
+* communication analytics
+* Microsoft 365 Outlook integration
+* social media lead source tracking
+* customer experience communication campaigns
+
+The system must begin evolving from:
+“lead management dashboard”
+into:
+“full operational CRM communication and engagement platform.”
+
+The design and operational behaviour should resemble:
+
+* Zoho CRM
+* HubSpot
+* Salesforce
+* enterprise SaaS lifecycle communication systems
+
+The platform must remain:
+
+* dark-theme optimized
+* enterprise-grade
+* operationally intelligent
+* scalable
+* highly automated
+* modular
+
+---
+
+# 1. COLUMN NAME CHANGE — “WHATSAPP” → “PREFERRED COMMUNICATION” (CRITICAL)
+
+## CURRENT ISSUE
+
+The current Leads List contains a column titled:
+“WhatsApp”
+
+This architecture no longer reflects the evolving CRM ecosystem because:
+
+* there are both B2C and B2B leads
+* communication methods now differ by lead type
+* omnichannel engagement is required
+
+---
+
+# REQUIRED FIX
+
+Rename the column:
+
+FROM:
+WhatsApp
+
+TO:
+Preferred Communication
+
+---
+
+# 2. PREFERRED COMMUNICATION ENGINE
+
+Introduce a dynamic communication preference system.
+
+Every lead must now contain:
+
+* preferred communication channel
+* communication eligibility
+* communication source
+* communication history
+
+---
+
+# REQUIRED COMMUNICATION CHANNEL TYPES
+
+Support:
+
+## B2C Channels
+
+* WhatsApp
+* Email
+* In-App Notification
+* SMS (future-ready)
+
+---
+
+## B2B Channels
+
+* Email (primary default)
+* LinkedIn Outreach
+* Microsoft Teams (future-ready)
+* Phone Call
+
+---
+
+# REQUIRED DEFAULT LOGIC
+
+## B2C Leads
+
+If:
+
+* WhatsApp number exists
+  → default preferred communication = WhatsApp
+
+Else:
+→ Email
+
+---
+
+## B2B Leads
+
+Default preferred communication must ALWAYS be:
+Email
+
+This is because:
+
+* professional firms communicate formally
+* communication should align with enterprise outreach standards
+
+---
+
+# LEADS TABLE ENHANCEMENT
+
+Under the:
+Preferred Communication
+
+column, display:
+
+* communication icon
+* communication type
+* verification status
+
+Examples:
+
+📧 Email
+🟢 WhatsApp
+🔔 In-App
+
+For B2B:
+📧 Email
+
+---
+
+# 3. COMMUNICATION ARCHITECTURE SECTION (NEW CORE MODULE)
+
+Introduce a completely new CRM module:
+
+“Communications Hub”
+
+This becomes the central operational communication engine.
+
+---
+
+# CORE OBJECTIVE
+
+The Communications Hub must clearly show:
+
+1. how leads entered the ecosystem
+2. which communication channels are active
+3. communication performance
+4. engagement history
+5. campaign delivery
+6. enquiry tracking
+
+This must function as:
+
+* an operational inbox
+* communication centre
+* outreach management engine
+* engagement intelligence dashboard
+
+---
+
+# 4. LEAD ORIGINATION TRACKING (VERY IMPORTANT)
+
+Every lead must contain:
+“Lead Source”
+
+and
+“Communication Source”
+
+metadata.
+
+---
+
+# REQUIRED LEAD SOURCES
+
+The system must track leads arriving from:
+
+## WEBSITE SOURCES
+
+* Self-Assessment Form
+* Landing Pages
+* Website Contact Forms
+
+---
+
+## EMAIL SOURCES
+
+* [info@emigration-assist.com](mailto:info@emigration-assist.com)
+
+via:
+Microsoft 365 Outlook Integration
+
+---
+
+## SOCIAL MEDIA SOURCES
+
+### TikTok
+
+[TikTok — E-Migration Assist](https://www.tiktok.com/@emigration_assist?is_from_webapp=1&sender_device=pc&utm_source=chatgpt.com)
+
+### Facebook
+
+[Facebook — E-Migration Assist](https://web.facebook.com/profile.php?id=61563107394475&utm_source=chatgpt.com)
+
+### LinkedIn
+
+[LinkedIn — E-Migration Assist](https://www.linkedin.com/showcase/e-migration-assist/?utm_source=chatgpt.com)
+
+---
+
+# REQUIRED SOURCE TYPES
+
+Each lead must display:
+
+* Source Platform
+* Source Campaign
+* Referral URL
+* Entry Timestamp
+* Campaign Attribution (future-ready)
+
+---
+
+# REQUIRED SOURCE BADGES
+
+Examples:
+
+* TikTok Lead
+* Facebook Lead
+* LinkedIn Lead
+* Email Enquiry
+* Website Form
+* Referral
+
+These should appear visually within:
+
+* lead detail view
+* pipeline cards
+* CRM profile pages
+
+---
+
+# 5. MICROSOFT 365 OUTLOOK INTEGRATION (CRITICAL)
+
+Integrate:
+[info@emigration-assist.com](mailto:info@emigration-assist.com)
+
+through:
+Microsoft 365 Outlook
+
+This becomes the official inbound enquiry mailbox.
+
+---
+
+# OUTLOOK INTEGRATION REQUIREMENTS
+
+The system must:
+
+* connect to Microsoft Graph API
+* sync inbound emails
+* create leads automatically
+* associate email threads with CRM profiles
+* track replies
+* log timestamps
+* preserve attachments
+
+---
+
+# REQUIRED EMAIL INGESTION FLOW
+
+When email arrives at:
+[info@emigration-assist.com](mailto:info@emigration-assist.com)
+
+The system must:
+
+1. read email
+2. identify sender
+3. detect existing lead or create new lead
+4. assign lead source = Outlook Email
+5. populate communication history
+6. notify CRM operators
+
+---
+
+# REQUIRED EMAIL DATA CAPTURE
+
+Store:
+
+* sender email
+* sender name
+* subject line
+* body preview
+* attachments
+* received timestamp
+* communication thread ID
+
+---
+
+# 6. SOCIAL MEDIA LEAD INGESTION ARCHITECTURE
+
+Prepare architecture for:
+
+* TikTok lead ingestion
+* Facebook enquiries
+* LinkedIn enquiries
+
+---
+
+# SOCIAL MEDIA LEAD REQUIREMENTS
+
+The system should support:
+
+* manual imports initially
+* future API integrations
+* social lead tagging
+* engagement tracking
+
+---
+
+# REQUIRED SOCIAL METADATA
+
+Track:
+
+* originating platform
+* social profile name
+* social handle
+* message timestamp
+* campaign source
+
+---
+
+# 7. MASS PERSONALIZED COMMUNICATION SYSTEM (MAJOR FEATURE)
+
+Create a CRM-grade communication campaign engine.
+
+This system must support:
+
+* mass communication
+* personalized delivery
+* communication automation
+* engagement reporting
+
+---
+
+# COMMUNICATION TYPES
+
+Support:
+
+* subscription promotions
+* product announcements
+* feature launches
+* onboarding sequences
+* operational notices
+* maintenance alerts
+* migration updates
+* educational campaigns
+* customer experience messaging
+
+---
+
+# REQUIRED CAMPAIGN CHANNELS
+
+Support:
+
+* Email
+* WhatsApp
+* In-App Notification
+
+Future-ready:
+
+* SMS
+* Push Notifications
+
+---
+
+# PERSONALIZATION ENGINE
+
+Every communication must support dynamic personalization.
+
+Examples:
+
+* first name
+* organization name
+* subscription package
+* lead category
+* onboarding stage
+
+Example:
+“Good morning Tebatso…”
+
+or
+
+“Dear Black Pen Immigration…”
+
+---
+
+# 8. COMMUNICATION CAMPAIGN DASHBOARD
+
+Create a dedicated:
+“Campaigns & Communications”
+
+dashboard.
+
+---
+
+# REQUIRED DASHBOARD METRICS
+
+Display:
+
+* campaigns sent
+* delivery rates
+* open rates
+* click-through rates
+* unsubscribes
+* failed deliveries
+* WhatsApp delivery success
+* engagement trends
+
+---
+
+# REQUIRED FILTERS
+
+Filter by:
+
+* lead type
+* communication channel
+* campaign type
+* engagement status
+* source platform
+
+---
+
+# 9. COMMUNICATION TIMELINE
+
+Every lead profile must contain:
+“Communication Timeline”
+
+This becomes a chronological activity feed.
+
+---
+
+# TIMELINE EVENTS
+
+Track:
+
+* emails sent
+* WhatsApp messages
+* campaign opens
+* clicks
+* replies
+* outreach attempts
+* automated sequences
+* failed deliveries
+
+---
+
+# 10. MASS COMMUNICATION WORKFLOW
+
+The CRM must support:
+
+* selecting multiple leads
+* filtering audiences
+* launching campaigns
+
+Example audiences:
+
+* all subscribed users
+* downgraded subscribers
+* B2B law firms
+* new leads
+* inactive users
+
+---
+
+# REQUIRED WORKFLOW
+
+1. Select audience
+2. Select channel
+3. Choose template
+4. Personalize content
+5. Schedule/send
+6. Track engagement
+7. Generate reports
+
+---
+
+# 11. COMMUNICATION REPORTING ENGINE
+
+Create operational reporting for:
+
+* enquiry volume
+* source performance
+* communication engagement
+* conversion performance
+
+---
+
+# REQUIRED REPORT TYPES
+
+## Lead Source Reports
+
+* TikTok conversions
+* Facebook engagement
+* LinkedIn professional leads
+* Outlook enquiries
+
+---
+
+## Campaign Reports
+
+* best performing campaigns
+* highest engagement
+* lowest unsubscribe rate
+
+---
+
+## Subscription Reports
+
+* upgrade campaigns
+* downgrade recovery
+* churn prevention engagement
+
+---
+
+# 12. COMMUNICATION PREFERENCES & COMPLIANCE
+
+Every lead must support:
+
+* unsubscribe settings
+* communication preferences
+* opt-in tracking
+* consent management
+
+---
+
+# REQUIRED PREFERENCE SETTINGS
+
+Allow:
+
+* email only
+* WhatsApp only
+* all communications
+* promotional only
+* operational only
+
+---
+
+# 13. UI/UX REQUIREMENTS
+
+The Communications Hub must feel like:
+
+* a premium SaaS communication centre
+* an operational CRM inbox
+* an enterprise engagement platform
+
+Design requirements:
+
+* dark-theme consistency
+* clean timeline layouts
+* modern messaging UI
+* responsive tables
+* elegant communication cards
+* notification badges
+* real-time refresh behaviour
+
+---
+
+# 14. DATABASE ENHANCEMENTS
+
+Add required structures.
+
+---
+
+## COMMUNICATIONS TABLE
+
+Fields:
+
+* id
+* lead_id
+* channel
+* communication_type
+* subject
+* message_preview
+* delivery_status
+* opened
+* clicked
+* replied
+* created_at
+
+---
+
+## LEAD SOURCES TABLE
+
+Fields:
+
+* id
+* lead_id
+* source_platform
+* source_type
+* campaign_name
+* referral_url
+* imported_at
+
+---
+
+## CAMPAIGNS TABLE
+
+Fields:
+
+* id
+* campaign_name
+* campaign_type
+* channel
+* audience_type
+* delivery_count
+* open_rate
+* click_rate
+* created_at
+
+---
+
+# 15. FINAL OBJECTIVE
+
+The completed platform must now function as:
+
+“A fully integrated immigration-focused CRM communication and engagement ecosystem capable of intelligently managing omnichannel lead acquisition, personalized communications, customer lifecycle engagement, professional outreach, campaign analytics, and subscription experience management.”
+
+The system must:
+
+* unify B2B and B2C communications
+* intelligently route communication channels
+* support operational marketing
+* track lead origination
+* integrate Outlook enquiries
+* support social media lead attribution
+* provide enterprise-grade communication visibility
+* resemble a mature commercial CRM and customer engagement platform.
