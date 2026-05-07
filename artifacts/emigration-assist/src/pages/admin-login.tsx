@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { BrandHeader } from "@/components/brand-header";
 import { Loader2, ShieldCheck } from "lucide-react";
+import heroFolders from "@assets/hero-folders-transparent.png";
 
 export function AdminLogin() {
   const { login, user, loading } = useAdminAuth();
@@ -46,9 +47,44 @@ export function AdminLogin() {
 
   return (
     <div className="min-h-screen bg-background py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md mx-auto space-y-8">
-        <BrandHeader variant="compact" />
-        <Card className="p-6 md:p-8 shadow-lg border-border/40 space-y-6">
+      {/*
+        Two-column layout on lg+: glossy folder hero on the left as a
+        visual anchor for the admin product, sign-in card on the right.
+        Below lg the hero collapses to a smaller header image above the
+        form so it never crowds out the actual login affordance on mobile.
+      */}
+      <div className="mx-auto grid w-full max-w-6xl items-center gap-10 lg:grid-cols-2">
+        <div className="hidden lg:flex flex-col items-start gap-6 pr-8">
+          <BrandHeader variant="compact" />
+          <img
+            src={heroFolders}
+            alt="E-Migration Assist case folders"
+            className="w-full max-w-[520px] h-auto select-none drop-shadow-[0_30px_60px_rgba(37,99,235,0.25)]"
+            data-testid="img-admin-hero"
+            draggable={false}
+          />
+          <div className="max-w-md space-y-2">
+            <h2 className="text-2xl font-display font-semibold tracking-tight">
+              Lead intelligence, organised.
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Sign in to triage individual and professional leads, track case
+              progression, and keep your pipeline moving.
+            </p>
+          </div>
+        </div>
+
+        <div className="mx-auto w-full max-w-md space-y-8">
+          <div className="lg:hidden flex flex-col items-center gap-4">
+            <BrandHeader variant="compact" />
+            <img
+              src={heroFolders}
+              alt="E-Migration Assist case folders"
+              className="w-40 h-auto select-none"
+              draggable={false}
+            />
+          </div>
+          <Card className="p-6 md:p-8 shadow-lg border-border/40 space-y-6">
           <div className="space-y-2 text-center">
             <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary mx-auto">
               <ShieldCheck className="h-6 w-6" />
@@ -119,7 +155,8 @@ export function AdminLogin() {
               Forgot password?
             </Link>
           </div>
-        </Card>
+          </Card>
+        </div>
       </div>
     </div>
   );
