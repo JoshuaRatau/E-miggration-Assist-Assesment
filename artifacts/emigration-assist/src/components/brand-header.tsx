@@ -1,14 +1,17 @@
 import { Link } from "wouter";
+import brandLogo from "@assets/E-Migration_Assist_New_Logo-removebg-preview_1778135270233.png";
 
 /**
  * Shared brand header used on every public + admin page.  Renders the
- * eRide Technologies logo (sourced from the company asset PDF, served
- * from `/public/eride-logo-light.png`) alongside the product wordmark
- * "E-Migration Assist".  The logo links back to the public landing page.
+ * combined "E-Migration Assist · Powered by eRide Technologies" wordmark
+ * imported via the @assets alias.  The source PNG is black-on-transparent;
+ * we re-colour it to white at render time with `filter: brightness(0)
+ * invert(1)` so it blends with the dark navy palette across the app.  The
+ * logo links back to the public landing page.
  *
  * Variants:
- *   - default: full wordmark + tagline (used on landing pages)
- *   - compact: just the logo + product name (used on inner / admin pages)
+ *   - default: wordmark + tagline (used on landing pages)
+ *   - compact: just the wordmark (used on inner / admin pages)
  */
 export function BrandHeader({
   variant = "default",
@@ -24,24 +27,21 @@ export function BrandHeader({
     >
       <Link href="/" className="flex items-center gap-3 group">
         <img
-          src="/eride-logo-light.png"
-          alt="eRide Technologies"
-          className="h-10 w-auto"
+          src={brandLogo}
+          alt="E-Migration Assist · Powered by eRide Technologies"
+          className="h-14 w-auto transition-opacity group-hover:opacity-90"
+          // Source asset is black on transparent; flip to pure white so it
+          // sits cleanly on the dark navy background. `brightness(0)` first
+          // collapses every non-transparent pixel to black, `invert(1)`
+          // then maps black → white while leaving transparency untouched.
+          style={{ filter: "brightness(0) invert(1)" }}
           data-testid="brand-logo"
         />
-        <div className="flex flex-col leading-tight">
-          <span className="text-xs uppercase tracking-[0.2em] text-primary font-semibold">
-            eRide Technologies
+        {variant === "default" ? (
+          <span className="text-xs text-muted-foreground mt-0.5 hidden sm:inline">
+            Pre-launch immigration assessment
           </span>
-          <span className="font-display font-bold text-lg text-foreground group-hover:text-primary transition-colors">
-            E-Migration Assist
-          </span>
-          {variant === "default" ? (
-            <span className="text-xs text-muted-foreground mt-0.5">
-              Pre-launch immigration assessment
-            </span>
-          ) : null}
-        </div>
+        ) : null}
       </Link>
       {rightSlot ? <div>{rightSlot}</div> : null}
     </div>
