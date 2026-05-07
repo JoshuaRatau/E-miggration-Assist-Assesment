@@ -1,0 +1,561 @@
+# REPLIT DEVELOPMENT PROMPT — DASHBOARD HEADER, DUAL GRAPH ANALYTICS & PROFESSIONAL IMPORT ENGINE ENHANCEMENT
+
+Enhance the existing internal CRM and Lead Management Dashboard for E-Migration Assist into a more visually intelligent, enterprise-grade operational dashboard with:
+
+1. Improved dashboard header structure
+2. Dynamic personalized greeting placement
+3. Real-time analytics visualization
+4. Dual-source lead intelligence architecture
+5. Professional lead import engine
+6. Automated segmentation and reporting
+7. CRM-grade graphical insights
+
+The enhancement must preserve all current functionality while significantly improving:
+
+* layout hierarchy
+* analytics visualization
+* operational intelligence
+* data segmentation
+* UI sophistication
+* responsiveness
+* scalability
+
+The design aesthetic must resemble a premium SaaS operations dashboard inspired by:
+
+* Zoho CRM
+* monday.com
+* modern operational intelligence platforms
+
+The dashboard must remain:
+
+* dark-mode optimized
+* highly responsive
+* enterprise-grade
+* visually balanced
+* fast-loading
+* modular
+
+---
+
+# CORE OBJECTIVE
+
+The dashboard must visually separate and intelligently process two different lead ecosystems:
+
+## A. Individual Leads
+
+Generated automatically from the online self-assessment form:
+
+[E-Migration Assist Self-Assessment Form](https://immigrationassist.replit.app/?utm_source=chatgpt.com)
+
+These leads represent:
+
+* individual users
+* travellers
+* visa applicants
+* overstay appeal users
+* travel support users
+
+---
+
+## B. Professional Leads
+
+Generated through:
+
+* CSV uploads
+* Excel imports
+* imported datasets
+
+These leads represent:
+
+* law firms
+* immigration consultancy firms
+* relocation companies
+* global mobility firms
+* independent practitioners
+
+The dashboard must become a visual operational intelligence centre that clearly distinguishes:
+
+* B2C individual inquiries
+* B2B professional opportunities
+
+---
+
+# 1. DASHBOARD HEADER REDESIGN (IMPORTANT)
+
+Refactor the dashboard header layout.
+
+---
+
+## CURRENT ISSUE
+
+The current dashboard places:
+
+* logo
+* greeting
+* date/time
+* actions
+
+in disconnected positions.
+
+The layout hierarchy feels fragmented.
+
+---
+
+## REQUIRED HEADER STRUCTURE
+
+The top-left area must contain:
+
+### LEFT SECTION
+
+* E-Migration Assist logo
+* company branding
+
+---
+
+### IMMEDIATELY TO THE RIGHT OF THE LOGO
+
+Display:
+
+#### Personalized greeting
+
+Examples:
+
+* Good morning, Demo
+* Good afternoon, Admin
+* Welcome back, Tebatso
+
+The greeting must:
+
+* dynamically adjust based on local time
+* use professional typography
+* feel warm but enterprise-grade
+
+---
+
+### BELOW THE GREETING
+
+Display:
+
+* current date
+* live time
+* timezone
+
+Example:
+Thursday, 7 May 2026 · 09:47 SAST
+
+This must update dynamically.
+
+---
+
+### BELOW DATE/TIME
+
+Display a contextual operational heading.
+
+Examples:
+
+* Lead Intelligence Dashboard
+* CRM Operations Overview
+* Lead Monitoring & Analytics Centre
+* Immigration Lead Operations Dashboard
+
+Recommended:
+“Lead Intelligence Dashboard”
+
+Add supporting subtext:
+“Monitor, analyse and manage individual and professional lead activity in real time.”
+
+---
+
+# 2. HEADER ACTION AREA
+
+Top-right section must contain:
+
+* Send Update Email button
+* Export Leads button
+* Import Professionals button (NEW)
+* User profile dropdown
+
+Buttons must:
+
+* align consistently
+* use modern SaaS styling
+* maintain dark-theme consistency
+
+---
+
+# 3. ANALYTICS SECTION REDESIGN (VERY IMPORTANT)
+
+Directly below the dashboard heading, create a two-column analytics section.
+
+The section must visually split:
+
+* Individual Lead Analytics
+* Professional Lead Analytics
+
+This section becomes the primary intelligence area of the dashboard.
+
+---
+
+# LEFT SIDE — INDIVIDUAL LEADS BAR GRAPH
+
+Create a large interactive bar graph.
+
+This graph must use data sourced automatically from:
+
+[E-Migration Assist Self-Assessment Form](https://immigrationassist.replit.app/?utm_source=chatgpt.com)
+
+The graph must reflect:
+
+* inquiry types
+* visa-related submissions
+* self-assessment outcomes
+
+---
+
+## REQUIRED INDIVIDUAL CATEGORIES
+
+Display bars for:
+
+* Visa Inquiry
+* Overstay Appeal
+* Travel & Entry Assistance
+
+Optional future-ready categories:
+
+* Digital Nomad Inquiry
+* Immigration Status Review
+* Documentation Support
+
+---
+
+## GRAPH REQUIREMENTS
+
+The graph must:
+
+* update dynamically
+* pull live database data
+* support hover tooltips
+* display totals
+* display percentages
+* support filtering by:
+
+  * today
+  * 7 days
+  * 30 days
+  * custom range
+
+---
+
+## BAR GRAPH VISUAL STYLE
+
+The graph should resemble:
+
+* modern SaaS analytics dashboards
+* clean enterprise reporting tools
+
+Requirements:
+
+* rounded bars
+* subtle animation
+* hover transitions
+* responsive resizing
+* dark-theme optimized colours
+
+---
+
+# RIGHT SIDE — PROFESSIONAL LEADS PIE GRAPH
+
+Create a professional segmentation pie chart.
+
+This graph must use data generated from imported professional datasets.
+
+The system must automatically classify imported data into industries/categories.
+
+---
+
+## REQUIRED PROFESSIONAL CATEGORIES
+
+The pie chart must display:
+
+* Law Firms
+* Immigration Consultancy Firms
+* Global Mobility / Relocation Companies
+* Independent Practitioners
+
+---
+
+## PIE CHART REQUIREMENTS
+
+The graph must:
+
+* dynamically update after imports
+* display percentages
+* display total counts
+* support hover analytics
+* support click-to-filter
+* support responsive resizing
+
+---
+
+## PIE CHART VISUAL REQUIREMENTS
+
+Must resemble:
+
+* executive SaaS dashboards
+* CRM intelligence systems
+
+Requirements:
+
+* smooth transitions
+* animated rendering
+* clean labels
+* elegant legends
+* dark-mode consistency
+
+---
+
+# 4. PROFESSIONAL IMPORT FACILITY (CRITICAL FEATURE)
+
+Create a robust import engine specifically for professional leads.
+
+This must be accessible from:
+“Import Professionals” button in the dashboard header.
+
+---
+
+# IMPORT REQUIREMENTS
+
+Supported file formats:
+
+* CSV
+* XLSX
+* XLS
+
+---
+
+# IMPORT FLOW
+
+## STEP 1 — Upload Modal
+
+Create a professional import modal with:
+
+* drag-and-drop area
+* browse files option
+* upload progress bar
+* validation indicators
+
+---
+
+## STEP 2 — PREVIEW SCREEN
+
+Display:
+
+* spreadsheet preview
+* row count
+* detected columns
+* sample records
+* duplicate detection
+* invalid rows
+
+---
+
+## STEP 3 — FIELD MAPPING
+
+Allow users to map uploaded columns to CRM fields.
+
+Example mappings:
+
+| Uploaded Field | Internal Field       |
+| -------------- | -------------------- |
+| Company Name   | organization_name    |
+| Contact Person | representative_name  |
+| Industry       | organization_type    |
+| Email          | representative_email |
+
+---
+
+# 5. AUTOMATIC INDUSTRY CLASSIFICATION (IMPORTANT)
+
+The system must intelligently classify imported professional leads.
+
+---
+
+## CLASSIFICATION LOGIC
+
+If imported data contains keywords like:
+
+* Attorneys
+* Legal
+* Lawyers
+  → classify as Law Firm
+
+If:
+
+* Immigration
+* Visa Consultancy
+  → classify as Immigration Consultancy Firm
+
+If:
+
+* Relocation
+* Mobility
+* Global Workforce
+  → classify as Global Mobility / Relocation Company
+
+If no organization:
+→ classify as Independent Practitioner
+
+---
+
+# 6. DATABASE REQUIREMENTS
+
+Introduce or enhance:
+Professional Leads table.
+
+Required fields:
+
+* id
+* organization_name
+* organization_type
+* representative_name
+* representative_email
+* phone
+* website
+* imported_source
+* imported_at
+* assigned_to
+* status
+* lead_score
+
+---
+
+# 7. ANALYTICS SYNCHRONIZATION
+
+The pie chart must update automatically whenever:
+
+* new imports occur
+* leads are edited
+* categories change
+
+No manual refresh should be required.
+
+---
+
+# 8. DASHBOARD LAYOUT STRUCTURE
+
+Recommended dashboard structure:
+
+## SECTION 1
+
+Header
+
+* Logo
+* Greeting
+* Date/time
+* Dashboard heading
+* Action buttons
+
+---
+
+## SECTION 2
+
+Dual analytics row
+
+* Left: Individual bar graph
+* Right: Professional pie chart
+
+---
+
+## SECTION 3
+
+Operational KPI cards
+
+* Total Leads
+* New Leads
+* Contacted
+* Qualified
+* Professional Leads
+* Individual Leads
+
+---
+
+## SECTION 4
+
+Filters and sorting
+
+---
+
+## SECTION 5
+
+Lead management table
+
+---
+
+# 9. FUTURE-READY CRM ARCHITECTURE
+
+The system must be modular and future-ready.
+
+Prepare support for:
+
+* AI lead scoring
+* WhatsApp integration
+* automated outreach
+* CRM workflows
+* onboarding pipelines
+* Jira integration
+* SLA tracking
+* client lifecycle management
+
+---
+
+# 10. PERFORMANCE REQUIREMENTS
+
+The system must:
+
+* support thousands of leads
+* optimize rendering performance
+* use lazy loading where necessary
+* avoid blocking UI during imports
+* use async processing
+* paginate large datasets
+
+---
+
+# 11. UX/UI REQUIREMENTS
+
+The final dashboard must feel:
+
+* premium
+* executive-level
+* enterprise-grade
+* operationally intelligent
+
+Design requirements:
+
+* modern typography
+* soft shadows
+* consistent spacing
+* dark-theme harmony
+* smooth interactions
+* responsive design
+* clean information hierarchy
+
+The analytics section should feel like:
+“A live operational intelligence centre for immigration and mobility lead management.”
+
+---
+
+# 12. FINAL OBJECTIVE
+
+The completed system must function as:
+
+“A modern internal CRM and lead intelligence platform capable of processing live consumer immigration inquiries and imported professional partnership datasets while providing real-time operational analytics and executive-grade dashboard visibility.”
+
+The platform must:
+
+* support both B2C and B2B lead ecosystems
+* provide real-time visual analytics
+* intelligently classify professional imports
+* integrate seamlessly with existing self-assessment forms
+* remain scalable for future SaaS expansion
+* feel comparable to premium commercial CRM platforms.
