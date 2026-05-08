@@ -274,7 +274,7 @@ export function AdminCampaignEditor() {
   return (
     <AdminLayout
       title={`Campaign · ${draft.name}`}
-      bodyClassName="bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800 text-slate-100"
+      bodyClassName="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100"
       contentClassName="flex-1 mx-auto max-w-6xl w-full px-6 pt-6 pb-12"
     >
       <>
