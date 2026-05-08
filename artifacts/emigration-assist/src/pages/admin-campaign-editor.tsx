@@ -26,8 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { BrandHeader } from "@/components/brand-header";
-import { AdminUserMenu } from "@/components/admin-user-menu";
+import { AdminLayout } from "@/components/admin-layout";
 import { useToast } from "@/hooks/use-toast";
 import {
   AudienceQueryBuilder,
@@ -248,13 +247,17 @@ export function AdminCampaignEditor() {
 
   if (error)
     return (
-      <div className="min-h-screen bg-slate-950 p-8 text-rose-300">{error}</div>
+      <AdminLayout title="Campaign" bodyClassName="bg-slate-950 text-rose-300">
+        <div className="p-8">{error}</div>
+      </AdminLayout>
     );
   if (!draft)
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
-        <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-      </div>
+      <AdminLayout title="Campaign" bodyClassName="bg-slate-950">
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+        </div>
+      </AdminLayout>
     );
 
   const overCap = (preview?.eligibleCount ?? 0) > (preview?.cap ?? 200);
@@ -267,10 +270,12 @@ export function AdminCampaignEditor() {
         (draft.templateSubject ?? "").trim().length > 0));
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100">
-      <div className="mx-auto max-w-6xl px-6 pt-6 pb-12">
-        <BrandHeader variant="compact" rightSlot={<AdminUserMenu />} />
-
+    <AdminLayout
+      title={`Campaign · ${draft.name}`}
+      bodyClassName="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100"
+      contentClassName="flex-1 mx-auto max-w-6xl w-full px-6 pt-6 pb-12"
+    >
+      <>
         <div className="mb-6 flex items-center justify-between gap-4">
           <div className="flex-1">
             <Input
@@ -566,8 +571,8 @@ export function AdminCampaignEditor() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
-    </div>
+      </>
+    </AdminLayout>
   );
 }
 

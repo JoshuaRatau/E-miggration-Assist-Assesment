@@ -16,8 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { BrandHeader } from "@/components/brand-header";
-import { AdminUserMenu } from "@/components/admin-user-menu";
+import { AdminLayout } from "@/components/admin-layout";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -92,22 +91,28 @@ export function AdminCampaignDetail() {
 
   if (error)
     return (
-      <div className="min-h-screen bg-slate-950 p-8 text-rose-300">{error}</div>
+      <AdminLayout title="Campaign" bodyClassName="bg-slate-950 text-rose-300">
+        <div className="p-8">{error}</div>
+      </AdminLayout>
     );
   if (!data)
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
-        <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-      </div>
+      <AdminLayout title="Campaign" bodyClassName="bg-slate-950">
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+        </div>
+      </AdminLayout>
     );
 
   const c = data.campaign;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100">
-      <div className="mx-auto max-w-7xl px-6 pt-6 pb-12">
-        <BrandHeader variant="compact" rightSlot={<AdminUserMenu />} />
-
+    <AdminLayout
+      title={`Campaign · ${c.name}`}
+      bodyClassName="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100"
+      contentClassName="flex-1 mx-auto max-w-7xl w-full px-6 pt-6 pb-12"
+    >
+      <>
         <Link href="/admin/campaigns">
           <Button
             variant="ghost"
@@ -219,8 +224,8 @@ export function AdminCampaignDetail() {
             )}
           </CardContent>
         </Card>
-      </div>
-    </div>
+      </>
+    </AdminLayout>
   );
 }
 

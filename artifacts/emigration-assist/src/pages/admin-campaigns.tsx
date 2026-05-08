@@ -32,8 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { BrandHeader } from "@/components/brand-header";
-import { AdminUserMenu } from "@/components/admin-user-menu";
+import { AdminLayout } from "@/components/admin-layout";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Plus, Send, Mail, MessageSquare } from "lucide-react";
 import { format } from "date-fns";
@@ -113,10 +112,12 @@ export function AdminCampaigns() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100">
-      <div className="mx-auto max-w-7xl px-6 pt-6 pb-12">
-        <BrandHeader variant="compact" rightSlot={<AdminUserMenu />} />
-
+    <AdminLayout
+      title="Campaigns"
+      bodyClassName="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100"
+      contentClassName="flex-1 mx-auto max-w-7xl w-full px-6 pt-6 pb-12"
+    >
+      <>
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h1
@@ -294,7 +295,7 @@ export function AdminCampaigns() {
             )}
           </CardContent>
         </Card>
-      </div>
-    </div>
+      </>
+    </AdminLayout>
   );
 }

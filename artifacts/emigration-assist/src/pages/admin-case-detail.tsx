@@ -25,8 +25,7 @@ import {
   canAdvanceCaseStatus,
   caseStatusLabel,
 } from "@/lib/caseStatus";
-import { BrandHeader } from "@/components/brand-header";
-import { AdminUserMenu } from "@/components/admin-user-menu";
+import { AdminLayout } from "@/components/admin-layout";
 
 type CaseDetail = {
   id: string;
@@ -179,20 +178,16 @@ export function AdminCaseDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background p-6 md:p-12">
-        <div className="container mx-auto max-w-4xl">
-          <BrandHeader variant="compact" rightSlot={<AdminUserMenu />} />
-          <div data-testid="case-loading">Loading case…</div>
-        </div>
-      </div>
+      <AdminLayout title="Case" contentClassName="flex-1 container mx-auto max-w-4xl px-6 py-8">
+        <div data-testid="case-loading">Loading case…</div>
+      </AdminLayout>
     );
   }
 
   if (error || !caseRow) {
     return (
-      <div className="min-h-screen bg-background p-6 md:p-12">
-        <div className="container mx-auto max-w-4xl space-y-4">
-          <BrandHeader variant="compact" rightSlot={<AdminUserMenu />} />
+      <AdminLayout title="Case" contentClassName="flex-1 container mx-auto max-w-4xl px-6 py-8">
+        <div className="space-y-4">
           <p className="text-destructive" data-testid="case-error">
             {error ?? "Case unavailable"}
           </p>
@@ -200,17 +195,16 @@ export function AdminCaseDetail() {
             <Button variant="outline">Back to dashboard</Button>
           </Link>
         </div>
-      </div>
+      </AdminLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background p-6 md:p-12">
-    <div
-      className="container mx-auto space-y-6 max-w-4xl"
-      data-testid="case-detail"
+    <AdminLayout
+      title={`Case · ${caseRow.referenceNumber}`}
+      contentClassName="flex-1 container mx-auto max-w-4xl px-6 py-8"
     >
-      <BrandHeader variant="compact" rightSlot={<AdminUserMenu />} />
+    <div className="space-y-6" data-testid="case-detail">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">
@@ -374,6 +368,6 @@ export function AdminCaseDetail() {
         </CardContent>
       </Card>
     </div>
-    </div>
+    </AdminLayout>
   );
 }

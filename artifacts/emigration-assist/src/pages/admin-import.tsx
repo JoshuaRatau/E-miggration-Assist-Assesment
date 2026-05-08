@@ -20,8 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { BrandHeader } from "@/components/brand-header";
-import { AdminUserMenu } from "@/components/admin-user-menu";
+import { AdminLayout } from "@/components/admin-layout";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft,
@@ -309,9 +308,11 @@ export function AdminImport() {
 
   // ─── Render ─────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-background">
-      <BrandHeader variant="compact" rightSlot={<AdminUserMenu />} />
-      <div className="container mx-auto max-w-5xl px-4 py-6 space-y-6">
+    <AdminLayout
+      title="Imports"
+      contentClassName="flex-1 container mx-auto max-w-5xl px-4 py-6"
+    >
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1
@@ -768,7 +769,7 @@ export function AdminImport() {
           </Card>
         )}
       </div>
-    </div>
+    </AdminLayout>
   );
 }
 

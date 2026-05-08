@@ -22,8 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { BrandHeader } from "@/components/brand-header";
-import { AdminUserMenu } from "@/components/admin-user-menu";
+import { AdminLayout } from "@/components/admin-layout";
 import { useAdminAuth, type AdminUser } from "@/lib/adminAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Plus, ShieldOff, ShieldCheck, RefreshCw, Trash2, Copy } from "lucide-react";
@@ -143,9 +142,11 @@ export function AdminUsers() {
   };
 
   return (
-    <div className="min-h-screen bg-background py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-5xl mx-auto space-y-8">
-        <BrandHeader variant="compact" rightSlot={<AdminUserMenu />} />
+    <AdminLayout
+      title="Manage Admins"
+      contentClassName="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8"
+    >
+      <div className="space-y-8">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-3xl font-display font-semibold">
@@ -321,7 +322,7 @@ export function AdminUsers() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </AdminLayout>
   );
 }
 

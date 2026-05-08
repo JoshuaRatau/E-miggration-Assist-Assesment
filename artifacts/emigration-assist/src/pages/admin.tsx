@@ -39,8 +39,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BrandHeader } from "@/components/brand-header";
-import { AdminUserMenu } from "@/components/admin-user-menu";
+import { AdminLayout } from "@/components/admin-layout";
 import { DashboardGreeting } from "@/components/dashboard-greeting";
 import { LeadMixCharts } from "@/components/lead-mix-charts";
 import { SourcePerformanceCard } from "@/components/source-performance-card";
@@ -711,47 +710,64 @@ export function Admin() {
         : "All segments";
 
   return (
-    <div className="min-h-screen bg-background p-6 md:p-12">
-      <div className="max-w-7xl mx-auto space-y-8">
-        <BrandHeader
-          variant="compact"
-          leftSlot={<DashboardGreeting />}
-          rightSlot={
-            <div className="flex flex-col-reverse sm:flex-col gap-3 items-stretch sm:items-end">
-              <div className="flex flex-wrap gap-2 justify-end">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSendUpdateEmail}
-                  disabled={sendingUpdate}
-                  data-testid="button-send-update-email"
-                >
-                  {sendingUpdate ? "Sending..." : "Send Update Email"}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleExportCsv}
-                  disabled={exportingCsv}
-                  data-testid="button-export-leads"
-                >
-                  {exportingCsv ? "Exporting…" : "Export Leads (CSV)"}
-                </Button>
-                <Link href="/admin/import?type=professional">
-                  <Button
-                    size="sm"
-                    data-testid="button-import-professionals"
-                  >
-                    Import Professionals
-                  </Button>
-                </Link>
-              </div>
-              <div className="flex justify-end">
-                <AdminUserMenu />
-              </div>
-            </div>
-          }
-        />
+    <AdminLayout
+      title="Dashboard"
+      actions={
+        <div className="hidden md:flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSendUpdateEmail}
+            disabled={sendingUpdate}
+            data-testid="button-send-update-email"
+          >
+            {sendingUpdate ? "Sending..." : "Send Update Email"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCsv}
+            disabled={exportingCsv}
+            data-testid="button-export-leads"
+          >
+            {exportingCsv ? "Exporting…" : "Export Leads (CSV)"}
+          </Button>
+          <Link href="/admin/import?type=professional">
+            <Button
+              size="sm"
+              data-testid="button-import-professionals"
+            >
+              Import Professionals
+            </Button>
+          </Link>
+        </div>
+      }
+    >
+      <div className="space-y-8">
+        <DashboardGreeting />
+
+        {/* Mobile-only action row — desktop renders these in the topbar */}
+        <div className="flex flex-wrap gap-2 md:hidden">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSendUpdateEmail}
+            disabled={sendingUpdate}
+          >
+            {sendingUpdate ? "Sending..." : "Send Update Email"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCsv}
+            disabled={exportingCsv}
+          >
+            {exportingCsv ? "Exporting…" : "Export Leads (CSV)"}
+          </Button>
+          <Link href="/admin/import?type=professional">
+            <Button size="sm">Import Professionals</Button>
+          </Link>
+        </div>
 
         {/* Global B2C / B2B segment selector — promoted from inside the
             Leads card so the entire dashboard (stat cards + leads list +
@@ -1519,7 +1535,7 @@ export function Admin() {
         leadId={timelineTarget?.id ?? null}
         referenceNumber={timelineTarget?.referenceNumber ?? null}
       />
-    </div>
+    </AdminLayout>
   );
 }
 

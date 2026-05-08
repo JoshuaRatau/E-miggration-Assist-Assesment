@@ -25,8 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { DocumentUploader } from "@/components/DocumentUploader";
 import { getAdminToken, clearAdminToken } from "@/lib/adminToken";
 import { canAdvanceStatus, statusLabel } from "@/lib/leadStatus";
-import { BrandHeader } from "@/components/brand-header";
-import { AdminUserMenu } from "@/components/admin-user-menu";
+import { AdminLayout } from "@/components/admin-layout";
 
 const STATUS_OPTIONS = [
   "new",
@@ -179,21 +178,19 @@ export function AdminLeadDetail() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background p-6 md:p-12">
-        <div className="max-w-5xl mx-auto space-y-6">
-          <BrandHeader variant="compact" rightSlot={<AdminUserMenu />} />
+      <AdminLayout title="Lead" contentClassName="flex-1 max-w-5xl w-full mx-auto px-6 py-8">
+        <div className="space-y-6">
           <Skeleton className="h-8 w-48" />
           <Skeleton className="h-64 w-full" />
         </div>
-      </div>
+      </AdminLayout>
     );
   }
 
   if (isError || !lead) {
     return (
-      <div className="min-h-screen bg-background p-6 md:p-12">
-        <div className="max-w-5xl mx-auto space-y-4">
-          <BrandHeader variant="compact" rightSlot={<AdminUserMenu />} />
+      <AdminLayout title="Lead" contentClassName="flex-1 max-w-5xl w-full mx-auto px-6 py-8">
+        <div className="space-y-4">
           <Link href="/admin">
             <Button variant="ghost">← Back to admin</Button>
           </Link>
@@ -203,14 +200,16 @@ export function AdminLeadDetail() {
             </CardContent>
           </Card>
         </div>
-      </div>
+      </AdminLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background p-6 md:p-12">
-      <div className="max-w-5xl mx-auto space-y-6">
-        <BrandHeader variant="compact" rightSlot={<AdminUserMenu />} />
+    <AdminLayout
+      title={`Lead · ${lead.referenceNumber}`}
+      contentClassName="flex-1 max-w-5xl w-full mx-auto px-6 py-8"
+    >
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
           <Link href="/admin">
             <Button variant="ghost" data-testid="link-back-admin">
@@ -442,7 +441,7 @@ export function AdminLeadDetail() {
 
         <EngagementHistory leadId={id} />
       </div>
-    </div>
+    </AdminLayout>
   );
 }
 

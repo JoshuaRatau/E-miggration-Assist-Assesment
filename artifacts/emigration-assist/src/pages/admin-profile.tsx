@@ -3,9 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { BrandHeader } from "@/components/brand-header";
+import { AdminLayout } from "@/components/admin-layout";
 import { useAdminAuth } from "@/lib/adminAuth";
-import { AdminUserMenu } from "@/components/admin-user-menu";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
@@ -56,9 +55,11 @@ export function AdminProfile() {
   };
 
   return (
-    <div className="min-h-screen bg-background py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-2xl mx-auto space-y-8">
-        <BrandHeader variant="compact" rightSlot={<AdminUserMenu />} />
+    <AdminLayout
+      title="Profile"
+      contentClassName="flex-1 max-w-2xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8"
+    >
+      <div className="space-y-8">
         <div className="space-y-2">
           <h1 className="text-3xl font-display font-semibold">Your profile</h1>
           <p className="text-sm text-muted-foreground">
@@ -136,6 +137,6 @@ export function AdminProfile() {
           </form>
         </Card>
       </div>
-    </div>
+    </AdminLayout>
   );
 }
