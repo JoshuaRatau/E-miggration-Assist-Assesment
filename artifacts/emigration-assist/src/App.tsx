@@ -1,4 +1,5 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { useEffect } from "react";
+import { Switch, Route, Router as WouterRouter, useLocation, useRoute } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -17,9 +18,34 @@ import { AdminReset } from "@/pages/admin-reset";
 import { AdminProfile } from "@/pages/admin-profile";
 import { AdminUsers } from "@/pages/admin-users";
 import { AdminImport } from "@/pages/admin-import";
-import { AdminCampaigns } from "@/pages/admin-campaigns";
+import { AdminCommunications } from "@/pages/admin-communications";
 import { AdminCampaignEditor } from "@/pages/admin-campaign-editor";
 import { AdminCampaignDetail } from "@/pages/admin-campaign-detail";
+
+/** Phase C — legacy /admin/campaigns/* paths now live under
+ *  /admin/communications/*. We replace history (no back-button bounce)
+ *  so old bookmarks resolve cleanly. */
+function LegacyCampaignsRedirect() {
+  const [, setLocation] = useLocation();
+  const [, editParams] = useRoute<{ id: string }>("/admin/campaigns/:id/edit");
+  const [, detailParams] = useRoute<{ id: string }>("/admin/campaigns/:id");
+  useEffect(() => {
+    if (editParams?.id) {
+      setLocation(
+        `/admin/communications/campaigns/${editParams.id}/edit`,
+        { replace: true },
+      );
+    } else if (detailParams?.id) {
+      setLocation(
+        `/admin/communications/campaigns/${detailParams.id}`,
+        { replace: true },
+      );
+    } else {
+      setLocation("/admin/communications", { replace: true });
+    }
+  }, [editParams?.id, detailParams?.id, setLocation]);
+  return null;
+}
 
 const queryClient = new QueryClient();
 
@@ -64,17 +90,38 @@ function Router() {
           <AdminLeadDetail />
         </RequireAdminAuth>
       </Route>
-      <Route path="/admin/campaigns">
+      {/* Legacy /admin/campaigns/* — redirect to /admin/communications/*.
+          Order matters: more specific routes must come first. */}
+      <Route path="/admin/campaigns/:id/edit" component={LegacyCampaignsRedirect} />
+      <Route path="/admin/campaigns/:id" component={LegacyCampaignsRedirect} />
+      <Route path="/admin/campaigns" component={LegacyCampaignsRedirect} />
+
+      <Route path="/admin/communications">
         <RequireAdminAuth>
-          <AdminCampaigns />
+          <AdminCommunications />
         </RequireAdminAuth>
       </Route>
-      <Route path="/admin/campaigns/:id/edit">
+      <Route path="/admin/communications/templates">
+        <RequireAdminAuth>
+          <AdminCommunications />
+        </RequireAdminAuth>
+      </Route>
+      <Route path="/admin/communications/notifications">
+        <RequireAdminAuth>
+          <AdminCommunications />
+        </RequireAdminAuth>
+      </Route>
+      <Route path="/admin/communications/reports">
+        <RequireAdminAuth>
+          <AdminCommunications />
+        </RequireAdminAuth>
+      </Route>
+      <Route path="/admin/communications/campaigns/:id/edit">
         <RequireAdminAuth>
           <AdminCampaignEditor />
         </RequireAdminAuth>
       </Route>
-      <Route path="/admin/campaigns/:id">
+      <Route path="/admin/communications/campaigns/:id">
         <RequireAdminAuth>
           <AdminCampaignDetail />
         </RequireAdminAuth>

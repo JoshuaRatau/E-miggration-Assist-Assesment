@@ -44,16 +44,16 @@ const NAV_ITEMS: NavItem[] = [
       p.startsWith("/admin/case"),
   },
   {
-    href: "/admin/campaigns",
-    label: "Campaigns",
-    testId: "sidebar-campaigns",
+    href: "/admin/communications",
+    label: "Communications",
+    testId: "sidebar-communications",
     Icon: Send,
-    // Phase C will rename this to "Communications" and move the route
-    // under /admin/communications with a redirect; until then the nav
-    // stays under the old label.
+    // /admin/campaigns/* still resolves (legacy redirects) so we keep
+    // it in the active-state predicate to avoid the sidebar momentarily
+    // dimming during the redirect hop.
     match: (p) =>
-      p.startsWith("/admin/campaigns") ||
-      p.startsWith("/admin/communications"),
+      p.startsWith("/admin/communications") ||
+      p.startsWith("/admin/campaigns"),
   },
   {
     href: "/admin/import",

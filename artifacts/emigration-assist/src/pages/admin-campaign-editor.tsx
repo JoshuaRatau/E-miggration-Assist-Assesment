@@ -55,7 +55,9 @@ interface PreviewResult {
 }
 
 export function AdminCampaignEditor() {
-  const [, params] = useRoute<{ id: string }>("/admin/campaigns/:id/edit");
+  const [, params] = useRoute<{ id: string }>(
+    "/admin/communications/campaigns/:id/edit",
+  );
   const [, setLocation] = useLocation();
   const id = params?.id;
   const { toast } = useToast();
@@ -85,7 +87,7 @@ export function AdminCampaignEditor() {
         setDraft(json.campaign);
         if (json.campaign.status !== "draft") {
           // Already sent — bounce to detail page.
-          setLocation(`/admin/campaigns/${id}`);
+          setLocation(`/admin/communications/campaigns/${id}`);
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load");
@@ -209,7 +211,7 @@ export function AdminCampaignEditor() {
         description: `Sent: ${json.tally.sent} · Failed: ${json.tally.failed} · Skipped: ${json.tally.skipped + json.tally.unsub}`,
       });
       setConfirmOpen(false);
-      setLocation(`/admin/campaigns/${draft.id}`);
+      setLocation(`/admin/communications/campaigns/${draft.id}`);
     } catch (e) {
       toast({
         title: "Send failed",
@@ -230,7 +232,7 @@ export function AdminCampaignEditor() {
         credentials: "include",
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setLocation("/admin/campaigns");
+      setLocation("/admin/communications");
     } catch (e) {
       toast({
         title: "Delete failed",

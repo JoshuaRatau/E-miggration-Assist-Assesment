@@ -125,6 +125,76 @@ router.get("/admin/campaigns", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// stats — DB-only aggregates for the Communications → Reports tab.
+// Open/click rates are intentionally omitted (no provider webhooks wired
+// yet); this surface only reports facts the DB already knows.
+
+router.get("/admin/campaigns/stats", async (req, res) => {
+  if (!(await requireAdminAuth(req, res))) return;
+
+  const [totals] = await db
+    .select({
+      totalCampaigns: sql<number>`count(*)::int`,
+      drafts: sql<number>`count(*) filter (where ${campaignsTable.status} = 'draft')::int`,
+      sending: sql<number>`count(*) filter (where ${campaignsTable.status} = 'sending')::int`,
+      completed: sql<number>`count(*) filter (where ${campaignsTable.status} = 'completed')::int`,
+      cancelled: sql<number>`count(*) filter (where ${campaignsTable.status} = 'cancelled')::int`,
+      emailCampaigns: sql<number>`count(*) filter (where ${campaignsTable.channel} = 'email')::int`,
+      whatsappCampaigns: sql<number>`count(*) filter (where ${campaignsTable.channel} = 'whatsapp')::int`,
+      recipientsTotal: sql<number>`coalesce(sum(${campaignsTable.recipientsTotal}), 0)::int`,
+      recipientsSent: sql<number>`coalesce(sum(${campaignsTable.recipientsSent}), 0)::int`,
+      recipientsFailed: sql<number>`coalesce(sum(${campaignsTable.recipientsFailed}), 0)::int`,
+      recipientsSkipped: sql<number>`coalesce(sum(${campaignsTable.recipientsSkipped}), 0)::int`,
+      recipientsUnsubscribed: sql<number>`coalesce(sum(${campaignsTable.recipientsUnsubscribed}), 0)::int`,
+    })
+    .from(campaignsTable);
+
+  const recent = await db
+    .select({
+      id: campaignsTable.id,
+      name: campaignsTable.name,
+      channel: campaignsTable.channel,
+      status: campaignsTable.status,
+      recipientsTotal: campaignsTable.recipientsTotal,
+      recipientsSent: campaignsTable.recipientsSent,
+      recipientsFailed: campaignsTable.recipientsFailed,
+      sentAt: campaignsTable.sentAt,
+      createdAt: campaignsTable.createdAt,
+    })
+    .from(campaignsTable)
+    .orderBy(desc(campaignsTable.sentAt), desc(campaignsTable.createdAt))
+    .limit(10);
+
+  return res.json({
+    totals: totals ?? {
+      totalCampaigns: 0,
+      drafts: 0,
+      sending: 0,
+      completed: 0,
+      cancelled: 0,
+      emailCampaigns: 0,
+      whatsappCampaigns: 0,
+      recipientsTotal: 0,
+      recipientsSent: 0,
+      recipientsFailed: 0,
+      recipientsSkipped: 0,
+      recipientsUnsubscribed: 0,
+    },
+    recent: recent.map((r) => ({
+      id: r.id,
+      name: r.name,
+      channel: r.channel,
+      status: r.status,
+      recipientsTotal: r.recipientsTotal,
+      recipientsSent: r.recipientsSent,
+      recipientsFailed: r.recipientsFailed,
+      sentAt: r.sentAt ? r.sentAt.toISOString() : null,
+      createdAt: r.createdAt.toISOString(),
+    })),
+  });
+});
+
+// ---------------------------------------------------------------------------
 // create draft
 
 router.post("/admin/campaigns", async (req, res) => {

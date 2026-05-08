@@ -65,9 +65,9 @@ export function AdminUserMenu() {
             <User className="mr-2 h-4 w-4" /> Profile / Change password
           </DropdownMenuItem>
         </Link>
-        <Link href="/admin/campaigns">
-          <DropdownMenuItem data-testid="menu-campaigns">
-            <Send className="mr-2 h-4 w-4" /> Campaigns
+        <Link href="/admin/communications">
+          <DropdownMenuItem data-testid="menu-communications">
+            <Send className="mr-2 h-4 w-4" /> Communications
           </DropdownMenuItem>
         </Link>
         {user.isSuperadmin ? (

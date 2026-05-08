@@ -61,7 +61,9 @@ const STATUS_TONE: Record<Recipient["status"], string> = {
 };
 
 export function AdminCampaignDetail() {
-  const [, params] = useRoute<{ id: string }>("/admin/campaigns/:id");
+  const [, params] = useRoute<{ id: string }>(
+    "/admin/communications/campaigns/:id",
+  );
   const id = params?.id;
   const [data, setData] = useState<{
     campaign: Campaign;
@@ -113,7 +115,7 @@ export function AdminCampaignDetail() {
       contentClassName="flex-1 mx-auto max-w-7xl w-full px-6 pt-6 pb-12"
     >
       <>
-        <Link href="/admin/campaigns">
+        <Link href="/admin/communications">
           <Button
             variant="ghost"
             size="sm"
