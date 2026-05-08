@@ -1,5 +1,10 @@
 import { useMemo, useState } from "react";
 import type { Lead } from "@workspace/api-client-react";
+// Bridges native HTML5 drag-and-drop onto touch events so the pipeline
+// kanban remains usable on phones/tablets. Side-effect import — the
+// polyfill self-installs on first import; it no-ops on devices that
+// already support DnD natively (desktop mouse).
+import "drag-drop-touch";
 
 import {
   LEAD_STATUS_ORDER,

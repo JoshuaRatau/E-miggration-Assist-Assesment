@@ -454,7 +454,7 @@ export function AdminImport() {
               </div>
             </div>
 
-            <div className="border rounded-lg overflow-hidden">
+            <div className="border rounded-lg overflow-hidden overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -576,7 +576,7 @@ export function AdminImport() {
 
         {step === "preview" && uploadResp && (
           <Card className="p-6 space-y-6" data-testid="step-preview">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Stat
                 label="Total rows"
                 value={uploadResp.job.rowsTotal}

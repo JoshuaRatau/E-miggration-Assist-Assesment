@@ -168,6 +168,7 @@ export function AdminCampaignDetail() {
                 No recipients yet.
               </div>
             ) : (
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -223,6 +224,7 @@ export function AdminCampaignDetail() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             )}
           </CardContent>
         </Card>

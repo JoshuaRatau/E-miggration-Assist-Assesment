@@ -173,6 +173,7 @@ export function AdminUsers() {
           ) : users.length === 0 ? (
             <p className="text-sm text-muted-foreground">No admins yet.</p>
           ) : (
+            <div className="rounded-md border overflow-x-auto">
             <Table data-testid="admin-users-table">
               <TableHeader>
                 <TableRow>
@@ -269,6 +270,7 @@ export function AdminUsers() {
                 })}
               </TableBody>
             </Table>
+            </div>
           )}
         </Card>
       </div>

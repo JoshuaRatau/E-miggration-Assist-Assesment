@@ -101,7 +101,7 @@ export function AdminCommunications() {
         </div>
 
         <div
-          className="mt-6 mb-6 flex gap-1 border-b border-slate-700/40"
+          className="mt-6 mb-6 -mx-4 sm:mx-0 px-4 sm:px-0 flex gap-1 border-b border-slate-700/40 overflow-x-auto whitespace-nowrap scrollbar-thin"
           role="tablist"
           aria-label="Communications sections"
         >
@@ -114,7 +114,7 @@ export function AdminCommunications() {
                   aria-selected={isActive}
                   data-testid={t.testId}
                   className={
-                    "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors " +
+                    "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors shrink-0 " +
                     (isActive
                       ? "border-primary text-primary"
                       : "border-transparent text-slate-400 hover:text-slate-200")
@@ -297,6 +297,7 @@ function CampaignsPanel() {
               No campaigns yet. Create your first one to start.
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -375,6 +376,7 @@ function CampaignsPanel() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -575,6 +577,7 @@ function ReportsPanel() {
               No campaigns yet.
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -627,6 +630,7 @@ function ReportsPanel() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>
