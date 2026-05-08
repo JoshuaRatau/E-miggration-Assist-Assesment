@@ -1,6 +1,10 @@
 import { type ReactNode } from "react";
 import { Link } from "wouter";
 import { AdminUserMenu } from "@/components/admin-user-menu";
+import {
+  TopbarGreeting,
+  TopbarClock,
+} from "@/components/dashboard-greeting";
 import brandLogo from "@assets/E-Migration_Assist_New_Logo-removebg-preview_1778135270233.png";
 
 /**
@@ -30,19 +34,26 @@ import brandLogo from "@assets/E-Migration_Assist_New_Logo-removebg-preview_1778
  *   - `contentClassName` swaps main padding/width.
  */
 
+// Phase 5H — palette aligned to the marketing site's hero gradient
+// (preferred_col_*.png reference). Diagonal teal-blue top-left fading
+// into deep navy bottom-right; visibly lighter and less "rich" than
+// the v3 radial. Cards (`bg-card`) still sit elevated on top.
 const BRAND_GRADIENT =
-  "bg-[radial-gradient(ellipse_at_top,_#173768_0%,_#0c1d3a_55%,_#0a162b_100%)]";
+  "bg-[linear-gradient(135deg,_#11618c_0%,_#114c7e_30%,_#0f3667_60%,_#0b234a_100%)]";
 
 const LOGO_FILTER =
   "brightness(0) invert(1) drop-shadow(0 1px 2px rgba(0,0,0,0.45))";
 
 export function AdminLayout({
-  title,
+  title: _title,
   actions,
   bodyClassName,
   contentClassName,
   children,
 }: {
+  /** Phase 5H: prop accepted for back-compat but no longer rendered —
+   *  the topbar pill was replaced by `<TopbarGreeting/>`. Page chrome
+   *  context now lives inside each page's body heading. */
   title?: string;
   /** Page-level action slot rendered to the LEFT of the Admin dropdown.
    *  Most pages should leave this empty — global modules live in the
@@ -80,19 +91,16 @@ export function AdminLayout({
           />
         </Link>
 
-        {title ? (
-          <h1
-            className="hidden md:block text-sm font-medium text-white/70 truncate flex-1 min-w-0 pl-4 ml-2 border-l border-white/10"
-            data-testid="admin-page-title"
-          >
-            {title}
-          </h1>
-        ) : (
-          <div className="flex-1" />
-        )}
+        {/* Phase 5H — personalised greeting takes the slot the page-title
+            pill used to occupy. Hidden below sm so the logo + Admin
+            button remain the only topbar elements on phones. */}
+        <div className="flex-1 min-w-0 pl-2 sm:pl-4 sm:ml-2 sm:border-l sm:border-white/10">
+          <TopbarGreeting />
+        </div>
 
-        <div className="flex items-center gap-2 shrink-0 ml-auto">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0 ml-auto">
           {actions}
+          <TopbarClock />
           <AdminUserMenu />
         </div>
       </header>

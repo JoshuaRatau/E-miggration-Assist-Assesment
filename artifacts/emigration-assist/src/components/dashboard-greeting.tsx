@@ -15,6 +15,13 @@ const dateFmt = new Intl.DateTimeFormat("en-ZA", {
   timeZone: SAST_ZONE,
 });
 
+const dateFmtCompact = new Intl.DateTimeFormat("en-ZA", {
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+  timeZone: SAST_ZONE,
+});
+
 const timeFmt = new Intl.DateTimeFormat("en-ZA", {
   hour: "2-digit",
   minute: "2-digit",
@@ -22,12 +29,6 @@ const timeFmt = new Intl.DateTimeFormat("en-ZA", {
   timeZone: SAST_ZONE,
 });
 
-// Hour bucket → greeting copy. Boundaries chosen to feel natural for an
-// internal SaaS dashboard:
-//   05:00 – 11:59 → morning
-//   12:00 – 16:59 → afternoon
-//   17:00 – 21:59 → evening
-//   22:00 – 04:59 → night (covers the after-hours operator)
 function greetingForHour(hourSast: number): string {
   if (hourSast >= 5 && hourSast < 12) return "Good morning";
   if (hourSast >= 12 && hourSast < 17) return "Good afternoon";
@@ -35,10 +36,6 @@ function greetingForHour(hourSast: number): string {
   return "Working late";
 }
 
-// Returns the current local hour as observed in SAST. We do this via the
-// formatter (rather than `new Date().getHours()` which would use the
-// browser's timezone) so the greeting matches the date/time strip below
-// even when the operator is travelling.
 function sastHour(d: Date): number {
   const parts = new Intl.DateTimeFormat("en-ZA", {
     hour: "2-digit",
@@ -49,9 +46,6 @@ function sastHour(d: Date): number {
   return parseInt(hh, 10);
 }
 
-// Pull a presentable first name from the signed-in admin profile. Falls
-// back to the local-part of the email if there's no displayName, and finally
-// to "there" so the greeting always reads naturally.
 function firstNameOf(
   user: { displayName: string | null; email: string } | null,
 ): string {
@@ -62,28 +56,17 @@ function firstNameOf(
   }
   const local = user.email.split("@")[0] ?? "";
   if (local.length === 0) return "there";
-  // "demo.admin" → "Demo", "alice_smith" → "Alice"
-  const piece = local.split(/[._-]/)[0]!;
-  return piece.charAt(0).toUpperCase() + piece.slice(1);
+  return local.split(/[._-]/)[0]!.replace(/^\w/, (c) => c.toUpperCase());
 }
 
 /**
- * Personalised greeting strip for the admin dashboard. Renders the
- * time-of-day greeting + signed-in operator's first name on the top line,
- * and a live-ticking "Wednesday, 7 May 2026 · 09:42 SAST" subline below.
- *
- * The clock re-renders once per minute (cheap setInterval) — minute-level
- * granularity is more than enough for an internal CRM and avoids the
- * battery hit of a 1Hz tick that nobody notices.
+ * Shared minute-aligned clock hook. Re-renders once per wall-clock minute
+ * (cheap setInterval, aligned to the next minute boundary on mount so
+ * the UI flips within ~1s of the real change instead of drifting).
  */
-export function DashboardGreeting() {
-  const { user } = useAdminAuth();
+function useMinuteClock(): Date {
   const [now, setNow] = useState<Date>(() => new Date());
-
   useEffect(() => {
-    // Align the first tick to the next wall-clock minute boundary so that
-    // when "09:42" rolls to "09:43" the UI flips within ~1 second of the
-    // real change instead of drifting up to 60s out of step.
     const msToNextMinute = 60_000 - (Date.now() % 60_000);
     let interval: ReturnType<typeof setInterval> | undefined;
     const align = setTimeout(() => {
@@ -95,39 +78,91 @@ export function DashboardGreeting() {
       if (interval) clearInterval(interval);
     };
   }, []);
+  return now;
+}
 
+/**
+ * Phase 5H — topbar personalised greeting.
+ *
+ * Replaces the "Dashboard" title pill that previously sat next to the
+ * brand logo in `AdminLayout`. Renders only when an admin is signed in
+ * (gated by `useAdminAuth().user`), so logged-out chrome (login,
+ * forgot-password) doesn't surface a stale greeting.
+ */
+export function TopbarGreeting() {
+  const { user } = useAdminAuth();
+  const now = useMinuteClock();
+  if (!user) return null;
   const greeting = greetingForHour(sastHour(now));
   const firstName = firstNameOf(user);
   return (
-    <div data-testid="dashboard-greeting" className="min-w-0 space-y-6">
-      <div className="space-y-2">
-        <p className="text-lg font-semibold text-foreground/95 leading-tight">
-          {greeting}, {firstName}
-        </p>
-        <p
-          className="text-muted-foreground text-sm"
-          data-testid="dashboard-clock"
-        >
-          <span className="font-medium text-foreground/75">
-            {dateFmt.format(now)}
-          </span>
-          <span className="mx-2 opacity-50">·</span>
-          <span className="tabular-nums">{timeFmt.format(now)}</span>
-          <span className="ml-1 opacity-70">SAST</span>
-        </p>
-      </div>
-      <div className="space-y-3">
-        <h1
-          className="text-3xl sm:text-4xl font-display font-bold leading-tight tracking-tight"
-          data-testid="dashboard-heading"
-        >
-          Lead Intelligence Dashboard
-        </h1>
-        <p className="text-muted-foreground text-base max-w-2xl">
-          Monitor, analyse and manage individual and professional lead
-          activity in real time.
-        </p>
-      </div>
+    <div
+      className="min-w-0 hidden sm:block"
+      data-testid="topbar-greeting"
+    >
+      <p className="text-sm sm:text-base font-semibold text-white leading-tight truncate">
+        {greeting}, {firstName}
+      </p>
     </div>
   );
 }
+
+/**
+ * Phase 5H — topbar live date/time strip.
+ *
+ * Sits to the immediate left of the Admin dropdown. On <sm viewports
+ * the date is hidden and only the HH:mm clock shows so the topbar stays
+ * single-row. SAST suffix is dropped on mobile for the same reason.
+ */
+export function TopbarClock() {
+  const now = useMinuteClock();
+  return (
+    <div
+      className="hidden md:flex items-center gap-2 text-xs text-white/70 px-3"
+      data-testid="topbar-clock"
+    >
+      <span className="font-medium text-white/85">
+        {dateFmtCompact.format(now)}
+      </span>
+      <span className="opacity-50">·</span>
+      <span className="tabular-nums">{timeFmt.format(now)}</span>
+      <span className="opacity-60">SAST</span>
+    </div>
+  );
+}
+
+/**
+ * Phase 5H — body heading block.
+ *
+ * Slimmed down: the personalised greeting + clock that previously
+ * lived here have been promoted into the AdminLayout topbar (left of
+ * the page area for the greeting, right-of-page for the clock). What
+ * remains is just the dashboard title + supporting subtitle.
+ *
+ * Kept as its own component (rather than inlined into admin.tsx) so a
+ * future "all admin pages get a personalised heading" change has one
+ * obvious extension point.
+ */
+export function DashboardGreeting() {
+  return (
+    <div
+      data-testid="dashboard-heading-block"
+      className="min-w-0 space-y-3"
+    >
+      <h1
+        className="text-3xl sm:text-4xl font-display font-bold leading-tight tracking-tight text-white"
+        data-testid="dashboard-heading"
+      >
+        Lead Intelligence Dashboard
+      </h1>
+      <p className="text-white/70 text-base max-w-2xl">
+        Monitor, analyse and manage individual and professional lead
+        activity in real time.
+      </p>
+    </div>
+  );
+}
+
+// Long-form date formatter retained for any future surface (e.g. report
+// PDFs) that wants the verbose "Friday, 8 May 2026" rendering.
+export { dateFmt as longDateFmt };
