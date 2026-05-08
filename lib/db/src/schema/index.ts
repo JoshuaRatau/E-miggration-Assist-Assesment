@@ -3,3 +3,4 @@ export * from "./leadCases";
 export * from "./admin";
 export * from "./imports";
 export * from "./campaigns";
+export * from "./templates";

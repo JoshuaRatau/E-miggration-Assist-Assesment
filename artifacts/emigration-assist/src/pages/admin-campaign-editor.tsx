@@ -32,7 +32,15 @@ import {
   AudienceQueryBuilder,
   type AudienceQuery,
 } from "@/components/audience-query-builder";
-import { Loader2, Send, Trash2, FlaskConical, Save, Eye } from "lucide-react";
+import {
+  Loader2,
+  Send,
+  Trash2,
+  FlaskConical,
+  Save,
+  Eye,
+  FileText,
+} from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -54,6 +62,23 @@ interface PreviewResult {
   cap: number;
 }
 
+interface TemplateOption {
+  id: string;
+  name: string;
+  category: string;
+  channel: "email" | "whatsapp";
+  subject: string | null;
+  body: string;
+}
+
+const TEMPLATE_CATEGORY_LABEL: Record<string, string> = {
+  promotional: "Promotional",
+  system_update: "System Update",
+  new_feature: "New Feature",
+  educational: "Educational",
+  customer_experience: "Customer Experience",
+};
+
 export function AdminCampaignEditor() {
   const [, params] = useRoute<{ id: string }>(
     "/admin/communications/campaigns/:id/edit",
@@ -70,7 +95,50 @@ export function AdminCampaignEditor() {
   const [testing, setTesting] = useState(false);
   const [sending, setSending] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
+  const [templateOptions, setTemplateOptions] = useState<
+    TemplateOption[] | null
+  >(null);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  async function openTemplatePicker() {
+    if (!draft) return;
+    setTemplatePickerOpen(true);
+    setLoadingTemplates(true);
+    try {
+      const res = await fetch(
+        `${BASE}/api/admin/templates?channel=${draft.channel}`,
+        { credentials: "include" },
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = (await res.json()) as { templates: TemplateOption[] };
+      setTemplateOptions(json.templates);
+    } catch (e) {
+      toast({
+        title: "Could not load templates",
+        description: e instanceof Error ? e.message : "Unknown error",
+        variant: "destructive",
+      });
+      setTemplateOptions([]);
+    } finally {
+      setLoadingTemplates(false);
+    }
+  }
+
+  function applyTemplate(t: TemplateOption) {
+    if (!draft) return;
+    setDraft({
+      ...draft,
+      // Keep the campaign name unless it's still the default
+      // "Untitled campaign" — then promote the template name as a hint.
+      name: draft.name === "Untitled campaign" ? t.name : draft.name,
+      templateSubject: draft.channel === "email" ? t.subject : null,
+      templateBody: t.body,
+    });
+    setTemplatePickerOpen(false);
+    toast({ title: "Template loaded", description: t.name });
+  }
 
   // Initial load.
   useEffect(() => {
@@ -310,6 +378,15 @@ export function AdminCampaignEditor() {
             <Button
               variant="outline"
               size="sm"
+              onClick={openTemplatePicker}
+              data-testid="button-load-template"
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              Load from template
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => save(draft)}
               data-testid="button-save-now"
             >
@@ -318,6 +395,80 @@ export function AdminCampaignEditor() {
             </Button>
           </div>
         </div>
+
+        <Dialog
+          open={templatePickerOpen}
+          onOpenChange={setTemplatePickerOpen}
+        >
+          <DialogContent
+            className="max-w-2xl"
+            data-testid="dialog-load-template"
+          >
+            <DialogHeader>
+              <DialogTitle>Load from template</DialogTitle>
+              <DialogDescription>
+                Pick a saved {draft.channel} template. Its{" "}
+                {draft.channel === "email" ? "subject and body" : "body"}{" "}
+                will replace what you have now. Audience and channel are
+                left untouched.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-[60vh] overflow-y-auto">
+              {loadingTemplates ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                </div>
+              ) : !templateOptions || templateOptions.length === 0 ? (
+                <div className="px-2 py-12 text-center text-sm text-slate-400">
+                  No {draft.channel} templates yet. Create one in
+                  Communications → Templates.
+                </div>
+              ) : (
+                <ul className="divide-y divide-slate-700/40">
+                  {templateOptions.map((t) => (
+                    <li key={t.id}>
+                      <button
+                        type="button"
+                        onClick={() => applyTemplate(t)}
+                        className="w-full text-left px-3 py-3 hover:bg-slate-800/40 rounded transition-colors"
+                        data-testid={`option-template-${t.id}`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-medium text-slate-100">
+                            {t.name}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className="border-slate-500/40 bg-slate-500/10 text-slate-300 text-[10px]"
+                          >
+                            {TEMPLATE_CATEGORY_LABEL[t.category] ??
+                              t.category}
+                          </Badge>
+                        </div>
+                        {t.subject ? (
+                          <div className="mt-1 text-xs text-slate-400 truncate">
+                            {t.subject}
+                          </div>
+                        ) : null}
+                        <div className="mt-1 text-xs text-slate-500 line-clamp-2">
+                          {t.body}
+                        </div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setTemplatePickerOpen(false)}
+              >
+                Cancel
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="space-y-4 lg:col-span-2">
