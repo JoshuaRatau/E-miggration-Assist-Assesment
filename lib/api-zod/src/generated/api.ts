@@ -214,6 +214,9 @@ export const ListLeadsResponseItem = zod
     inquiryType: zod.string().nullish(),
     source: zod.string().nullish(),
     sourceCampaign: zod.string().nullish(),
+    organizationName: zod.string().nullish(),
+    organizationType: zod.string().nullish(),
+    estimatedClientVolume: zod.number().nullish(),
     assignedTo: zod
       .string()
       .nullish()

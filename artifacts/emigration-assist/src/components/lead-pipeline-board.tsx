@@ -156,11 +156,11 @@ export function LeadPipelineBoard({ leads, onMove }: LeadPipelineBoardProps) {
                 if (!lead) return;
                 if (lead.leadStatus === status) return; // no-op drop
                 if (!canAdvanceStatus(lead.leadStatus, status)) {
+                  // Only one rule can fail today: the converted
+                  // predecessor lock. Tailor the toast accordingly.
                   toast({
                     title: "Move blocked",
-                    description: `Pipeline is forward-only — can't move "${statusLabel(
-                      lead.leadStatus ?? "—",
-                    )}" → "${statusLabel(status)}".`,
+                    description: `A lead must reach "Ready For Case" before it can be converted.`,
                     variant: "destructive",
                   });
                   return;

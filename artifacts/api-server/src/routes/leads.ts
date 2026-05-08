@@ -123,6 +123,13 @@ function serializeLeadAdminList(
     // have a null fullName because the contact-person field is captured
     // separately in `representativeName`.
     organizationName: row.organizationName,
+    // Phase 5 §5 — Type-of-Enquiry derivation needs the B2B sizing
+    // signals to distinguish "Enterprise Demo Request" from the
+    // default "Professional Partnership". Surfaced on the slim list
+    // row so the dashboard column can render correctly without an
+    // extra round-trip per row.
+    organizationType: row.organizationType,
+    estimatedClientVolume: row.estimatedClientVolume,
     assignedTo: row.assignedTo,
     lastContactedAt: row.lastContactedAt
       ? row.lastContactedAt.toISOString()

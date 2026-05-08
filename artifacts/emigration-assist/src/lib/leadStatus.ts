@@ -24,25 +24,21 @@ export const LEAD_STATUS_ORDER = [
 export type LeadStatus = (typeof LEAD_STATUS_ORDER)[number];
 
 /**
- * Returns true when transitioning from `from` to `to` is a no-op or a
- * forward step in the funnel.  Permissive on unknown statuses so legacy
- * DB values never lock a lead — the server-side allowlist still rejects
- * unknown TARGET statuses with 400 before this guard would matter.
+ * Returns true when transitioning from `from` to `to` is permitted.
+ *
+ * Phase 5 §10 — the funnel is now BIDIRECTIONAL. Operators may move a
+ * lead forward OR backward to any stage. The single remaining hard
+ * invariant is the `converted` predecessor lock: a lead may only enter
+ * the `converted` state from `ready_for_case` (or the converted no-op),
+ * because converting also creates a `lead_cases` row and we still want
+ * that handover to be deliberate. Moving a lead BACK out of `converted`
+ * is allowed at the funnel level, but note that the linked case row is
+ * not deleted — that is a benign data artefact rather than a bug.
  */
 export function canAdvanceStatus(
   from: string | null | undefined,
   to: string,
 ): boolean {
-  const fromIdx = from ? LEAD_STATUS_ORDER.indexOf(from as LeadStatus) : -1;
-  const toIdx = LEAD_STATUS_ORDER.indexOf(to as LeadStatus);
-  if (fromIdx === -1 || toIdx === -1) return true;
-  if (toIdx < fromIdx) return false;
-  // Mirror the server-side predecessor lock for `converted`: the only
-  // valid source for the converted status is `ready_for_case` (or the
-  // no-op converted → converted). Any earlier state → converted is
-  // rejected with HTTP 409 in adminLeads.ts; we replicate the rule here
-  // so the pipeline drag and the status dropdown both flag it
-  // up-front instead of letting the user perform a doomed move.
   if (to === "converted" && from !== "ready_for_case" && from !== "converted") {
     return false;
   }

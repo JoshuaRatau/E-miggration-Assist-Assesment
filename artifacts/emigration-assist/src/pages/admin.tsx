@@ -50,6 +50,8 @@ import { LeadVelocityChip } from "@/components/lead-velocity-chip";
 import { LeadScoreBadge } from "@/components/lead-score-badge";
 import { SavedViewsBar } from "@/components/saved-views-bar";
 import { PreferredCommunicationCell } from "@/components/preferred-communication-cell";
+import { HelpTooltip } from "@/components/help-tooltip";
+import { enquiryCategoryLabel } from "@/lib/typeOfEnquiry";
 import { derivePreferredCommunication } from "@/lib/preferredCommunication";
 import { LeadSourceBadge } from "@/components/lead-source-badge";
 import { LEAD_SOURCES, leadSourceMeta, normalizeLeadSource } from "@/lib/leadSource";
@@ -240,14 +242,8 @@ function contactHref(
 // shared `isStrictlyUpstreamOf(status, "contacted")` helper in
 // lib/leadStatus.ts — keeps a single source of truth as the funnel grows.)
 
-// "Visa Type" surfaces the lead's `immigrationSituation` (the canonical
-// enum captured in the funnel: valid / expired / overstay / undesirable /
-// prohibited / unknown).  Free-form `visaHistory` is operator-only and
-// stays in the detail page.
-function visaTypeLabel(situation: string | null | undefined): string {
-  if (!situation) return "—";
-  return situation.replace(/_/g, " ");
-}
+// "Type of Enquiry" — Phase 5 §5. Now derived from `lib/typeOfEnquiry`
+// to span both B2C immigrationSituation/inquiryType and B2B fields.
 
 export function Admin() {
   useEffect(() => {
@@ -1094,16 +1090,54 @@ export function Admin() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Visa Type</TableHead>
-                      <TableHead className="text-center">
-                        Preferred Communication
+                      <TableHead>
+                        <HelpTooltip
+                          label="Name"
+                          description="The lead's full name (individual) or organisation name (B2B), with reference number and lead source."
+                        />
                       </TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Priority</TableHead>
-                      <TableHead>Next Step</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead className="text-right"></TableHead>
+                      <TableHead>
+                        <HelpTooltip
+                          label="Type of Enquiry"
+                          description="The immigration or operational service category associated with this lead — derived from the assessment answers and lead type."
+                        />
+                      </TableHead>
+                      <TableHead className="text-center">
+                        <HelpTooltip
+                          label="Preferred Communication"
+                          description="The lead's preferred communication channel used for engagement and outreach. Hover the pill to reveal the actual contact detail."
+                        />
+                      </TableHead>
+                      <TableHead>
+                        <HelpTooltip
+                          label="Status"
+                          description="Where this lead currently sits in the pipeline funnel. Operators may move leads forward or backward; only Converted is gated to Ready For Case."
+                        />
+                      </TableHead>
+                      <TableHead>
+                        <HelpTooltip
+                          label="Priority"
+                          description="Operator-set urgency: Critical, High, Medium or Low. Drives row highlighting and sort order."
+                        />
+                      </TableHead>
+                      <TableHead>
+                        <HelpTooltip
+                          label="Next Step"
+                          description="The next operational action recommended for this lead, derived from its current status."
+                        />
+                      </TableHead>
+                      <TableHead>
+                        <HelpTooltip
+                          label="Created"
+                          description="When the lead first entered the system, with a velocity chip showing time since creation."
+                        />
+                      </TableHead>
+                      <TableHead className="text-right">
+                        <HelpTooltip
+                          label="Actions"
+                          description="Quick actions: Contact (opens WhatsApp or email pre-filled), View (lead detail), Send Update (composer), Timeline (audit trail)."
+                        />
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1130,7 +1164,7 @@ export function Admin() {
                           data-testid={`row-lead-${lead.referenceNumber}`}
                           data-has-whatsapp={hasWhatsapp ? "true" : "false"}
                           data-status={lead.leadStatus}
-                          className={rowHighlightClass(lead.leadStatus)}
+                          className={`even:bg-muted/10 hover:bg-muted/20 transition-colors [&>td]:py-3 ${rowHighlightClass(lead.leadStatus)}`}
                         >
                           <TableCell>
                             <div className="font-medium flex items-center gap-2 flex-wrap">
@@ -1164,8 +1198,10 @@ export function Admin() {
                               />
                             </div>
                           </TableCell>
-                          <TableCell className="capitalize">
-                            {visaTypeLabel(lead.immigrationSituation)}
+                          <TableCell>
+                            <span className="text-xs whitespace-nowrap">
+                              {enquiryCategoryLabel(lead)}
+                            </span>
                           </TableCell>
                           <TableCell className="text-center">
                             <PreferredCommunicationCell lead={lead} />

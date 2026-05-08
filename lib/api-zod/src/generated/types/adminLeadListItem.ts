@@ -27,6 +27,9 @@ export interface AdminLeadListItem {
   inquiryType?: string | null;
   source?: string | null;
   sourceCampaign?: string | null;
+  organizationName?: string | null;
+  organizationType?: string | null;
+  estimatedClientVolume?: number | null;
   /** admin_users.id of the operator assigned to this lead */
   assignedTo?: string | null;
   lastContactedAt?: string | null;

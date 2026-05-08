@@ -5,7 +5,7 @@ import {
   analyticsEventsTable,
   leadCasesTable as leadCasesQueryRef,
 } from "@workspace/db";
-import { and, eq, inArray, notInArray, or } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import {
   LEAD_STATUS_VALUES,
   LEAD_PRIORITY_VALUES,
@@ -133,56 +133,25 @@ router.patch("/admin/leads/:id", async (req, res) => {
     .where(eq(prelaunchLeadsTable.id, id))
     .limit(1);
 
-  // Funnel-regression guard — enforced ATOMICALLY in the UPDATE's WHERE
-  // clause to close the TOCTOU race where two concurrent operators could
-  // each pass a separate read-then-update check and the second write
-  // could regress what the first set.  We restrict the predicate to:
-  //   leadStatus IN <allowed predecessors>  OR  leadStatus is legacy
-  // The legacy branch (status not in the canonical enum) preserves the
-  // permissive behavior of `canAdvanceStatus`: legacy DB values are
-  // never locked out by the funnel.  When status isn't in the patch,
-  // no extra predicate is added so priority/notes-only updates skip the
-  // check entirely.
-  //
-  // Pre-traffic hardening: the `converted` terminal status is GATED to
-  // a single allowed predecessor — `ready_for_case`. Operators must
-  // walk the lead all the way through the funnel before flipping the
-  // conversion bit; any earlier state → converted is a 409. Same-status
-  // converted → converted is still a no-op so notes/priority edits on
-  // an already-converted lead keep working.
+  // Phase 5 §10 — bidirectional pipeline. The funnel is no longer
+  // forward-only; operators may move a lead forward OR backward to any
+  // stage so a Kanban drag in either direction succeeds. The single
+  // remaining hard invariant is the `converted` predecessor lock:
+  // entering `converted` still requires the lead to currently sit at
+  // `ready_for_case` (or be already converted, for idempotent re-PATCH),
+  // because the same PATCH triggers `ensureCaseForLead` and we want
+  // case creation to remain a deliberate handover rather than a
+  // side-effect of an accidental drag. Moving back OUT of converted is
+  // permitted at the funnel level — the previously-created case row is
+  // left in place (benign data artefact, see also lib/leadStatus.ts).
   const whereParts = [eq(prelaunchLeadsTable.id, id)];
-  if (requestedStatus !== null) {
-    if (requestedStatus === "converted") {
-      // Strict converted-predecessor lock. NO legacy escape hatch here:
-      // a lead carrying an unknown/legacy status MUST first be moved
-      // forward to `ready_for_case` (which the legacy-status branch
-      // below DOES allow) before it can be converted. Without this
-      // restriction an unknown status would slip past the lock.
-      whereParts.push(
-        inArray(prelaunchLeadsTable.leadStatus, [
-          "ready_for_case",
-          "converted",
-        ]),
-      );
-    } else {
-      const requestedIdx = LEAD_STATUS_VALUES.indexOf(
-        requestedStatus as (typeof LEAD_STATUS_VALUES)[number],
-      );
-      const allowedPredecessors = LEAD_STATUS_VALUES.slice(
-        0,
-        requestedIdx + 1,
-      );
-      const allKnown = [...LEAD_STATUS_VALUES];
-      whereParts.push(
-        or(
-          inArray(
-            prelaunchLeadsTable.leadStatus,
-            allowedPredecessors as string[],
-          ),
-          notInArray(prelaunchLeadsTable.leadStatus, allKnown),
-        )!,
-      );
-    }
+  if (requestedStatus === "converted") {
+    whereParts.push(
+      inArray(prelaunchLeadsTable.leadStatus, [
+        "ready_for_case",
+        "converted",
+      ]),
+    );
   }
 
   const [updated] = await db
@@ -208,10 +177,10 @@ router.patch("/admin/leads/:id", async (req, res) => {
       }
       return res.status(409).json({
         error:
-          `Funnel regression blocked: cannot move lead from ` +
-          `"${existing.leadStatus}" back to "${requestedStatus}". ` +
-          `Status may only move forward in the funnel order: ` +
-          `${LEAD_STATUS_VALUES.join(" → ")}.`,
+          `Conversion blocked: cannot move lead from ` +
+          `"${existing.leadStatus}" directly to "converted". ` +
+          `A lead must first reach "ready_for_case" before conversion ` +
+          `(this gates the case-creation handover).`,
       });
     }
     return res.status(404).json({ error: "Lead not found" });

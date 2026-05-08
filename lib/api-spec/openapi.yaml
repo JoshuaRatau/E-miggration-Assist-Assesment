@@ -740,6 +740,15 @@ components:
         sourceCampaign:
           type: string
           nullable: true
+        organizationName:
+          type: string
+          nullable: true
+        organizationType:
+          type: string
+          nullable: true
+        estimatedClientVolume:
+          type: integer
+          nullable: true
         assignedTo:
           type: string
           nullable: true
