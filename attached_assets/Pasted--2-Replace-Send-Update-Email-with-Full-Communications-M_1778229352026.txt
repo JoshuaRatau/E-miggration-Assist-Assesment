@@ -1,0 +1,210 @@
+## §2 — Replace “Send Update Email” with Full “Communications” Module
+
+Replace the current top-right button labeled:
+
+* “Send Update Email”
+
+with a more advanced operational module called:
+
+* “Communications”
+
+This should no longer behave as a simple button action. It must open a dedicated communications workspace/panel/modal/page where administrators can manage all outbound client and lead communications across the CRM ecosystem.
+
+The Communications module must support:
+
+* campaigns
+* bulk messaging
+* onboarding communication
+* system notifications
+* promotional announcements
+* operational alerts
+* customer experience engagement
+* reporting/history
+
+The UI should feel similar to enterprise CRM communication centres found in:
+
+* Zoho CRM
+* HubSpot
+* Salesforce
+
+The Communications module should become one of the core operational modules of the platform.
+
+---
+
+## §3 — Communications Module Functional Requirements
+
+Inside the Communications module, create the following operational sections:
+
+### A. Campaigns
+
+Enable mass campaigns for:
+
+* subscription promotions
+* onboarding campaigns
+* new feature announcements
+* educational immigration updates
+* re-engagement campaigns
+* product adoption campaigns
+
+Campaigns must support:
+
+* segmentation
+* scheduled sending
+* audience filtering
+* preview before sending
+
+---
+
+### B. System Notifications
+
+Allow administrators to send operational notices such as:
+
+* scheduled maintenance
+* service outages
+* platform updates
+* deployment notifications
+* performance advisories
+* security notices
+
+---
+
+### C. Draft Templates
+
+Create reusable communication templates.
+
+Required template categories:
+
+* Promotional
+* System Update
+* New Feature
+* Educational
+* Customer Experience
+
+Templates must support dynamic placeholders such as:
+
+* {{first_name}}
+* {{organization_name}}
+* {{subscription_plan}}
+
+---
+
+### D. Communication Channels
+
+Support:
+
+* Email
+* WhatsApp (future-ready architecture)
+* In-app notifications
+
+Email delivery should integrate with:
+
+* Microsoft 365 Outlook
+* [info@emigration-assist.com](mailto:info@emigration-assist.com)
+
+---
+
+### E. Communication History & Reporting
+
+Track:
+
+* messages sent
+* delivery status
+* open rates
+* click-through rates
+* failed deliveries
+* campaign performance
+* engagement analytics
+
+Allow filtering by:
+
+* date
+* communication type
+* campaign
+* lead type
+* delivery status
+
+---
+
+## §4 — Rename “Visa Type” Column to “Type of Enquiry”
+
+The leads table currently uses:
+
+* “Visa Type”
+
+This is now too narrow because the system supports broader enquiry categories.
+
+Rename the column to:
+
+* “Type of Enquiry”
+
+Supported enquiry categories should include:
+
+* Overstay
+* Declared Undesirable Valid Visa Holder
+* First Time Entry
+* Travel Assistance
+* Immigration Consultation
+* Professional Partnership
+* Enterprise Demo Request
+
+This field should work for both:
+
+* B2C individual leads
+* B2B professional/firm leads
+
+---
+
+## §12 — Responsiveness Requirements
+
+Ensure the entire CRM dashboard is fully responsive and operational across:
+
+* desktop
+* tablet
+* mobile
+
+This includes:
+
+* charts
+* tooltips
+* Kanban pipeline
+* lead tables
+* communications module
+* filters
+* buttons
+* navigation
+
+Specific requirements:
+
+* tables should scroll correctly on smaller screens
+* tooltips should not overflow off-screen
+* charts should resize dynamically
+* Kanban cards should drag properly on touch devices
+* spacing and typography should remain visually balanced on all breakpoints
+
+The mobile experience must still feel premium and operationally usable.
+
+---
+
+## §13 — Final Product Objective
+
+The completed platform should feel like:
+
+“An enterprise-grade immigration CRM and operational intelligence platform with integrated communications, omnichannel engagement, subscription lifecycle management, lead intelligence, and polished SaaS operational workflows.”
+
+The final system should:
+
+* feel commercially deployable
+* resemble mature CRM ecosystems
+* support executive oversight
+* support operational teams
+* support marketing and communications
+* support client lifecycle management
+* support B2B and B2C workflows simultaneously
+
+The platform must no longer feel like a prototype or internal tool.
+
+It should feel like:
+
+* a scalable SaaS product
+* an operational command centre
+* a premium immigration CRM ecosystem built for commercial rollout.
