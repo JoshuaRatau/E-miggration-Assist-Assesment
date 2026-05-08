@@ -1,0 +1,283 @@
+Use this enhancement prompt in Replit exactly as written below:
+
+---
+
+The dashboard UI requires another major refinement pass focused on executive-grade layout balance, cleaner visual hierarchy, improved spacing logic, and reduced interface clutter. The current implementation is progressing well functionally, but visually the dashboard still feels compressed, slightly misaligned, and overly action-heavy at the top-right section.
+
+This refinement phase should focus heavily on:
+
+* visual breathing room
+* alignment consistency
+* cleaner navigation architecture
+* modern SaaS dashboard aesthetics
+* executive CRM presentation standards
+* decluttering repetitive actions
+* improving interface balance
+
+The final experience should feel closer to:
+
+* Notion
+* Linear
+* HubSpot
+* Zoho CRM
+
+The interface must feel premium, modern, spacious, and commercially deployable.
+
+---
+
+# 1. REMOVE REDUNDANT TOP-RIGHT BUTTONS
+
+## CURRENT ISSUE
+
+The following buttons currently appearing at the top-right:
+
+* Send Update Email
+* Export Leads (CSV)
+* Import Professionals
+
+create:
+
+* visual clutter
+* action redundancy
+* excessive top-bar density
+* imbalance in layout hierarchy
+
+The dashboard header currently feels overloaded with operational actions.
+
+---
+
+# REQUIRED FIX
+
+Remove the following buttons entirely from the top-right header:
+
+* Send Update Email
+* Export Leads (CSV)
+* Import Professionals
+
+These actions should no longer exist as standalone persistent buttons.
+
+---
+
+# 2. MOVE MODULE NAVIGATION TO RIGHT-SIDE DROPDOWN MENU
+
+## CURRENT ISSUE
+
+The current left-side modules/navigation list causes:
+
+* horizontal imbalance
+* layout misalignment
+* dashboard compression
+* wasted screen width
+* reduced executive aesthetic quality
+
+The page content feels pushed inward unnaturally.
+
+---
+
+# REQUIRED FIX
+
+Remove the permanent left-side module navigation panel entirely.
+
+Instead:
+
+* move all modules into a single compact dropdown menu positioned at the top-right of the dashboard header area.
+
+This should function similarly to:
+
+* a workspace menu
+* command centre dropdown
+* application launcher
+
+---
+
+# REQUIRED DROPDOWN MENU CONTENTS
+
+The dropdown menu must contain:
+
+* Dashboard
+* Leads
+* Pipelines
+* Communications
+* Campaigns
+* Imports
+* Exports
+* Analytics
+* Reports
+* Subscriptions
+* Customer Support
+* Settings
+
+The dropdown should:
+
+* animate smoothly
+* open cleanly
+* support icons beside menu items
+* support hover states
+* close when clicking outside
+
+---
+
+# 3. INCLUDE EXPORTS INSIDE DROPDOWN MENU
+
+## REQUIRED CHANGE
+
+The export functionality should no longer exist as a top-level button.
+
+Instead:
+
+* move Export Leads (CSV)
+* export reporting
+* export analytics
+* export communication history
+
+into the dropdown menu under:
+“Exports”
+
+This creates a cleaner operational hierarchy.
+
+---
+
+# 4. IMPROVE HEADER SPACING & BREATHING ROOM
+
+## CURRENT ISSUE
+
+The spacing between:
+
+* greeting
+* date/time
+* dashboard title
+* subtitle
+
+still feels too compressed vertically.
+
+The interface lacks breathing room and visual rhythm.
+
+---
+
+# REQUIRED FIX
+
+Move:
+“Lead Intelligence Dashboard”
+
+and all subsequent dashboard content:
+
+* 1–2 spacing units lower vertically
+
+This should create:
+
+* cleaner visual separation
+* stronger hierarchy
+* calmer reading flow
+* executive spacing balance
+
+---
+
+# REQUIRED SPACING ADJUSTMENTS
+
+Increase spacing between:
+
+* greeting ↔ date/time
+* date/time ↔ dashboard title
+* dashboard title ↔ subtitle
+
+Add more top padding overall.
+
+The greeting section should feel independent from the dashboard title section.
+
+---
+
+# 5. LIGHTEN THE OVERALL BACKGROUND COLOUR
+
+## CURRENT ISSUE
+
+The current dark blue background feels:
+
+* too heavy
+* visually dense
+* slightly oppressive
+* reducing readability contrast
+
+---
+
+# REQUIRED FIX
+
+Lighten the overall dashboard background by:
+
+* approximately 2 shades lighter
+
+Maintain:
+
+* dark theme aesthetic
+* premium SaaS feel
+* professional tone
+
+BUT improve:
+
+* readability
+* visual comfort
+* contrast balance
+* perceived openness
+
+---
+
+# DESIGN REQUIREMENTS
+
+The updated background should feel:
+
+* softer
+* cleaner
+* more modern
+* less visually aggressive
+
+Avoid:
+
+* pure black
+* ultra-dark navy
+* excessive contrast harshness
+
+---
+
+# 6. MAINTAIN CURRENT BRAND IDENTITY
+
+Do NOT redesign the brand identity.
+
+Preserve:
+
+* current typography direction
+* current card design language
+* current analytics structure
+* current dashboard architecture
+
+This phase is about:
+
+* refinement
+* spacing
+* alignment
+* decluttering
+* navigation maturity
+* visual balance
+
+NOT a complete redesign.
+
+---
+
+# 7. FINAL UI OBJECTIVE
+
+The final dashboard should feel:
+
+* spacious
+* executive
+* operationally intelligent
+* polished
+* modern
+* commercially deployable
+
+The interface should no longer feel:
+
+* compressed
+* prototype-like
+* overly crowded
+* operationally noisy
+
+Instead, it should resemble:
+“A mature SaaS operational intelligence platform with clean executive spacing, refined hierarchy, centralized navigation, and premium CRM usability.”
