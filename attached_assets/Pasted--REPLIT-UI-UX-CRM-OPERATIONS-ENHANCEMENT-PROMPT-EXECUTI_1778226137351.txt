@@ -1,0 +1,703 @@
+# REPLIT UI/UX & CRM OPERATIONS ENHANCEMENT PROMPT — EXECUTIVE DASHBOARD REFINEMENT, COMMUNICATIONS MODULE EXPANSION & PIPELINE FUNCTIONAL FIXES
+
+Enhance and refine the updated CRM dashboard interface for E-Migration Assist.
+
+The latest version of the interface demonstrates strong progress toward a modern SaaS operational CRM platform. The dark-theme styling, analytics segmentation, and modular operational layout are moving in the correct direction. However, the current implementation still presents several UX, spacing, workflow, architecture, and operational maturity issues that must now be refined to elevate the system into a polished, enterprise-grade operational platform.
+
+This enhancement phase should focus on:
+
+* interface hierarchy
+* spacing consistency
+* operational clarity
+* navigation architecture
+* communication infrastructure
+* contextual usability
+* CRM workflow maturity
+* Kanban stability
+* interaction discoverability
+
+The final interface must feel:
+
+* executive-grade
+* operationally intelligent
+* commercially polished
+* visually balanced
+* scalable
+* comparable to mature CRM ecosystems
+
+The platform aesthetic should resemble:
+
+* Zoho CRM
+* HubSpot
+* Salesforce
+* enterprise SaaS operational dashboards
+
+---
+
+# 1. HEADER SPACING & HIERARCHY REFINEMENT (CRITICAL UI ISSUE)
+
+## CURRENT ISSUE
+
+The top section currently feels:
+
+* vertically compressed
+* visually crowded
+* lacking hierarchy balance
+
+There is insufficient breathing room between:
+
+* the logo
+* personalized greeting
+* date/time
+* dashboard title
+* subtitle
+
+The spacing structure creates visual tension and weakens executive presentation quality.
+
+---
+
+# REQUIRED FIX
+
+Refactor the entire top header layout using a cleaner vertical rhythm and spacing hierarchy.
+
+---
+
+# REQUIRED HEADER STRUCTURE
+
+## TOP-LEFT BLOCK
+
+Structure:
+
+### ROW 1
+
+* Logo
+* Greeting
+
+### ROW 2
+
+* Date/time
+
+### ROW 3
+
+* Main dashboard title
+
+### ROW 4
+
+* Subtitle / operational descriptor
+
+---
+
+# SPACING REQUIREMENTS
+
+Add:
+
+* more top padding
+* more vertical spacing between rows
+* stronger separation between greeting and title
+
+Recommended spacing:
+
+* logo ↔ greeting = aligned horizontally
+* greeting ↔ date = 8px–12px
+* date ↔ title = 18px–24px
+* title ↔ subtitle = 8px–10px
+
+The title section should visually breathe.
+
+---
+
+# TYPOGRAPHY REFINEMENT
+
+## Greeting
+
+Should feel:
+
+* warm
+* lightweight
+* elegant
+
+---
+
+## Dashboard Title
+
+Must feel:
+
+* prominent
+* executive
+* authoritative
+
+Increase:
+
+* font weight
+* font size
+* spacing consistency
+
+---
+
+## Subtitle
+
+Should:
+
+* appear softer
+* have reduced opacity
+* support readability
+
+---
+
+# 2. REPLACE “SEND UPDATE EMAIL” BUTTON WITH FULL “COMMUNICATIONS” MODULE
+
+## CURRENT ISSUE
+
+The current:
+“Send Update Email”
+
+button is too limited and no longer reflects the sophistication of the CRM ecosystem.
+
+The system is evolving into:
+
+* an operational CRM
+* customer engagement platform
+* communication management ecosystem
+
+The button architecture must reflect this evolution.
+
+---
+
+# REQUIRED FIX
+
+Replace:
+“Send Update Email”
+
+WITH:
+“Communications”
+
+This must become a fully operational CRM communications centre.
+
+---
+
+# 3. COMMUNICATIONS MODULE (MAJOR FEATURE)
+
+Clicking:
+“Communications”
+
+must open:
+
+* dedicated module
+  or
+* slide-out operational panel
+
+---
+
+# REQUIRED COMMUNICATION MODULE SECTIONS
+
+## A. Campaigns
+
+Support:
+
+* promotional campaigns
+* onboarding campaigns
+* subscription upgrade campaigns
+* feature announcements
+* migration updates
+* educational content
+* re-engagement campaigns
+
+---
+
+## B. System Notifications
+
+Support mass operational notices:
+
+* maintenance windows
+* outages
+* deployment updates
+* scheduled downtime
+* bug notifications
+* performance advisories
+
+---
+
+## C. Draft Templates
+
+Create reusable narrative templates.
+
+---
+
+# REQUIRED TEMPLATE TYPES
+
+## PROMOTIONAL TEMPLATE
+
+Example:
+
+* subscription discount
+* premium upgrade
+* annual plans
+
+---
+
+## SYSTEM UPDATE TEMPLATE
+
+Example:
+
+* maintenance notice
+* feature deployment
+* bug resolution
+
+---
+
+## NEW FEATURE TEMPLATE
+
+Example:
+
+* AI assistant release
+* new onboarding workflow
+* dashboard enhancements
+
+---
+
+## EDUCATIONAL TEMPLATE
+
+Example:
+
+* immigration guidance
+* visa update notices
+* compliance reminders
+
+---
+
+## CUSTOMER EXPERIENCE TEMPLATE
+
+Example:
+
+* appreciation messages
+* onboarding encouragement
+* service quality follow-ups
+
+---
+
+# REQUIRED TEMPLATE FEATURES
+
+Templates must support:
+
+* dynamic variables
+* personalization
+* placeholders
+
+Examples:
+
+* {{first_name}}
+* {{organization_name}}
+* {{subscription_plan}}
+
+---
+
+# 4. COMMUNICATION HISTORY & REPORTING
+
+Create:
+“Communication History & Reports”
+
+section.
+
+---
+
+# REQUIRED REPORTING FEATURES
+
+Track:
+
+* messages sent
+* campaigns delivered
+* delivery success
+* open rates
+* click-through rates
+* unsubscribe rates
+* failed messages
+* WhatsApp delivery
+* engagement analytics
+
+---
+
+# REQUIRED FILTERS
+
+Filter by:
+
+* communication type
+* campaign
+* date range
+* lead type
+* delivery status
+
+---
+
+# 5. “VISA TYPE” COLUMN RENAME
+
+## CURRENT ISSUE
+
+The column:
+“Visa Type”
+
+is too narrow and inaccurate because the system now handles broader enquiry categories.
+
+---
+
+# REQUIRED FIX
+
+Rename:
+“Visa Type”
+
+TO:
+“Type of Enquiry”
+
+---
+
+# REQUIRED ENQUIRY TYPES
+
+Support:
+
+* Overstay
+* Declared Undesirable Valid Visa Holder
+* First Time Entry
+* Travel Assistance
+* Immigration Consultation
+* Professional Partnership
+* Enterprise Demo Request
+
+---
+
+# 6. COLUMN TOOLTIP & CONTEXT SYSTEM (VERY IMPORTANT)
+
+## CURRENT ISSUE
+
+Several column headings:
+
+* lack explanation
+* are ambiguous
+* reduce usability for new users
+
+---
+
+# REQUIRED FIX
+
+Every column heading must support:
+
+* hover tooltip
+* contextual explanation
+* operational description
+
+---
+
+# REQUIRED TOOLTIP BEHAVIOUR
+
+When hovering over a column title:
+
+* display contextual helper tooltip
+* explain what the field means
+* explain expected operational use
+
+---
+
+# EXAMPLES
+
+## Type of Enquiry
+
+Tooltip:
+“The immigration or operational service category associated with this lead.”
+
+---
+
+## Preferred Communication
+
+Tooltip:
+“The lead’s preferred communication channel used for engagement and outreach.”
+
+---
+
+## Next Step
+
+Tooltip:
+“The next operational action recommended for this lead.”
+
+---
+
+# TOOLTIP DESIGN
+
+Tooltips must:
+
+* use white background
+* black text
+* rounded corners
+* soft shadows
+* fade animation
+* dark-theme accessibility
+
+---
+
+# 7. MISSING COLUMN HEADERS (CRITICAL TABLE ISSUE)
+
+## CURRENT ISSUE
+
+Some operational columns currently:
+
+* contain values/buttons
+* but have no visible column titles
+
+This weakens usability and professionalism.
+
+---
+
+# REQUIRED FIX
+
+Audit the entire leads table.
+
+Every column must contain:
+
+* clearly labelled header
+* aligned title
+* hover tooltip
+* consistent spacing
+
+---
+
+# 8. PREFERRED COMMUNICATION HOVER DETAILS
+
+## CURRENT ISSUE
+
+The Preferred Communication column only displays:
+
+* communication method icons
+
+but does not reveal actual communication details.
+
+---
+
+# REQUIRED FIX
+
+When hovering over a communication item:
+
+* display actual contact detail
+
+---
+
+# EXAMPLES
+
+## Email
+
+Hover shows:
+[info@example.com](mailto:info@example.com)
+
+---
+
+## WhatsApp
+
+Hover shows:
++27 82 123 4567
+
+---
+
+# ADDITIONAL REQUIREMENTS
+
+Support:
+
+* masked display when needed
+* copy-to-clipboard interaction
+* verification indicator
+
+---
+
+# 9. GLOBAL ACTION BUTTON ARCHITECTURE (IMPORTANT)
+
+## CURRENT ISSUE
+
+The dashboard currently lacks:
+
+* operational action density
+* quick-access functionality
+* modular navigation
+
+The top-right action area feels operationally limited.
+
+---
+
+# REQUIRED FIX
+
+Introduce a proper CRM operational navigation structure.
+
+---
+
+# OPTION A (RECOMMENDED)
+
+Create a LEFT SIDEBAR MODULE NAVIGATION.
+
+---
+
+# REQUIRED MODULES
+
+* Dashboard
+* Leads
+* Pipelines
+* Communications
+* Campaigns
+* Imports
+* Analytics
+* Reports
+* Subscriptions
+* Customer Support
+* Settings
+
+---
+
+# OPTION B
+
+Expand top action bar with:
+
+* quick actions
+* dropdown menus
+* module switchers
+
+---
+
+# RECOMMENDED APPROACH
+
+Use:
+LEFT SIDEBAR NAVIGATION
+
+combined with:
+TOP ACTION BUTTONS
+
+This resembles mature CRM systems.
+
+---
+
+# 10. PIPELINE DRAG-AND-DROP REGRESSION BUG (CRITICAL)
+
+## CURRENT ISSUE
+
+Pipeline drag-and-drop now partially works:
+
+* cards can move forward
+* BUT cannot move backward
+
+Example:
+
+* Qualified → Contacted works
+* Contacted → Qualified fails
+
+This creates serious operational workflow limitations.
+
+---
+
+# REQUIRED FIX
+
+The Kanban system must support:
+
+* full bidirectional movement
+* unrestricted stage transitions
+* stable persistence
+
+---
+
+# REQUIRED PIPELINE BEHAVIOUR
+
+Users must be able to:
+
+* move cards forward
+* move cards backward
+* reorder within same stage
+* persist all changes
+
+---
+
+# REQUIRED BACKEND LOGIC
+
+Ensure:
+
+* PATCH updates work both directions
+* optimistic state updates support rollback
+* database synchronization occurs correctly
+* stale state issues are resolved
+
+---
+
+# REQUIRED UX BEHAVIOUR
+
+When drag succeeds:
+
+* animate movement smoothly
+* update counters instantly
+* refresh analytics dynamically
+
+When failure occurs:
+
+* revert position
+* show toast error
+* preserve previous state
+
+---
+
+# 11. TABLE VISUAL DENSITY & READABILITY
+
+## CURRENT ISSUE
+
+The table currently feels:
+
+* overly compressed vertically
+* difficult to scan
+* lacking separation between rows
+
+---
+
+# REQUIRED FIX
+
+Improve:
+
+* row spacing
+* padding
+* visual separation
+* readability hierarchy
+
+---
+
+# REQUIRED TABLE REFINEMENTS
+
+Add:
+
+* slightly taller rows
+* subtle alternating row backgrounds
+* improved button alignment
+* cleaner badge spacing
+* softer dividers
+
+---
+
+# 12. RESPONSIVENESS REQUIREMENTS
+
+Ensure all fixes work across:
+
+* desktop
+* tablet
+* mobile
+
+Especially:
+
+* tooltips
+* hover interactions
+* Kanban drag/drop
+* communication module
+* table responsiveness
+
+---
+
+# 13. FINAL OBJECTIVE
+
+The completed platform must now feel like:
+
+“A mature enterprise-grade immigration CRM and operational intelligence platform with integrated communications, omnichannel engagement, subscription lifecycle visibility, professional outreach capabilities, and polished SaaS operational workflows.”
+
+The system must:
+
+* feel commercially deployable
+* provide operational clarity
+* support executive oversight
+* support mass communication management
+* improve usability and discoverability
+* stabilize Kanban workflows
+* resemble a premium commercial CRM ecosystem rather than a prototype dashboard.
