@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { Disclaimer } from "@/components/disclaimer";
 import { BrandHeader } from "@/components/brand-header";
+import heroFolders from "@assets/hero-folders_1778252732296_nobg.png";
 
 export function Home() {
   useEffect(() => {
@@ -18,13 +19,22 @@ export function Home() {
     <div className="min-h-screen bg-background flex flex-col items-center p-6 lg:p-12">
       <div className="w-full max-w-4xl mx-auto space-y-12">
         <BrandHeader />
-        <header className="text-center space-y-4 pt-8">
-          <h1 className="text-4xl lg:text-6xl font-display font-bold text-foreground tracking-tight">
-            Check your South African immigration status.
-          </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            A calm, structured pre-launch questionnaire that helps build an early-stage understanding of your situation. This is a preliminary system-generated assessment and does not represent a final decision.
-          </p>
+        <header className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12 pt-8">
+          <img
+            src={heroFolders}
+            alt=""
+            aria-hidden="true"
+            className="w-48 sm:w-56 lg:w-72 shrink-0 select-none pointer-events-none drop-shadow-[0_10px_30px_rgba(17,97,140,0.45)]"
+            data-testid="hero-folders"
+          />
+          <div className="text-center lg:text-left space-y-4 flex-1">
+            <h1 className="text-4xl lg:text-6xl font-display font-bold text-foreground tracking-tight">
+              Check your South African immigration status.
+            </h1>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto lg:mx-0">
+              A calm, structured pre-launch questionnaire that helps build an early-stage understanding of your situation. This is a preliminary system-generated assessment and does not represent a final decision.
+            </p>
+          </div>
         </header>
 
         <div className="flex justify-center">

@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import brandLogo from "@assets/E-Migration_Assist_New_Logo-removebg-preview_1778135270233.png";
+import brandLogo from "@assets/E-Migration_Assist_New_Logo-removebg-preview_1778252859401.png";
 
 /**
  * Shared brand header used on every public + admin page.  Renders the
