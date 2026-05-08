@@ -2,9 +2,10 @@ import { type ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAdminAuth } from "@/lib/adminAuth";
 import { AdminUserMenu } from "@/components/admin-user-menu";
+import { WorkspaceLauncher } from "@/components/workspace-launcher";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Home, Send, Upload, Users, User, Menu } from "lucide-react";
+import { Home, Send, Upload, Users, Settings, Menu } from "lucide-react";
 import brandLogo from "@assets/E-Migration_Assist_New_Logo-removebg-preview_1778135270233.png";
 
 /**
@@ -72,9 +73,9 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     href: "/admin/profile",
-    label: "Profile",
+    label: "Settings",
     testId: "sidebar-profile",
-    Icon: User,
+    Icon: Settings,
     match: (p) => p.startsWith("/admin/profile"),
   },
 ];
@@ -220,6 +221,7 @@ export function AdminLayout({
 
           <div className="flex items-center gap-2 shrink-0">
             {actions}
+            <WorkspaceLauncher />
             <AdminUserMenu />
           </div>
         </header>

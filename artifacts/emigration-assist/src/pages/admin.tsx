@@ -444,7 +444,6 @@ export function Admin() {
     sourceFilter !== "ANY";
 
   const { data: stats } = useGetStatsSummary();
-  const [sendingUpdate, setSendingUpdate] = useState(false);
   const [exportingCsv, setExportingCsv] = useState(false);
   // List vs Pipeline view toggle. Persisted in localStorage so an
   // operator who prefers the kanban doesn't have to re-toggle every
@@ -477,7 +476,6 @@ export function Admin() {
     referenceNumber: string | null;
   } | null>(null);
 
-  const sendUpdateUrl = `${import.meta.env.BASE_URL}api/admin/email/update`;
   const adminLeadUrl = (id: string) =>
     `${import.meta.env.BASE_URL}api/admin/leads/${id}`;
 
@@ -608,80 +606,6 @@ export function Admin() {
     }
   };
 
-  const handleSendUpdateEmail = async () => {
-    if (sendingUpdate) return;
-
-    const token = getAdminToken();
-    if (!token) return;
-
-    const ok = window.confirm(
-      "Send the silent update email to every lead with consent and an email on file?",
-    );
-    if (!ok) return;
-
-    setSendingUpdate(true);
-    try {
-      const res = await fetch(sendUpdateUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-admin-token": token,
-        },
-      });
-      if (!res.ok) {
-        if (res.status === 401) {
-          clearAdminToken();
-          toast({
-            title: "Invalid admin token",
-            description: "Please try again with the correct token.",
-            variant: "destructive",
-          });
-        } else if (res.status === 503) {
-          toast({
-            title: "Not configured",
-            description:
-              "ADMIN_EMAIL_TOKEN is not set on the server. Set it in environment secrets.",
-            variant: "destructive",
-          });
-        } else if (res.status === 429) {
-          const body = (await res.json().catch(() => ({}))) as {
-            retryAfterSeconds?: number;
-          };
-          toast({
-            title: "Rate limited",
-            description: `Please wait ${body.retryAfterSeconds ?? 300} seconds before sending again.`,
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Failed",
-            description: `Server returned ${res.status}.`,
-            variant: "destructive",
-          });
-        }
-        return;
-      }
-      const body = (await res.json()) as {
-        eligibleRecipients: number;
-        attempted: number;
-        succeeded: number;
-        failed: number;
-      };
-      toast({
-        title: "Update email sent",
-        description: `Eligible: ${body.eligibleRecipients} • Sent: ${body.succeeded} • Failed: ${body.failed}`,
-      });
-    } catch (err) {
-      toast({
-        title: "Failed",
-        description: err instanceof Error ? err.message : "Unknown error",
-        variant: "destructive",
-      });
-    } finally {
-      setSendingUpdate(false);
-    }
-  };
-
   // Stat-card counts come from the dedicated `segmentLeadsRaw` query,
   // which is segment-scoped but free of status/priority filters — so the
   // headline numbers stay stable when an operator narrows the table.
@@ -712,17 +636,16 @@ export function Admin() {
   return (
     <AdminLayout
       title="Dashboard"
-      actions={
-        <div className="hidden md:flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSendUpdateEmail}
-            disabled={sendingUpdate}
-            data-testid="button-send-update-email"
-          >
-            {sendingUpdate ? "Sending..." : "Send Update Email"}
-          </Button>
+      bodyClassName="bg-gradient-to-b from-slate-800 to-slate-900 text-foreground"
+    >
+      <div className="space-y-10 pt-2">
+        <DashboardGreeting />
+
+        {/* Inline quick-export — replaces the chrome-v1 topbar buttons.
+            Send Update Email and Import Professionals were retired in
+            chrome v2; the CSV export now lives both here (table-local
+            quick action) and on /admin/exports (centralised module). */}
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -732,40 +655,10 @@ export function Admin() {
           >
             {exportingCsv ? "Exporting…" : "Export Leads (CSV)"}
           </Button>
-          <Link href="/admin/import?type=professional">
-            <Button
-              size="sm"
-              data-testid="button-import-professionals"
-            >
-              Import Professionals
+          <Link href="/admin/import">
+            <Button variant="outline" size="sm" data-testid="button-import-leads">
+              Import Leads
             </Button>
-          </Link>
-        </div>
-      }
-    >
-      <div className="space-y-8">
-        <DashboardGreeting />
-
-        {/* Mobile-only action row — desktop renders these in the topbar */}
-        <div className="flex flex-wrap gap-2 md:hidden">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSendUpdateEmail}
-            disabled={sendingUpdate}
-          >
-            {sendingUpdate ? "Sending..." : "Send Update Email"}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportCsv}
-            disabled={exportingCsv}
-          >
-            {exportingCsv ? "Exporting…" : "Export Leads (CSV)"}
-          </Button>
-          <Link href="/admin/import?type=professional">
-            <Button size="sm">Import Professionals</Button>
           </Link>
         </div>
 

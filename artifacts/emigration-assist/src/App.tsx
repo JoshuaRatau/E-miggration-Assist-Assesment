@@ -21,6 +21,14 @@ import { AdminImport } from "@/pages/admin-import";
 import { AdminCommunications } from "@/pages/admin-communications";
 import { AdminCampaignEditor } from "@/pages/admin-campaign-editor";
 import { AdminCampaignDetail } from "@/pages/admin-campaign-detail";
+import {
+  AdminAnalytics,
+  AdminReports,
+  AdminSubscriptions,
+  AdminSupport,
+  AdminPipelines,
+} from "@/pages/admin-stub";
+import { AdminExports } from "@/pages/admin-exports";
 
 /** Phase C — legacy /admin/campaigns/* paths now live under
  *  /admin/communications/*. We replace history (no back-button bounce)
@@ -129,6 +137,41 @@ function Router() {
       <Route path="/admin/case/:caseId">
         <RequireAdminAuth>
           <AdminCaseDetail />
+        </RequireAdminAuth>
+      </Route>
+
+      {/* Phase 5 chrome v2 — module placeholder pages exposed via the
+          workspace launcher dropdown. Real implementations land in
+          subsequent phases; for now they render a clean stub inside
+          AdminLayout so the menu items don't dead-click. */}
+      <Route path="/admin/analytics">
+        <RequireAdminAuth>
+          <AdminAnalytics />
+        </RequireAdminAuth>
+      </Route>
+      <Route path="/admin/reports">
+        <RequireAdminAuth>
+          <AdminReports />
+        </RequireAdminAuth>
+      </Route>
+      <Route path="/admin/subscriptions">
+        <RequireAdminAuth>
+          <AdminSubscriptions />
+        </RequireAdminAuth>
+      </Route>
+      <Route path="/admin/support">
+        <RequireAdminAuth>
+          <AdminSupport />
+        </RequireAdminAuth>
+      </Route>
+      <Route path="/admin/pipelines">
+        <RequireAdminAuth>
+          <AdminPipelines />
+        </RequireAdminAuth>
+      </Route>
+      <Route path="/admin/exports">
+        <RequireAdminAuth>
+          <AdminExports />
         </RequireAdminAuth>
       </Route>
 
