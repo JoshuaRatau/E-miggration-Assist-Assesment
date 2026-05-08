@@ -444,7 +444,6 @@ export function Admin() {
     sourceFilter !== "ANY";
 
   const { data: stats } = useGetStatsSummary();
-  const [exportingCsv, setExportingCsv] = useState(false);
   // List vs Pipeline view toggle. Persisted in localStorage so an
   // operator who prefers the kanban doesn't have to re-toggle every
   // session. Defaults to "list" (the historical view) so first-time
@@ -569,42 +568,10 @@ export function Admin() {
     }
   };
 
-  // CSV export goes through fetch + blob download so we can send the admin
-  // token in a header rather than putting it in the URL (URLs get logged).
-  const handleExportCsv = async () => {
-    if (exportingCsv) return;
-    const token = getAdminToken();
-    if (!token) return;
-    setExportingCsv(true);
-    try {
-      const res = await fetch(
-        `${import.meta.env.BASE_URL}api/leads/export.csv`,
-        { headers: { "x-admin-token": token } },
-      );
-      if (res.status === 401) {
-        clearAdminToken();
-        throw new Error("Invalid admin token");
-      }
-      if (!res.ok) throw new Error(`Server returned ${res.status}`);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `ema-leads-${new Date().toISOString().slice(0, 10)}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      toast({
-        title: "Export failed",
-        description: err instanceof Error ? err.message : "Unknown error",
-        variant: "destructive",
-      });
-    } finally {
-      setExportingCsv(false);
-    }
-  };
+  // Chrome v3: bulk CSV export moved to /admin/exports (Admin dropdown
+  // → Operations → Exports). The previous topbar/inline button and its
+  // handler were retired here; the per-row CSV-related UI on the leads
+  // table is unaffected.
 
   // Stat-card counts come from the dedicated `segmentLeadsRaw` query,
   // which is segment-scoped but free of status/priority filters — so the
@@ -634,33 +601,13 @@ export function Admin() {
         : "All segments";
 
   return (
-    <AdminLayout
-      title="Dashboard"
-      bodyClassName="bg-gradient-to-b from-slate-800 to-slate-900 text-foreground"
-    >
-      <div className="space-y-10 pt-2">
+    <AdminLayout title="Dashboard">
+      {/* Chrome v3 (Phase 5G): the brand gradient now lives on
+          AdminLayout, no per-page bodyClassName override needed.
+          The retired Export Leads / Import Leads buttons live in the
+          Admin dropdown (Operations → Exports / Imports). */}
+      <div className="space-y-12 pt-4">
         <DashboardGreeting />
-
-        {/* Inline quick-export — replaces the chrome-v1 topbar buttons.
-            Send Update Email and Import Professionals were retired in
-            chrome v2; the CSV export now lives both here (table-local
-            quick action) and on /admin/exports (centralised module). */}
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportCsv}
-            disabled={exportingCsv}
-            data-testid="button-export-leads"
-          >
-            {exportingCsv ? "Exporting…" : "Export Leads (CSV)"}
-          </Button>
-          <Link href="/admin/import">
-            <Button variant="outline" size="sm" data-testid="button-import-leads">
-              Import Leads
-            </Button>
-          </Link>
-        </div>
 
         {/* Global B2C / B2B segment selector — promoted from inside the
             Leads card so the entire dashboard (stat cards + leads list +
