@@ -23,16 +23,15 @@ import {
   Hash,
   Mail,
   Rocket,
-  Workflow,
-  FolderKanban,
-  Bell,
-  Bot,
+  Layers,
+  ScanLine,
+  BrainCircuit,
+  Gauge,
   Lock,
   Globe2,
   Check,
   Star,
 } from "lucide-react";
-import heroFolders from "@assets/hero-folders_1778252732296_nobg.png";
 
 // Animated counter — ramps from 0 to target over ~1.2s with ease-out cubic.
 // Respects prefers-reduced-motion by snapping to the final value.
@@ -151,22 +150,22 @@ const HOW_IT_WORKS = [
 
 const PRODUCT_PILLARS = [
   {
-    icon: Workflow,
+    icon: Layers,
     title: "Structured immigration workflows",
     body: "A rules-engine-backed platform that maps your situation to the right pathway, checklists, and timelines.",
   },
   {
-    icon: FolderKanban,
+    icon: ScanLine,
     title: "Document intelligence & organisation",
     body: "Upload, classify, and verify supporting documents — with reminders, checklists, and progress visibility.",
   },
   {
-    icon: Bot,
+    icon: BrainCircuit,
     title: "AI-assisted guidance",
     body: "Smart summaries, missing-information prompts, and explanations that turn complex rules into clear next steps.",
   },
   {
-    icon: Bell,
+    icon: Gauge,
     title: "Operational visibility",
     body: "Status tracking, system notifications, and a clean digital record of every step in your immigration journey.",
   },
@@ -213,23 +212,18 @@ export function Home() {
         <BrandHeader />
 
         {/* ============================================================ */}
-        {/* HERO — launch positioning + countdown                         */}
+        {/* HERO — launch positioning + countdown anchor (top right)      */}
         {/* ============================================================ */}
         <section className="relative pt-4">
-          <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-10 lg:gap-14 items-center">
-            <div className="text-center lg:text-left space-y-6">
-              <div className="flex justify-center lg:justify-start">
-                <Badge
-                  variant="outline"
-                  className="border-primary/30 bg-primary/10 text-primary gap-1.5 rounded-full px-3 py-1"
-                  data-testid="badge-early-access"
-                >
-                  <Sparkles className="h-3 w-3" />
-                  Early access · Public launch 1 June 2026
-                </Badge>
-              </div>
+          {/* Ambient backdrop glow ties the whole section together. */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -top-20 left-1/2 -translate-x-1/2 h-[420px] w-[820px] max-w-full rounded-full bg-gradient-radial from-primary/15 via-primary/[0.04] to-transparent blur-3xl"
+          />
+          <div className="relative grid lg:grid-cols-[1.05fr_0.95fr] gap-10 lg:gap-12 items-start">
+            <div className="text-center lg:text-left space-y-6 lg:pt-2">
               <h1
-                className="text-4xl sm:text-5xl lg:text-6xl font-display font-bold tracking-tight text-foreground leading-[1.05]"
+                className="text-4xl sm:text-5xl lg:text-[3.6rem] font-display font-bold tracking-tight text-foreground leading-[1.05]"
                 data-testid="hero-headline"
               >
                 South Africa's next-generation{" "}
@@ -283,26 +277,12 @@ export function Home() {
               </div>
             </div>
 
-            <div className="relative flex justify-center lg:justify-end">
-              <div className="relative">
-                <div
-                  aria-hidden="true"
-                  className="absolute inset-0 -z-10 bg-gradient-radial from-primary/20 via-primary/5 to-transparent blur-3xl"
-                />
-                <img
-                  src={heroFolders}
-                  alt=""
-                  aria-hidden="true"
-                  className="w-56 sm:w-72 lg:w-80 select-none pointer-events-none drop-shadow-[0_20px_50px_rgba(17,97,140,0.55)]"
-                  data-testid="hero-folders"
-                />
-              </div>
+            {/* Countdown anchors the top-right of the hero. On mobile it sits
+                below the headline; on lg+ it floats to the right at hero
+                eye-level so launch anticipation is visible above the fold. */}
+            <div className="lg:pt-2">
+              <LaunchCountdown />
             </div>
-          </div>
-
-          {/* Countdown sits immediately under hero — anchors the launch story. */}
-          <div className="mt-12 sm:mt-14">
-            <LaunchCountdown />
           </div>
         </section>
 
@@ -328,10 +308,17 @@ export function Home() {
             <div className="grid sm:grid-cols-2 gap-4 sm:gap-5">
               {PRODUCT_PILLARS.map((p, i) => (
                 <Reveal key={p.title} delay={i * 80}>
-                  <Card className="bg-card/60 backdrop-blur-sm border-border/50 hover:border-primary/30 hover:-translate-y-0.5 transition-all h-full">
-                    <CardHeader className="space-y-3">
-                      <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15 text-primary">
-                        <p.icon className="h-5 w-5" />
+                  <Card className="group relative bg-card/60 backdrop-blur-sm border-border/50 hover:border-primary/40 hover:-translate-y-0.5 transition-all h-full overflow-hidden">
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute -top-10 -right-10 h-32 w-32 rounded-full bg-primary/10 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity"
+                    />
+                    <CardHeader className="space-y-4">
+                      <div
+                        className="relative inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/25 to-cyan-400/10 ring-1 ring-primary/30 text-primary shadow-[0_0_24px_-8px_rgba(56,189,248,0.55)]"
+                        aria-hidden="true"
+                      >
+                        <p.icon className="h-5 w-5" strokeWidth={1.6} />
                       </div>
                       <CardTitle className="text-lg">{p.title}</CardTitle>
                     </CardHeader>

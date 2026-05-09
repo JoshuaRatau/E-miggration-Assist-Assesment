@@ -195,7 +195,7 @@ export function LaunchCountdown() {
 
   return (
     <div
-      className="relative mx-auto w-full max-w-3xl rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02] p-5 sm:p-7 backdrop-blur-xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)]"
+      className="relative w-full rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02] p-5 sm:p-6 backdrop-blur-xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)]"
       data-testid="launch-countdown"
     >
       {/* glow accents */}

@@ -54,8 +54,17 @@ export function BrandHeader({
             data-testid="brand-logo"
           />
           {variant === "default" ? (
-            <span className="text-xs text-muted-foreground mt-0.5 hidden sm:inline">
-              Pre-launch immigration assessment
+            <span
+              className="hidden sm:inline-flex items-center gap-2 mt-1 px-3 py-1 rounded-full border border-primary/30 bg-primary/10 text-[11px] sm:text-xs text-primary backdrop-blur-sm shadow-[0_0_24px_-8px_rgba(56,189,248,0.45)]"
+              data-testid="brand-header-pill"
+            >
+              <span
+                aria-hidden="true"
+                className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(56,189,248,0.9)] animate-pulse"
+              />
+              <span className="font-medium">Pre-launch immigration assessment</span>
+              <span className="text-primary/40">·</span>
+              <span className="text-primary/90">Public launch 1 June 2026</span>
             </span>
           ) : null}
         </Link>
