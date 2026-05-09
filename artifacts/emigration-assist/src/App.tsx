@@ -24,10 +24,10 @@ import { AdminCampaignDetail } from "@/pages/admin-campaign-detail";
 import {
   AdminAnalytics,
   AdminReports,
-  AdminSubscriptions,
   AdminSupport,
   AdminPipelines,
 } from "@/pages/admin-stub";
+import { AdminSubscriptions } from "@/pages/admin-subscriptions";
 import { AdminExports } from "@/pages/admin-exports";
 
 /** Phase C — legacy /admin/campaigns/* paths now live under

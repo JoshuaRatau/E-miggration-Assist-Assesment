@@ -1,0 +1,379 @@
+Use the following enhancement prompt in Replit exactly as written below:
+
+---
+
+We need to significantly enhance the “Source Performance” section on the Lead Intelligence Dashboard while ensuring that NO other functionality, layout structure, modules, or existing dashboard behaviour changes.
+
+This enhancement is focused ONLY on:
+
+* attribution analytics,
+* performance visibility,
+* graphical trend analysis,
+* and executive-level reporting clarity.
+
+The goal is to evolve this section from a simple static table into a modern CRM-style attribution intelligence panel similar to enterprise SaaS dashboards.
+
+The final experience should feel inspired by:
+
+* HubSpot
+* Salesforce
+* Zoho CRM
+* Monday.com
+
+while still preserving the E-Migration Assist visual identity and current UI language.
+
+---
+
+# 1. PRESERVE CURRENT TABLE
+
+The current Source Performance table must remain.
+
+DO NOT remove:
+
+* the table structure,
+* lead volume metrics,
+* conversion metrics,
+* or attribution source grouping.
+
+The table already works well as a quick operational summary.
+
+However, it now needs:
+
+* expanded attribution intelligence,
+* better time-based filtering,
+* graphical trend analysis,
+* and improved executive visibility.
+
+---
+
+# 2. SOURCE PERFORMANCE MUST INCLUDE ALL ATTRIBUTION CHANNELS
+
+Currently only limited attribution sources appear.
+
+This section must now reflect ALL lead attribution channels across BOTH:
+
+* Individual travellers (B2C)
+* Professionals/Firms (B2B)
+
+The data should represent the full ecosystem.
+
+---
+
+# REQUIRED ATTRIBUTION CHANNELS
+
+The system should support and display channels such as:
+
+## Website & Platform Sources
+
+* Self Assessment Form
+* Contact Us Form
+* Demo Request Form
+* Newsletter Signup
+* Direct Website Visit
+
+## Social Media Sources
+
+* Facebook
+* LinkedIn
+* TikTok
+* WhatsApp Referral
+* Organic Social
+* Paid Social Campaign
+
+## Communication Sources
+
+* Email Campaign
+* Outbound Sales Outreach
+* Referral Campaign
+* Webinar/Event Campaign
+
+## Professional/B2B Sources
+
+* Immigration Consultancy Firms
+* Law Firms
+* Relocation Companies
+* Global Mobility Firms
+* Independent Practitioners
+
+## Other
+
+* Manual Import
+* CSV Upload
+* API Source
+* Unknown/Other
+
+The architecture must remain extensible so future attribution channels can easily be added.
+
+---
+
+# 3. TIME-BASED PERFORMANCE FILTERING
+
+The current “Last 30d” format is too limited.
+
+We need professional time-range analytics controls.
+
+---
+
+# REQUIRED TIME FILTER OPTIONS
+
+Add executive-style performance range selectors:
+
+* Last 7 Days
+* Last 30 Days
+* Last 1 Month
+* Last 3 Months
+* Last 6 Months
+
+OPTIONAL:
+
+* All Time
+
+---
+
+# UX REQUIREMENT
+
+These time selectors should appear:
+
+* elegantly above the Source Performance section,
+* aligned cleanly with the dashboard,
+* consistent with the current corporate design language.
+
+---
+
+# DESIGN REQUIREMENT
+
+Use:
+
+* subtle contrast colours,
+* soft active-state highlighting,
+* and premium SaaS styling.
+
+The design should:
+
+* remain modern,
+* corporate,
+* data-driven,
+* and visually balanced against the HEX #3381C7 background palette.
+
+Avoid:
+
+* overly bright colours,
+* neon styling,
+* or cluttered analytics visuals.
+
+---
+
+# 4. GRAPHICAL ANALYTICS VIEW
+
+The current table alone is not enough.
+
+Users need visual analytics to:
+
+* identify spikes,
+* understand trends,
+* monitor campaign performance,
+* and make operational decisions quickly.
+
+---
+
+# REQUIRED FEATURE
+
+Add:
+“View Analytics”
+or
+“Graph View”
+
+This should toggle between:
+
+* Table View
+  and
+* Graphical Analytics View
+
+WITHOUT navigating away from the dashboard.
+
+---
+
+# 5. REQUIRED GRAPH TYPES
+
+The graphical analytics view should include:
+
+## Primary Graph:
+
+A multi-line trend graph showing:
+
+* lead volume trends,
+* conversion trends,
+* and attribution performance over time.
+
+---
+
+# GRAPH REQUIREMENTS
+
+The graph must show:
+
+* spikes,
+* dips,
+* trend movement,
+* conversion patterns,
+* and source momentum.
+
+---
+
+# VISUAL REQUIREMENTS
+
+Use:
+
+* smooth curved lines,
+* elegant gradients,
+* subtle animations,
+* modern hover interactions,
+* and clean legends.
+
+The graph should feel:
+
+* executive,
+* analytical,
+* modern SaaS,
+* and visually premium.
+
+---
+
+# REQUIRED COLOUR STRATEGY
+
+Use:
+
+* corporate contrast colours,
+* teal,
+* muted cyan,
+* soft white,
+* premium blue accents,
+* and subtle differentiators between channels.
+
+Maintain accessibility and readability.
+
+Avoid:
+
+* harsh reds,
+* neon greens,
+* excessive saturation,
+* or rainbow palettes.
+
+---
+
+# 6. TREND DEFINITIONS & DECISION SUPPORT
+
+The graph must NOT only show visuals.
+
+It must also help decision-makers interpret the data quickly.
+
+---
+
+# REQUIRED INSIGHT DEFINITIONS
+
+Add intelligent explanatory labels and indicators such as:
+
+* “Strong growth trend”
+* “Lead volume declining”
+* “High conversion source”
+* “Low engagement source”
+* “Most active source”
+* “Fastest growing channel”
+* “Underperforming attribution channel”
+
+---
+
+# REQUIRED QUICK INSIGHTS PANEL
+
+Beside or below the graph, include:
+a lightweight “Insights Summary” panel.
+
+Example:
+
+* LinkedIn generated the highest B2B conversions in the last 30 days.
+* Self Assessment Forms produced the highest B2C lead volume.
+* Email campaigns showed declining engagement over the last 7 days.
+* Referral channels achieved the highest conversion efficiency.
+
+These should update dynamically based on the selected time range.
+
+---
+
+# 7. DUAL DATA VISIBILITY (B2B + B2C)
+
+The analytics must reflect BOTH:
+
+* Individual travellers
+  and
+* Professionals/Firms
+
+The system must NOT isolate only one segment unless filtered intentionally.
+
+---
+
+# REQUIRED SEGMENT FILTERING
+
+Allow:
+
+* All Segments
+* B2C Only
+* B2B Only
+
+This should dynamically update:
+
+* the table,
+* graphs,
+* trend lines,
+* insights,
+* and conversion calculations.
+
+---
+
+# 8. REQUIRED METRICS
+
+For every attribution source track:
+
+* Total Leads
+* Converted Leads
+* Conversion Rate
+* Growth %
+* Engagement Trend
+* Average Qualification Score
+* Average Response Time
+* Pipeline Progression
+
+---
+
+# 9. EXECUTIVE REPORTING EXPERIENCE
+
+The final section should feel like:
+“a live executive attribution intelligence dashboard.”
+
+It should help:
+
+* operations teams,
+* marketing,
+* sales,
+* and leadership
+
+make decisions rapidly.
+
+---
+
+# 10. IMPORTANT IMPLEMENTATION INSTRUCTION
+
+DO NOT:
+
+* redesign the entire dashboard,
+* alter existing lead tables,
+* modify pipeline logic,
+* change existing CRM behaviour,
+* or disrupt current functionality.
+
+This enhancement must ONLY:
+
+* elevate Source Performance analytics,
+* add trend intelligence,
+* improve attribution visibility,
+* and modernise reporting presentation.
+
+Everything else must remain operational exactly as it currently functions.

@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { AdminLayout } from "@/components/admin-layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, FileBarChart, CreditCard, LifeBuoy, Download, KanbanSquare } from "lucide-react";
+import { BarChart3, FileBarChart, LifeBuoy, Download, KanbanSquare } from "lucide-react";
 
 /**
  * Phase 5 chrome v2 — module placeholder pages.
@@ -79,16 +79,6 @@ export function AdminReports() {
         </Button>
       </Link>
     </StubShell>
-  );
-}
-
-export function AdminSubscriptions() {
-  return (
-    <StubShell
-      title="Subscriptions"
-      Icon={CreditCard}
-      blurb="Customer subscription management and billing — planned for Phase 7. No data is captured yet."
-    />
   );
 }
 
