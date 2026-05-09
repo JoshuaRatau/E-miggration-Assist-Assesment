@@ -247,11 +247,10 @@ export function Home() {
                 is arriving.
               </h1>
               <p className="text-base sm:text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto lg:mx-0 leading-relaxed">
-                E-Migration Assist is a new immigration technology ecosystem —
-                pairing structured workflows, document intelligence, and
-                AI-assisted guidance for travellers, firms, and concierge
-                clients. Take the early-access assessment now and reserve your
-                place in the launch.
+                A new immigration technology ecosystem — structured workflows,
+                document intelligence, and AI-assisted guidance for travellers,
+                firms, and concierge clients. Take the early-access assessment
+                to reserve your place.
               </p>
             </div>
 
