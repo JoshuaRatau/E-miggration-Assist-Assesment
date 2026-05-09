@@ -41,10 +41,10 @@ export function BrandHeader({
 
   return (
     <div
-      className="flex items-start justify-between gap-6 mb-8"
+      className="flex items-start justify-between gap-3 sm:gap-6 mb-8"
       data-testid="brand-header"
     >
-      <div className="flex items-start gap-5 min-w-0 flex-1">
+      <div className="flex items-start gap-3 sm:gap-5 min-w-0 flex-1">
         <Link href="/" className="flex items-center gap-3 group shrink-0">
           <img
             src={brandLogo}
@@ -74,7 +74,9 @@ export function BrandHeader({
           </div>
         ) : null}
       </div>
-      {rightSlot ? <div className="shrink-0">{rightSlot}</div> : null}
+      {rightSlot ? (
+        <div className="shrink-0 self-center">{rightSlot}</div>
+      ) : null}
     </div>
   );
 }

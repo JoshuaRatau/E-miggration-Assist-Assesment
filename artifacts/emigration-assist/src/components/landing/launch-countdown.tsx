@@ -147,14 +147,14 @@ function outlookWebUrl() {
 function Tile({ value, label }: { value: number; label: string }) {
   return (
     <div
-      className="relative rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md px-4 py-4 sm:px-6 sm:py-5 text-center shadow-[0_8px_30px_rgba(0,0,0,0.25)] min-w-[72px] sm:min-w-[96px]"
+      className="relative rounded-xl sm:rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md px-2 py-3 sm:px-4 sm:py-4 lg:px-5 lg:py-5 text-center shadow-[0_8px_30px_rgba(0,0,0,0.25)]"
       data-testid={`countdown-${label.toLowerCase()}`}
       aria-hidden="true"
     >
-      <div className="text-3xl sm:text-5xl font-semibold tracking-tight text-foreground tabular-nums">
+      <div className="text-2xl sm:text-4xl lg:text-5xl font-semibold tracking-tight text-foreground tabular-nums">
         {pad(value)}
       </div>
-      <div className="mt-1 text-[10px] sm:text-xs uppercase tracking-[0.18em] text-muted-foreground">
+      <div className="mt-0.5 sm:mt-1 text-[9px] sm:text-[10px] lg:text-xs uppercase tracking-[0.18em] text-muted-foreground">
         {label}
       </div>
     </div>
@@ -195,7 +195,7 @@ export function LaunchCountdown() {
 
   return (
     <div
-      className="relative w-full rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02] p-5 sm:p-6 backdrop-blur-xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)]"
+      className="relative w-full rounded-2xl sm:rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02] p-4 sm:p-5 lg:p-6 backdrop-blur-xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)]"
       data-testid="launch-countdown"
     >
       {/* glow accents */}
@@ -228,7 +228,7 @@ export function LaunchCountdown() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-4 gap-2 sm:gap-3 w-full max-w-lg">
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-2 lg:gap-3 w-full">
               <Tile value={parts.days} label="Days" />
               <Tile value={parts.hours} label="Hours" />
               <Tile value={parts.minutes} label="Minutes" />

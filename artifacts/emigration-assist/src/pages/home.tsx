@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Disclaimer } from "@/components/disclaimer";
 import { BrandHeader } from "@/components/brand-header";
 import { LaunchCountdown } from "@/components/landing/launch-countdown";
+import heroFolders from "@assets/hero-folders_1778252732296_nobg.png";
 import {
   ArrowRight,
   ShieldCheck,
@@ -208,8 +209,20 @@ export function Home() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center px-4 sm:px-6 lg:px-12 py-6 lg:py-10">
-      <div className="w-full max-w-6xl mx-auto space-y-20 sm:space-y-24">
-        <BrandHeader />
+      <div className="w-full max-w-6xl mx-auto space-y-16 sm:space-y-20 lg:space-y-24">
+        <BrandHeader
+          rightSlot={
+            <div className="relative hidden md:block" aria-hidden="true">
+              <div className="absolute inset-0 -z-10 bg-gradient-radial from-primary/25 via-primary/5 to-transparent blur-2xl" />
+              <img
+                src={heroFolders}
+                alt=""
+                className="h-16 lg:h-20 w-auto select-none pointer-events-none drop-shadow-[0_12px_30px_rgba(17,97,140,0.55)]"
+                data-testid="brand-header-folders"
+              />
+            </div>
+          }
+        />
 
         {/* ============================================================ */}
         {/* HERO — launch positioning + countdown anchor (top right)      */}
@@ -220,10 +233,10 @@ export function Home() {
             aria-hidden="true"
             className="pointer-events-none absolute -top-20 left-1/2 -translate-x-1/2 h-[420px] w-[820px] max-w-full rounded-full bg-gradient-radial from-primary/15 via-primary/[0.04] to-transparent blur-3xl"
           />
-          <div className="relative grid lg:grid-cols-[1.05fr_0.95fr] gap-10 lg:gap-12 items-start">
+          <div className="relative grid lg:grid-cols-[1.05fr_0.95fr] gap-8 sm:gap-10 lg:gap-12 items-start">
             <div className="text-center lg:text-left space-y-6 lg:pt-2">
               <h1
-                className="text-4xl sm:text-5xl lg:text-[3.6rem] font-display font-bold tracking-tight text-foreground leading-[1.05]"
+                className="text-[2.25rem] leading-[1.08] sm:text-5xl lg:text-[3.4rem] xl:text-[3.6rem] font-display font-bold tracking-tight text-foreground"
                 data-testid="hero-headline"
               >
                 South Africa's next-generation{" "}
@@ -232,36 +245,40 @@ export function Home() {
                 </span>{" "}
                 is arriving.
               </h1>
-              <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto lg:mx-0 leading-relaxed">
+              <p className="text-base sm:text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto lg:mx-0 leading-relaxed">
                 E-Migration Assist is a new immigration technology ecosystem —
                 pairing structured workflows, document intelligence, and
                 AI-assisted guidance for travellers, firms, and concierge
                 clients. Take the early-access assessment now and reserve your
                 place in the launch.
               </p>
-              <div className="flex flex-col sm:flex-row items-center lg:items-start gap-3 sm:gap-4 justify-center lg:justify-start pt-2">
-                <Link href="/assessment">
+
+              {/* CTAs + trust tags are centered on every breakpoint, even when
+                  the headline copy aligns left on lg+. The user wanted them
+                  visually centered as the conversion focal point. */}
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 pt-2 w-full">
+                <Link href="/assessment" className="w-full sm:w-auto">
                   <Button
                     size="lg"
-                    className="h-14 px-7 text-base sm:text-lg rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all gap-2"
+                    className="w-full sm:w-auto h-14 px-7 text-base sm:text-lg rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all gap-2"
                     data-testid="button-start-assessment"
                   >
                     Start your early-access assessment
                     <ArrowRight className="h-5 w-5" />
                   </Button>
                 </Link>
-                <Link href="/status">
+                <Link href="/status" className="w-full sm:w-auto">
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="lg"
-                    className="h-14 px-5 text-base rounded-xl text-muted-foreground hover:text-foreground"
+                    className="w-full sm:w-auto h-14 px-6 text-base rounded-xl border-white/15 bg-white/5 hover:bg-white/10 backdrop-blur-md text-foreground/90 hover:text-foreground shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] transition-all"
                     data-testid="button-have-reference"
                   >
                     I already have a reference
                   </Button>
                 </Link>
               </div>
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 justify-center lg:justify-start pt-1 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pt-1 text-xs text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5">
                   <Lock className="h-3.5 w-3.5" />
                   Confidential
@@ -280,7 +297,7 @@ export function Home() {
             {/* Countdown anchors the top-right of the hero. On mobile it sits
                 below the headline; on lg+ it floats to the right at hero
                 eye-level so launch anticipation is visible above the fold. */}
-            <div className="lg:pt-2">
+            <div className="lg:pt-2 w-full max-w-md mx-auto lg:max-w-none">
               <LaunchCountdown />
             </div>
           </div>
