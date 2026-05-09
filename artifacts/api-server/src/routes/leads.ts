@@ -16,6 +16,7 @@ import {
 } from "../lib/classification";
 import { normalizeWhatsapp } from "../lib/whatsapp";
 import { buildConfirmationDispatcher } from "../lib/confirmation";
+import { recordLeadEvent } from "../lib/recordLeadEvent";
 import { requireAdminToken } from "../lib/adminAuth";
 import { findUsableVerifiedOtp } from "../lib/otp";
 import { createRateBucket } from "../lib/rateLimit";
@@ -498,6 +499,17 @@ router.post("/leads", async (req, res) => {
     dispatchConfirmation(inserted, 0);
   }
 
+  // Phase 6B PR 4 — emit the canonical `lead_created` scoring event.
+  // Backfill seeded one of these for every pre-existing lead, so going
+  // forward every lead row in the system has exactly one matching event.
+  // Fire-and-forget: a write failure is logged inside recordLeadEvent
+  // and must never mask the 201 the user sees.
+  void recordLeadEvent({
+    leadId: inserted.id,
+    type: "lead_created",
+    source: "system",
+  });
+
   return res.status(201).json(serializeLead(inserted));
 });
 
@@ -563,6 +575,16 @@ router.post("/leads/:id/finalize", async (req, res) => {
   }
 
   buildConfirmationDispatcher({ log: req.log })(lead, 5);
+
+  // Phase 6B PR 4 — the assessment flow only reaches finalize after the
+  // user has answered every step (with or without supporting documents),
+  // so this is the right moment to credit `assessment_completed`. The
+  // at-most-once gate above guarantees we won't double-fire on retries.
+  void recordLeadEvent({
+    leadId: lead.id,
+    type: "assessment_completed",
+    source: "system",
+  });
 
   return res.json({
     finalized: true,

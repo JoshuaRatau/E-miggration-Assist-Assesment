@@ -34,6 +34,8 @@ const INTENDED_TIER_VALUES = [
 import { requireAdminToken } from "../lib/adminAuth";
 import { ensureCaseForLead } from "../lib/cases";
 import { writeAudit } from "../lib/audit";
+import { recordLeadEvent } from "../lib/recordLeadEvent";
+import { canAdvanceStatus } from "../lib/classification";
 
 const router: IRouter = Router();
 
@@ -282,6 +284,23 @@ router.patch("/admin/leads/:id", async (req, res) => {
       before: { leadStatus: before?.leadStatus ?? null },
       after: { leadStatus: updated.leadStatus },
     });
+    // Phase 6B PR 4 — only forward moves emit a `status_advanced` score
+    // event. Operators are allowed to walk the funnel backwards (see
+    // bidirectional pipeline note in replit.md) but a regression must
+    // not earn additional rubric points. canAdvanceStatus returns true
+    // for forward (or same-position) moves; we additionally require a
+    // strict change so a no-op PATCH doesn't synthesise an event.
+    if (canAdvanceStatus(before?.leadStatus ?? null, updated.leadStatus)) {
+      void recordLeadEvent({
+        leadId: updated.id,
+        type: "status_advanced",
+        source: "operator",
+        payload: {
+          from: before?.leadStatus ?? null,
+          to: updated.leadStatus,
+        },
+      });
+    }
   }
   if (
     fieldsUpdated.includes("priority") &&
@@ -318,6 +337,26 @@ router.patch("/admin/leads/:id", async (req, res) => {
       before: { intendedTier: before?.intendedTier ?? null },
       after: { intendedTier: updated.intendedTier ?? null },
     });
+    // Phase 6B PR 4 — emit `tier_set` whenever the tier moves to a
+    // non-null value. Clears (set → null) intentionally do NOT fire the
+    // event because there's no positive signal in unclassifying a lead.
+    // The `tier_set` rule has `maxOccurrences: 1` in both scoring
+    // rubrics, so re-tiering between sales tiers (e.g. starter_firm →
+    // growth_firm) won't double-credit the lead — only the first set
+    // contributes points. Note that recordLeadEvent re-resolves the
+    // rubric from the post-PATCH `intendedTier`, so this row lands in
+    // the correct rubric snapshot automatically.
+    if (updated.intendedTier !== null) {
+      void recordLeadEvent({
+        leadId: updated.id,
+        type: "tier_set",
+        source: "operator",
+        payload: {
+          from: before?.intendedTier ?? null,
+          to: updated.intendedTier,
+        },
+      });
+    }
   }
   if (caseId !== null && caseCreatedThisCall) {
     void writeAudit({
