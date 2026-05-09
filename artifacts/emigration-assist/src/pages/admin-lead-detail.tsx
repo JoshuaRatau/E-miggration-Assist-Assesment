@@ -25,6 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { DocumentUploader } from "@/components/DocumentUploader";
 import { getAdminToken, clearAdminToken } from "@/lib/adminToken";
 import { canAdvanceStatus, statusLabel } from "@/lib/leadStatus";
+import { INTENDED_TIER_VALUES, TIER_LABEL } from "@/lib/intendedTier";
 import { AdminLayout } from "@/components/admin-layout";
 
 const STATUS_OPTIONS = [
@@ -111,6 +112,10 @@ export function AdminLeadDetail() {
   const [leadStatus, setLeadStatus] = useState<string>("new");
   const [leadPriority, setLeadPriority] = useState<string>("medium");
   const [adminNotes, setAdminNotes] = useState<string>("");
+  // Phase 6A.5 — local draft for the intended-tier dropdown. Empty
+  // string is the "Unset" sentinel; persisted to the server as null
+  // when the operator picks it (or saves while still empty).
+  const [intendedTier, setIntendedTier] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -122,6 +127,7 @@ export function AdminLeadDetail() {
       setLeadStatus(lead.leadStatus ?? "new");
       setLeadPriority(lead.leadPriority ?? "medium");
       setAdminNotes(lead.adminNotes ?? "");
+      setIntendedTier(lead.intendedTier ?? "");
     }
   }, [lead]);
 
@@ -144,6 +150,7 @@ export function AdminLeadDetail() {
             status: leadStatus,
             priority: leadPriority,
             notes: adminNotes === "" ? null : adminNotes,
+            intendedTier: intendedTier === "" ? null : intendedTier,
           }),
         },
       );
@@ -408,6 +415,35 @@ export function AdminLeadDetail() {
                     {PRIORITY_OPTIONS.map((p) => (
                       <SelectItem key={p} value={p} className="capitalize">
                         {p}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-sm font-medium">
+                  Intended tier{" "}
+                  <span className="text-xs font-normal text-muted-foreground">
+                    (commercial pricing tier this lead is heading toward)
+                  </span>
+                </label>
+                <Select
+                  value={intendedTier === "" ? "__unset__" : intendedTier}
+                  onValueChange={(v) =>
+                    setIntendedTier(v === "__unset__" ? "" : v)
+                  }
+                >
+                  <SelectTrigger
+                    className="md:w-72"
+                    data-testid="select-intended-tier"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__unset__">— Not set —</SelectItem>
+                    {INTENDED_TIER_VALUES.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {TIER_LABEL[t]}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -139,6 +139,9 @@ function serializeLeadAdminList(
     representativeRelationship: row.representativeRelationship,
     firmSize: row.firmSize,
     serviceFocus: row.serviceFocus,
+    // Phase 6A.5 — surface the tier on the slim list so the dashboard can
+    // render its tier-mix badge / filter without an N+1 detail fetch.
+    intendedTier: row.intendedTier,
     assignedTo: row.assignedTo,
     lastContactedAt: row.lastContactedAt
       ? row.lastContactedAt.toISOString()

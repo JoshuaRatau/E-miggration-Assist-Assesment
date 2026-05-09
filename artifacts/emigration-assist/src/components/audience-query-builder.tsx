@@ -24,6 +24,7 @@ export type AudienceField =
   | "leadPriority"
   | "source"
   | "inquiryType"
+  | "intendedTier"
   | "assignedTo"
   | "createdAt"
   | "lastContactedAt"
@@ -60,6 +61,7 @@ const FIELD_LABEL: Record<AudienceField, string> = {
   leadPriority: "Priority",
   source: "Source",
   inquiryType: "Inquiry type",
+  intendedTier: "Intended tier",
   assignedTo: "Assigned to (admin id)",
   createdAt: "Created",
   lastContactedAt: "Last contacted",
@@ -78,6 +80,7 @@ const FIELD_KIND: Record<
   leadPriority: "enum",
   source: "enum",
   inquiryType: "enum",
+  intendedTier: "enum",
   assignedTo: "uuid",
   createdAt: "ts",
   lastContactedAt: "ts",
@@ -114,6 +117,19 @@ const ENUM_VALUES: Partial<Record<AudienceField, string[]>> = {
     "other",
   ],
   inquiryType: ["visa_inquiry", "overstay_appeal", "travel_entry_assistance"],
+  intendedTier: [
+    "free",
+    "basic",
+    "plus",
+    "pro",
+    "premium",
+    "starter_firm",
+    "growth_firm",
+    "scale_firm",
+    "enterprise",
+    "concierge",
+    "unknown",
+  ],
 };
 
 const OPS_FOR_KIND: Record<string, { value: AudienceOp; label: string }[]> = {

@@ -35,7 +35,7 @@ relationship aren't populated.
 ### ✅ Phase 6A.1 — Funnel trim (shipped 9 May 2026)
 Dropped `awaiting_response` from the lead-status enum. 10 → 9 stages.
 
-### 🔜 Phase 6A.5 — Tier-aware lead intent (NEXT — 1–2 days, low risk)
+### ✅ Phase 6A.5 — Tier-aware lead intent (shipped 9 May 2026, v1)
 Adds a single new column and surfaces it everywhere it matters. Unblocks
 every other phase below because scoring rules, SLAs, and nurture cadences
 all need to know which tier the lead is heading toward.

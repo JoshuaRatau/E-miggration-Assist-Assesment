@@ -97,6 +97,18 @@ export const prelaunchLeadsTable = pgTable("prelaunch_leads", {
   // by the import pipeline / manual edit. The dashboard hover-card
   // falls back to a heuristic derivation when these are NULL so the
   // tooltip always renders useful copy.
+  // Phase 6A.5 — Tier-aware lead intent. Nullable text column carrying the
+  // commercial tier the lead is heading toward, drawn from the SaaS pricing
+  // ladder. Allowed values (enforced at the API layer, not the DB, so adding
+  // a tier doesn't need a migration):
+  //   B2C self-serve: free, basic, plus, pro, premium
+  //   B2B firm:       starter_firm, growth_firm, scale_firm, enterprise
+  //   White-glove:    concierge
+  //   Sentinel:       unknown
+  // NULL means "not yet classified" (the default for legacy rows and any
+  // row created before the operator picks a tier). Foundational for the
+  // tier-aware scoring rubric (Phase 6B) and SLA tracker (Phase 6D).
+  intendedTier: text("intended_tier"),
   representativeRole: text("representative_role"),
   representativeRelationship: text("representative_relationship"),
   website: text("website"),

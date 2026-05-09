@@ -21,6 +21,9 @@ export const AUDIENCE_FIELDS = [
   "leadPriority",
   "source",
   "inquiryType",
+  // Phase 6A.5 — commercial tier the lead is heading toward. Drives the
+  // tier-aware nurture / scoring / SLA work in 6B / 6D / 6F.
+  "intendedTier",
   "assignedTo",
   "createdAt",
   "lastContactedAt",
@@ -83,6 +86,7 @@ const FIELD_KIND: Record<AudienceField, "string" | "ts" | "bool" | "tags" | "uui
   leadPriority: "string",
   source: "string",
   inquiryType: "string",
+  intendedTier: "string",
   assignedTo: "uuid",
   createdAt: "ts",
   lastContactedAt: "ts",
@@ -162,6 +166,8 @@ function compileRule(rule: AudienceRule): SQL {
         return t.source;
       case "inquiryType":
         return t.inquiryType;
+      case "intendedTier":
+        return t.intendedTier;
       case "assignedTo":
         return t.assignedTo;
       case "createdAt":

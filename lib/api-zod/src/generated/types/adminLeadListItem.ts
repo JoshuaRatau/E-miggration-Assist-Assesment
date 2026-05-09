@@ -34,6 +34,8 @@ export interface AdminLeadListItem {
   representativeEmail?: string | null;
   representativeRole?: string | null;
   representativeRelationship?: string | null;
+  /** Phase 6A.5 — commercial tier the lead is heading toward (free | basic | plus | pro | premium | starter_firm | growth_firm | scale_firm | enterprise | concierge | unknown). NULL means not yet classified. */
+  intendedTier?: string | null;
   firmSize?: string | null;
   serviceFocus?: string | null;
   /** admin_users.id of the operator assigned to this lead */

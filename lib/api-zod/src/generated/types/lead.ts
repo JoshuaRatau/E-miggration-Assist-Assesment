@@ -54,6 +54,8 @@ export interface Lead {
   representativeRole?: string | null;
   /** B2B contact relationship classifier (e.g. "Primary Decision Maker", "General Operations Contact", "Departmental Contact"). Falls back to a heuristic derivation when NULL. */
   representativeRelationship?: string | null;
+  /** Phase 6A.5 — commercial tier the lead is heading toward. One of: free, basic, plus, pro, premium (B2C self-serve); starter_firm, growth_firm, scale_firm, enterprise (B2B firm); concierge (white-glove); unknown (sentinel). NULL means not yet classified. Drives tier-aware scoring (Phase 6B) and SLA tracking (Phase 6D). */
+  intendedTier?: string | null;
   website?: string | null;
   firmSize?: string | null;
   operatingRegions?: string[] | null;

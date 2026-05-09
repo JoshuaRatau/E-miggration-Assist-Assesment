@@ -14,6 +14,7 @@ import {
   isStrictlyUpstreamOf,
   statusLabel,
 } from "@/lib/leadStatus";
+import { tierBadgeClass, tierLabel } from "@/lib/intendedTier";
 import {
   Dialog,
   DialogContent,
@@ -1040,6 +1041,15 @@ export function Admin() {
                                   data-testid={`badge-b2b-${lead.referenceNumber}`}
                                 >
                                   B2B
+                                </span>
+                              )}
+                              {lead.intendedTier && (
+                                <span
+                                  className={`inline-flex items-center rounded border px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wide ${tierBadgeClass(lead.intendedTier)}`}
+                                  data-testid={`badge-tier-${lead.referenceNumber}`}
+                                  title="Intended commercial tier"
+                                >
+                                  {tierLabel(lead.intendedTier)}
                                 </span>
                               )}
                             </div>

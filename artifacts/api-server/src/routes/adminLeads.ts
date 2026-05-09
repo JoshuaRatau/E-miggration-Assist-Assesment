@@ -11,6 +11,25 @@ import {
   LEAD_PRIORITY_VALUES,
   deriveNextStep,
 } from "../lib/classification";
+
+// Phase 6A.5 — Tier-aware lead intent. Allow-list mirrors the values
+// documented on the schema column and the frontend `intendedTier.ts`
+// helper. Server is the source of truth — any new tier MUST be added
+// here AND in the frontend mirror, then codegen run so the OpenAPI Lead
+// schema description stays accurate.
+const INTENDED_TIER_VALUES = [
+  "free",
+  "basic",
+  "plus",
+  "pro",
+  "premium",
+  "starter_firm",
+  "growth_firm",
+  "scale_firm",
+  "enterprise",
+  "concierge",
+  "unknown",
+] as const;
 import { requireAdminToken } from "../lib/adminAuth";
 import { ensureCaseForLead } from "../lib/cases";
 import { writeAudit } from "../lib/audit";
@@ -110,9 +129,29 @@ router.patch("/admin/leads/:id", async (req, res) => {
     fieldsUpdated.push("notes");
   }
 
+  // Phase 6A.5 — intendedTier is optional on PATCH. Nullable: explicit null
+  // clears a previously-set tier (e.g. operator decides the lead doesn't
+  // fit any commercial tier and re-routes to a manual workflow).
+  if (Object.prototype.hasOwnProperty.call(body, "intendedTier")) {
+    const v = body.intendedTier;
+    if (v !== null) {
+      if (
+        typeof v !== "string" ||
+        !INTENDED_TIER_VALUES.includes(v as never)
+      ) {
+        return res.status(400).json({
+          error: `intendedTier must be null or one of: ${INTENDED_TIER_VALUES.join(", ")}`,
+        });
+      }
+    }
+    updates.intendedTier = v;
+    fieldsUpdated.push("intendedTier");
+  }
+
   if (fieldsUpdated.length === 0) {
     return res.status(400).json({
-      error: "Body must include at least one of: status, priority, notes",
+      error:
+        "Body must include at least one of: status, priority, notes, intendedTier",
     });
   }
 
@@ -128,6 +167,7 @@ router.patch("/admin/leads/:id", async (req, res) => {
       leadStatus: prelaunchLeadsTable.leadStatus,
       leadPriority: prelaunchLeadsTable.leadPriority,
       adminNotes: prelaunchLeadsTable.adminNotes,
+      intendedTier: prelaunchLeadsTable.intendedTier,
     })
     .from(prelaunchLeadsTable)
     .where(eq(prelaunchLeadsTable.id, id))
@@ -258,6 +298,18 @@ router.patch("/admin/leads/:id", async (req, res) => {
       leadId: updated.id,
       before: { adminNotes: before?.adminNotes ?? null },
       after: { adminNotes: updated.adminNotes ?? null },
+    });
+  }
+  if (
+    fieldsUpdated.includes("intendedTier") &&
+    (before?.intendedTier ?? null) !== (updated.intendedTier ?? null)
+  ) {
+    void writeAudit({
+      req,
+      action: "lead_intended_tier_changed",
+      leadId: updated.id,
+      before: { intendedTier: before?.intendedTier ?? null },
+      after: { intendedTier: updated.intendedTier ?? null },
     });
   }
   if (caseId !== null && caseCreatedThisCall) {
