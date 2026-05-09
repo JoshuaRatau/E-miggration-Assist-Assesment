@@ -369,11 +369,12 @@ export function AdminSubscriptions() {
               <p className="text-sky-200/80">
                 As part of <strong>Phase 7</strong>, this workspace will be
                 wired to receive subscription, invoice, and payment events
-                from the payment provider (Paystack / Stripe). Once those
-                webhooks are live, the panels below will populate automatically
-                with active subscriptions, revenue, churn, and per-customer
-                billing history. Until then, no customer payments are
-                captured.
+                from <strong>Paystack</strong> (preferred payment provider).
+                Once those webhooks are live, the panels below will populate
+                automatically with active subscriptions, revenue, churn, and
+                per-customer billing history. Revenue is reported in{" "}
+                <strong>ZAR</strong> at launch; additional currencies will
+                follow. Until then, no customer payments are captured.
               </p>
             </div>
           </div>
@@ -404,6 +405,7 @@ export function AdminSubscriptions() {
               <PlaceholderTile
                 icon={<DollarSign className="h-4 w-4" />}
                 label="Monthly recurring revenue"
+                hint="ZAR · more currencies soon"
               />
               <PlaceholderTile
                 icon={<TrendingUp className="h-4 w-4" />}
@@ -607,9 +609,11 @@ export function AdminSubscriptions() {
 function PlaceholderTile({
   icon,
   label,
+  hint,
 }: {
   icon: React.ReactNode;
   label: string;
+  hint?: string;
 }) {
   return (
     <div className="rounded-lg border border-slate-700/40 bg-slate-900/60 p-3">
@@ -621,7 +625,7 @@ function PlaceholderTile({
         —
       </div>
       <div className="text-[10px] text-slate-500 mt-0.5">
-        Awaiting webhook
+        {hint ?? "Awaiting webhook"}
       </div>
     </div>
   );
