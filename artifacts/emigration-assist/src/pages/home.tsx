@@ -249,8 +249,7 @@ export function Home() {
               <p className="text-base sm:text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto lg:mx-0 leading-relaxed">
                 A new immigration technology ecosystem — structured workflows,
                 document intelligence, and AI-assisted guidance for travellers,
-                firms, and concierge clients. Take the early-access assessment
-                to reserve your place.
+                firms, and concierge clients.
               </p>
             </div>
 
