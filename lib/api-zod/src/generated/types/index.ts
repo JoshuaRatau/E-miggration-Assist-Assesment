@@ -32,6 +32,7 @@ export * from "./createLeadInput";
 export * from "./document";
 export * from "./healthStatus";
 export * from "./lead";
+export * from "./leadLeadScoreBreakdownItem";
 export * from "./leadMixBucket";
 export * from "./listDocumentsParams";
 export * from "./listLeadsLeadType";

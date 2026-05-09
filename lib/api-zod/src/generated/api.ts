@@ -89,6 +89,30 @@ export const CreateLeadResponse = zod.object({
   previousOverstay: zod.string().nullish(),
   internalClassification: zod.string().nullish(),
   leadScore: zod.number().nullish(),
+  leadScoreRubric: zod
+    .string()
+    .nullish()
+    .describe(
+      "Phase 6B — which rubric was applied by the score recompute worker. self_serve | sales | static. Null until the worker has run for the lead at least once.",
+    ),
+  leadScoreComputedAt: zod
+    .string()
+    .nullish()
+    .describe(
+      "Phase 6B — ISO-8601 timestamp of the most recent worker recompute. Null if the worker has not yet processed this lead.",
+    ),
+  leadScoreBreakdown: zod
+    .array(
+      zod.object({
+        rule: zod.string(),
+        points: zod.number(),
+        occurrences: zod.number(),
+      }),
+    )
+    .nullish()
+    .describe(
+      "Phase 6B — per-rule contribution snapshot from the most recent recompute, sorted by points desc. Sum equals `leadScore` modulo the rubric cap.",
+    ),
   leadCategory: zod.string().nullish(),
   leadPriority: zod
     .string()
@@ -315,6 +339,30 @@ export const GetLeadByIdResponse = zod.object({
   previousOverstay: zod.string().nullish(),
   internalClassification: zod.string().nullish(),
   leadScore: zod.number().nullish(),
+  leadScoreRubric: zod
+    .string()
+    .nullish()
+    .describe(
+      "Phase 6B — which rubric was applied by the score recompute worker. self_serve | sales | static. Null until the worker has run for the lead at least once.",
+    ),
+  leadScoreComputedAt: zod
+    .string()
+    .nullish()
+    .describe(
+      "Phase 6B — ISO-8601 timestamp of the most recent worker recompute. Null if the worker has not yet processed this lead.",
+    ),
+  leadScoreBreakdown: zod
+    .array(
+      zod.object({
+        rule: zod.string(),
+        points: zod.number(),
+        occurrences: zod.number(),
+      }),
+    )
+    .nullish()
+    .describe(
+      "Phase 6B — per-rule contribution snapshot from the most recent recompute, sorted by points desc. Sum equals `leadScore` modulo the rubric cap.",
+    ),
   leadCategory: zod.string().nullish(),
   leadPriority: zod
     .string()

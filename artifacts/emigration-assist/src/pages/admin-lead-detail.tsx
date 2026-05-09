@@ -27,6 +27,8 @@ import { getAdminToken, clearAdminToken } from "@/lib/adminToken";
 import { canAdvanceStatus, statusLabel } from "@/lib/leadStatus";
 import { INTENDED_TIER_VALUES, TIER_LABEL } from "@/lib/intendedTier";
 import { AdminLayout } from "@/components/admin-layout";
+import { LeadScoreBadge } from "@/components/lead-score-badge";
+import { LeadActivityPanel } from "@/components/lead-activity-panel";
 
 const STATUS_OPTIONS = [
   "new",
@@ -167,6 +169,12 @@ export function AdminLeadDetail() {
       // open dashboard tab reconciles its row.
       qc.invalidateQueries({ queryKey: ["/api/leads"] });
       qc.invalidateQueries({ queryKey: ["admin", "leads"] });
+      // Phase 6B PR 3 — also invalidate the Activity panel's events
+      // query. A tier change re-routes the rubric and (post PR 4) will
+      // emit a `lead_intended_tier_changed` event, both of which the
+      // panel's header/card needs to reflect on next render rather than
+      // waiting up to 5min for the React-Query staleTime to expire.
+      qc.invalidateQueries({ queryKey: ["admin", "lead", id, "events"] });
       toast({
         title: "Lead updated",
         description: "Status, priority and notes have been saved.",
@@ -252,7 +260,16 @@ export function AdminLeadDetail() {
             <Field label="Internal Category" value={
               <code className="font-mono text-xs">{lead.internalClassification ?? "—"}</code>
             } />
-            <Field label="Score" value={lead.leadScore ?? 0} />
+            <Field
+              label="Score"
+              value={
+                <LeadScoreBadge
+                  lead={lead}
+                  showRubric
+                  testIdSuffix="lead-detail"
+                />
+              }
+            />
             <Field label="Public Label" value={lead.leadCategory} />
           </CardContent>
         </Card>
@@ -338,6 +355,8 @@ export function AdminLeadDetail() {
             />
           </CardContent>
         </Card>
+
+        <LeadActivityPanel leadId={id} />
 
         <Card>
           <CardHeader>

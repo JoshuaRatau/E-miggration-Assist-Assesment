@@ -530,6 +530,36 @@ components:
         leadScore:
           type: integer
           nullable: true
+        leadScoreRubric:
+          type: string
+          nullable: true
+          description: >-
+            Phase 6B — which rubric was applied by the score recompute
+            worker. self_serve | sales | static. Null until the worker
+            has run for the lead at least once.
+        leadScoreComputedAt:
+          type: string
+          nullable: true
+          description: >-
+            Phase 6B — ISO-8601 timestamp of the most recent worker
+            recompute. Null if the worker has not yet processed this lead.
+        leadScoreBreakdown:
+          type: array
+          nullable: true
+          description: >-
+            Phase 6B — per-rule contribution snapshot from the most recent
+            recompute, sorted by points desc. Sum equals `leadScore` modulo
+            the rubric cap.
+          items:
+            type: object
+            properties:
+              rule:
+                type: string
+              points:
+                type: integer
+              occurrences:
+                type: integer
+            required: [rule, points, occurrences]
         leadCategory:
           type: string
           nullable: true

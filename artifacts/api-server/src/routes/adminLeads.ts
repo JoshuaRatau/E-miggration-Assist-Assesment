@@ -4,8 +4,9 @@ import {
   prelaunchLeadsTable,
   analyticsEventsTable,
   leadCasesTable as leadCasesQueryRef,
+  leadEventsTable,
 } from "@workspace/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import {
   LEAD_STATUS_VALUES,
   LEAD_PRIORITY_VALUES,
@@ -49,6 +50,12 @@ function serializeLead(
       : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    // Phase 6B — surface the score-recompute worker's metadata. The Date
+    // column is normalised to an ISO-8601 string so it crosses the wire
+    // identically to every other timestamp on the Lead payload.
+    leadScoreComputedAt: row.leadScoreComputedAt
+      ? row.leadScoreComputedAt.toISOString()
+      : null,
     hasWhatsapp: typeof row.whatsapp === "string" && row.whatsapp.length > 0,
     // Conversion-funnel hint mirrored from leads.ts so PATCH responses stay
     // consistent with GET — see deriveNextStep().
@@ -338,6 +345,78 @@ router.patch("/admin/leads/:id", async (req, res) => {
     );
 
   return res.json(serializeLead(updated, caseId));
+});
+
+/**
+ * GET /api/admin/leads/:id/events
+ *
+ * Phase 6B PR 3 — read-only activity feed for the lead-detail Activity
+ * panel. Returns the underlying `lead_events` rows that the score
+ * recompute worker consumes, ordered newest-first, alongside the lead's
+ * current rubric label and most-recent recompute timestamp so the UI
+ * can render "static rubric · last computed 3m ago" headers without a
+ * second round-trip.
+ *
+ * Like the existing `/admin/leads/:id/timeline` endpoint, this route is
+ * intentionally kept OUT of the OpenAPI spec — the events feed is a
+ * sibling resource whose shape may evolve as we add scoring rules.
+ * Keeping it dedicated lets us iterate without disturbing the Lead
+ * contract.
+ */
+router.get("/admin/leads/:id/events", async (req, res) => {
+  if (!(await requireAdminToken(req, res))) return;
+
+  const { id } = req.params;
+  if (!id || typeof id !== "string") {
+    return res.status(400).json({ error: "Missing lead id" });
+  }
+
+  // Confirm existence + capture the score metadata. 404 here distinguishes
+  // a typo'd id from the empty-events case (which is a valid 200 with
+  // events: []).
+  const [lead] = await db
+    .select({
+      id: prelaunchLeadsTable.id,
+      leadScore: prelaunchLeadsTable.leadScore,
+      leadScoreRubric: prelaunchLeadsTable.leadScoreRubric,
+      leadScoreComputedAt: prelaunchLeadsTable.leadScoreComputedAt,
+      leadScoreBreakdown: prelaunchLeadsTable.leadScoreBreakdown,
+    })
+    .from(prelaunchLeadsTable)
+    .where(eq(prelaunchLeadsTable.id, id))
+    .limit(1);
+  if (!lead) return res.status(404).json({ error: "Lead not found" });
+
+  const rows = await db
+    .select({
+      id: leadEventsTable.id,
+      type: leadEventsTable.type,
+      points: leadEventsTable.points,
+      rubric: leadEventsTable.rubric,
+      source: leadEventsTable.source,
+      occurredAt: leadEventsTable.occurredAt,
+    })
+    .from(leadEventsTable)
+    .where(eq(leadEventsTable.leadId, id))
+    .orderBy(desc(leadEventsTable.occurredAt));
+
+  return res.json({
+    leadId: lead.id,
+    leadScore: lead.leadScore ?? null,
+    leadScoreRubric: lead.leadScoreRubric ?? null,
+    leadScoreBreakdown: lead.leadScoreBreakdown ?? null,
+    leadScoreComputedAt: lead.leadScoreComputedAt
+      ? lead.leadScoreComputedAt.toISOString()
+      : null,
+    events: rows.map((r) => ({
+      id: r.id,
+      type: r.type,
+      points: r.points,
+      rubric: r.rubric,
+      source: r.source,
+      occurredAt: r.occurredAt.toISOString(),
+    })),
+  });
 });
 
 export default router;

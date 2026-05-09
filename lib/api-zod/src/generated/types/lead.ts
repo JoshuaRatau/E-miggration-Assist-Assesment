@@ -5,6 +5,7 @@
  * E-Migration Assist API
  * OpenAPI spec version: 0.2.0
  */
+import type { LeadLeadScoreBreakdownItem } from "./leadLeadScoreBreakdownItem";
 
 export interface Lead {
   id: string;
@@ -26,6 +27,12 @@ export interface Lead {
   previousOverstay?: string | null;
   internalClassification?: string | null;
   leadScore?: number | null;
+  /** Phase 6B — which rubric was applied by the score recompute worker. self_serve | sales | static. Null until the worker has run for the lead at least once. */
+  leadScoreRubric?: string | null;
+  /** Phase 6B — ISO-8601 timestamp of the most recent worker recompute. Null if the worker has not yet processed this lead. */
+  leadScoreComputedAt?: string | null;
+  /** Phase 6B — per-rule contribution snapshot from the most recent recompute, sorted by points desc. Sum equals `leadScore` modulo the rubric cap. */
+  leadScoreBreakdown?: LeadLeadScoreBreakdownItem[] | null;
   leadCategory?: string | null;
   /** critical | high | medium | low */
   leadPriority?: string | null;
