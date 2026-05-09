@@ -19,6 +19,7 @@ import adminCampaignsRouter from "./adminCampaigns";
 import adminTemplatesRouter from "./adminTemplates";
 import unsubscribeRouter from "./unsubscribe";
 import whatsappWebhookRouter from "./whatsappWebhook";
+import billingWebhookRouter from "./billingWebhook";
 import otpRouter from "./otp";
 
 const router: IRouter = Router();
@@ -43,6 +44,7 @@ router.use(adminCampaignsRouter);
 router.use(adminTemplatesRouter);
 router.use(unsubscribeRouter);
 router.use(whatsappWebhookRouter);
+router.use(billingWebhookRouter);
 router.use(otpRouter);
 
 export default router;

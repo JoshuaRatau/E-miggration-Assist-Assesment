@@ -47,6 +47,11 @@ const SELF_SERVE: Rubric = {
     { type: "tier_set", points: 5, maxOccurrences: 1 },
     { type: "pricing_page_viewed", points: 8, maxOccurrences: 5, decayDays: 30 },
     { type: "checkout_started", points: 25, maxOccurrences: 2 },
+    // Phase 6C — strongest possible self-serve conversion signal.
+    // Caps at 1 because a lead either has an active subscription or
+    // doesn't; resubscriptions after a cancel are a separate signal we
+    // don't model in V1.
+    { type: "subscription_started", points: 30, maxOccurrences: 1 },
     { type: "email_opened", points: 2, maxOccurrences: 10, decayDays: 60 },
     { type: "email_clicked", points: 5, maxOccurrences: 10, decayDays: 60 },
     { type: "wa_replied", points: 8, maxOccurrences: 5, decayDays: 60 },
@@ -64,6 +69,8 @@ const SALES: Rubric = {
     { type: "demo_requested", points: 25, maxOccurrences: 2 },
     { type: "proposal_opened", points: 20, maxOccurrences: 3 },
     { type: "status_advanced", points: 8, maxOccurrences: 8, decayDays: 90 },
+    // Phase 6C — B2B subscriptions are higher LTV, so weight harder.
+    { type: "subscription_started", points: 40, maxOccurrences: 1 },
     { type: "email_opened", points: 1, maxOccurrences: 20, decayDays: 60 },
     { type: "email_clicked", points: 3, maxOccurrences: 20, decayDays: 60 },
     { type: "wa_replied", points: 6, maxOccurrences: 10, decayDays: 60 },
@@ -85,6 +92,8 @@ const STATIC: Rubric = {
     { type: "assessment_completed", points: 15, maxOccurrences: 1 },
     { type: "documents_uploaded", points: 10, maxOccurrences: 3 },
     { type: "status_advanced", points: 5, maxOccurrences: 8, decayDays: 90 },
+    // Phase 6C — even untyped leads earn for a paid subscription.
+    { type: "subscription_started", points: 20, maxOccurrences: 1 },
     { type: "email_opened", points: 1, maxOccurrences: 10, decayDays: 60 },
     { type: "email_clicked", points: 3, maxOccurrences: 10, decayDays: 60 },
     { type: "wa_replied", points: 5, maxOccurrences: 5, decayDays: 60 },

@@ -1124,3 +1124,149 @@ export const SendCampaignResponse = zod.object({
     unsub: zod.number(),
   }),
 });
+
+/**
+ * Phase 6C — One-way ingestion of subscription and payment events from
+the external eMigration platform (where Paystack subscriptions are
+actually processed). This CRM mirrors those events so operators can
+see commercial state alongside the lead funnel.
+
+### Authentication
+HMAC-SHA256 over the raw request body using the shared secret
+`EMIGRATION_WEBHOOK_SECRET`. The hex digest is sent in the
+`X-Emigration-Signature` header. The optional `sha256=` prefix is
+tolerated for compatibility with common signing libraries.
+
+### Idempotency
+The envelope `id` field is treated as the idempotency key. Re-delivery
+of the same `id` returns `200 {"already_processed": true}` without
+re-running the handler.
+
+### Correlation
+Each event SHOULD carry at least one of `leadReference` (preferred,
+the `EMA-XXXX` reference issued at lead creation) or `email`. The
+server cascades: `leadReference` → `email` → unmatched. Unmatched
+events still 200 — they are queued in the reconciliation backlog
+and surfaced at `/admin/billing` for manual resolution. The
+underlying subscription/payment row is still recorded with
+`lead_id = NULL` so revenue is never lost.
+
+### Auto-conversion
+On the first `payment.succeeded` event for a correlated lead, the
+lead is advanced to `converted` and a `lead_cases` row is created
+— this bypasses the operator-only "must be in ready_for_case"
+funnel guard, because an inbound payment is hard evidence of
+conversion. Subsequent payments for the same lead are no-ops on
+the funnel side.
+
+### Curl example
+```bash
+BODY='{"id":"evt_123","type":"payment.succeeded","occurredAt":"2026-05-09T12:00:00Z","leadReference":"EMA-ABC1-XYZ2","data":{"externalPaymentId":"pay_999","externalSubscriptionId":"sub_1","amountCents":19900,"currency":"ZAR","paidAt":"2026-05-09T12:00:00Z","status":"success"}}'
+SIG=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac "$EMIGRATION_WEBHOOK_SECRET" -hex | awk '{print $2}')
+curl -X POST https://your-host/api/webhooks/emigration-billing \
+  -H "Content-Type: application/json" \
+  -H "X-Emigration-Signature: sha256=$SIG" \
+  -d "$BODY"
+```
+
+ * @summary Inbound revenue webhook from the eMigration immigration platform
+ */
+export const PostWebhooksEmigrationBillingHeader = zod.object({
+  "X-Emigration-Signature": zod
+    .string()
+    .describe(
+      "`sha256=<hex>` HMAC of the raw body. The `sha256=` prefix is optional.",
+    ),
+});
+
+export const postWebhooksEmigrationBillingBodyIdMax = 255;
+
+export const postWebhooksEmigrationBillingBodyDataOneExternalSubscriptionIdMax = 255;
+
+export const postWebhooksEmigrationBillingBodyDataOnePlanAmountCentsMin = 0;
+
+export const postWebhooksEmigrationBillingBodyDataTwoExternalPaymentIdMax = 255;
+
+export const postWebhooksEmigrationBillingBodyDataTwoAmountCentsMin = 0;
+
+export const PostWebhooksEmigrationBillingBody = zod
+  .object({
+    id: zod
+      .string()
+      .max(postWebhooksEmigrationBillingBodyIdMax)
+      .describe(
+        "Globally-unique event id from the eMigration platform. Idempotency key.",
+      ),
+    type: zod.enum([
+      "subscription.created",
+      "subscription.updated",
+      "subscription.cancelled",
+      "payment.succeeded",
+      "payment.failed",
+      "payment.refunded",
+    ]),
+    occurredAt: zod.coerce.date(),
+    leadReference: zod
+      .string()
+      .nullish()
+      .describe(
+        "The `EMA-XXXX` reference issued at lead creation. Preferred correlation key.",
+      ),
+    email: zod
+      .string()
+      .email()
+      .nullish()
+      .describe("Fallback correlation key (case-insensitive)."),
+    data: zod.union([
+      zod.object({
+        externalSubscriptionId: zod
+          .string()
+          .max(
+            postWebhooksEmigrationBillingBodyDataOneExternalSubscriptionIdMax,
+          ),
+        planCode: zod
+          .string()
+          .describe("Tier code, e.g. `basic`, `growth_firm`."),
+        planCurrency: zod.enum(["ZAR", "USD"]),
+        planAmountCents: zod
+          .number()
+          .min(postWebhooksEmigrationBillingBodyDataOnePlanAmountCentsMin),
+        interval: zod.enum(["monthly", "yearly"]),
+        status: zod
+          .string()
+          .describe(
+            "active | trialing | past_due | cancelled | paused | incomplete",
+          ),
+        startedAt: zod.coerce.date(),
+        currentPeriodEnd: zod.coerce.date().nullish(),
+        cancelledAt: zod.coerce.date().nullish(),
+      }),
+      zod.object({
+        externalPaymentId: zod
+          .string()
+          .max(postWebhooksEmigrationBillingBodyDataTwoExternalPaymentIdMax),
+        externalSubscriptionId: zod.string().nullish(),
+        amountCents: zod
+          .number()
+          .min(postWebhooksEmigrationBillingBodyDataTwoAmountCentsMin),
+        currency: zod.enum(["ZAR", "USD"]),
+        paidAt: zod.coerce.date(),
+        status: zod.enum(["success", "failed", "refunded"]),
+      }),
+    ]),
+  })
+  .describe(
+    "Envelope sent by the eMigration platform on every billing event.\n`data` shape depends on `type`: subscription.\* events carry an\n`EmigrationSubscriptionData`; payment.\* events carry an\n`EmigrationPaymentData`.\n",
+  );
+
+export const PostWebhooksEmigrationBillingResponse = zod.union([
+  zod.object({
+    ok: zod.literal(true),
+    status: zod.enum(["processed", "unmatched"]),
+    leadId: zod.string().uuid().nullish(),
+    skipped: zod.boolean().optional(),
+  }),
+  zod.object({
+    already_processed: zod.literal(true),
+  }),
+]);

@@ -5,6 +5,100 @@
  * E-Migration Assist API
  * OpenAPI spec version: 0.2.0
  */
+export type EmigrationBillingEventType =
+  (typeof EmigrationBillingEventType)[keyof typeof EmigrationBillingEventType];
+
+export const EmigrationBillingEventType = {
+  subscriptioncreated: "subscription.created",
+  subscriptionupdated: "subscription.updated",
+  subscriptioncancelled: "subscription.cancelled",
+  paymentsucceeded: "payment.succeeded",
+  paymentfailed: "payment.failed",
+  paymentrefunded: "payment.refunded",
+} as const;
+
+export type EmigrationSubscriptionDataPlanCurrency =
+  (typeof EmigrationSubscriptionDataPlanCurrency)[keyof typeof EmigrationSubscriptionDataPlanCurrency];
+
+export const EmigrationSubscriptionDataPlanCurrency = {
+  ZAR: "ZAR",
+  USD: "USD",
+} as const;
+
+export type EmigrationSubscriptionDataInterval =
+  (typeof EmigrationSubscriptionDataInterval)[keyof typeof EmigrationSubscriptionDataInterval];
+
+export const EmigrationSubscriptionDataInterval = {
+  monthly: "monthly",
+  yearly: "yearly",
+} as const;
+
+export interface EmigrationSubscriptionData {
+  /** @maxLength 255 */
+  externalSubscriptionId: string;
+  /** Tier code, e.g. `basic`, `growth_firm`. */
+  planCode: string;
+  planCurrency: EmigrationSubscriptionDataPlanCurrency;
+  /** @minimum 0 */
+  planAmountCents: number;
+  interval: EmigrationSubscriptionDataInterval;
+  /** active | trialing | past_due | cancelled | paused | incomplete */
+  status: string;
+  startedAt: string;
+  currentPeriodEnd?: string | null;
+  cancelledAt?: string | null;
+}
+
+export type EmigrationPaymentDataCurrency =
+  (typeof EmigrationPaymentDataCurrency)[keyof typeof EmigrationPaymentDataCurrency];
+
+export const EmigrationPaymentDataCurrency = {
+  ZAR: "ZAR",
+  USD: "USD",
+} as const;
+
+export type EmigrationPaymentDataStatus =
+  (typeof EmigrationPaymentDataStatus)[keyof typeof EmigrationPaymentDataStatus];
+
+export const EmigrationPaymentDataStatus = {
+  success: "success",
+  failed: "failed",
+  refunded: "refunded",
+} as const;
+
+export interface EmigrationPaymentData {
+  /** @maxLength 255 */
+  externalPaymentId: string;
+  externalSubscriptionId?: string | null;
+  /** @minimum 0 */
+  amountCents: number;
+  currency: EmigrationPaymentDataCurrency;
+  paidAt: string;
+  status: EmigrationPaymentDataStatus;
+}
+
+/**
+ * Envelope sent by the eMigration platform on every billing event.
+`data` shape depends on `type`: subscription.* events carry an
+`EmigrationSubscriptionData`; payment.* events carry an
+`EmigrationPaymentData`.
+
+ */
+export interface EmigrationBillingEvent {
+  /**
+   * Globally-unique event id from the eMigration platform. Idempotency key.
+   * @maxLength 255
+   */
+  id: string;
+  type: EmigrationBillingEventType;
+  occurredAt: string;
+  /** The `EMA-XXXX` reference issued at lead creation. Preferred correlation key. */
+  leadReference?: string | null;
+  /** Fallback correlation key (case-insensitive). */
+  email?: string | null;
+  data: EmigrationSubscriptionData | EmigrationPaymentData;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -511,3 +605,14 @@ export const ListLeadsLeadType = {
 export type ListDocumentsParams = {
   leadId: string;
 };
+
+export type PostWebhooksEmigrationBilling200 =
+  | {
+      ok: boolean;
+      status: "processed" | "unmatched";
+      leadId?: string | null;
+      skipped?: boolean;
+    }
+  | {
+      already_processed: boolean;
+    };
