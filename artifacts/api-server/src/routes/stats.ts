@@ -148,13 +148,17 @@ router.get("/stats/source-mix", async (req, res) => {
   //      the allow-list check, so historical rows with stray
   //      whitespace or mixed case (`' LinkedIn '`) bucket the same
   //      way the dashboard chip / filter would render them.
-  //   3. Anything that survives canonicalization but isn't on the
-  //      allow-list falls into `other` so the response can never
-  //      expose a free-text channel value the UI doesn't render.
-  // The canonicalized form is also what we RETURN, so the column
-  // shape matches `LeadSource` exactly without a second client-side
-  // pass.
-  const canonicalSource = sql<string>`LOWER(TRIM(COALESCE(${prelaunchLeadsTable.source}, 'web_form')))`;
+  //   3. **Batch-suffix stripping:** the CSV importer writes values
+  //      like `csv_import:97c8e7b6` (the suffix is the import-batch
+  //      id) — without `split_part` those rows would fall into
+  //      `other` and B2B imports would look unattributed. We split
+  //      on `:` and keep the prefix so any `csv_import:*` collapses
+  //      to `csv_import`. Same treatment given to all other channels
+  //      so future suffixed imports (e.g. `manual:opname`) bucket
+  //      sanely too.
+  //   4. Anything that survives canonicalization but isn't on the
+  //      allow-list falls into `other`.
+  const canonicalSource = sql<string>`SPLIT_PART(LOWER(TRIM(COALESCE(${prelaunchLeadsTable.source}, 'web_form'))), ':', 1)`;
   const sourceBucket = sql<string>`
     CASE
       WHEN ${canonicalSource} IN (
@@ -273,9 +277,10 @@ router.get("/stats/source-attribution", async (req, res) => {
     : "all";
   const meta = RANGE_META[range];
 
-  // Same canonicalisation as /source-mix so legacy / mixed-case rows
-  // bucket consistently.
-  const canonicalSource = sql<string>`LOWER(TRIM(COALESCE(${prelaunchLeadsTable.source}, 'web_form')))`;
+  // Same canonicalisation as /source-mix — strips `:batch` suffix so
+  // `csv_import:<batchId>` rows (written by the CSV importer) bucket
+  // as `csv_import` instead of falling into `other`.
+  const canonicalSource = sql<string>`SPLIT_PART(LOWER(TRIM(COALESCE(${prelaunchLeadsTable.source}, 'web_form'))), ':', 1)`;
   const sourceBucket = sql<string>`
     CASE
       WHEN ${canonicalSource} IN (
@@ -325,11 +330,11 @@ router.get("/stats/source-attribution", async (req, res) => {
         SELECT COUNT(*)::int FROM prelaunch_leads p2
         WHERE
           CASE
-            WHEN LOWER(TRIM(COALESCE(p2.source, 'web_form'))) IN (
+            WHEN SPLIT_PART(LOWER(TRIM(COALESCE(p2.source, 'web_form'))), ':', 1) IN (
               'web_form','referral','linkedin','facebook','google','direct',
               'csv_import','manual','api','other'
             )
-            THEN LOWER(TRIM(COALESCE(p2.source, 'web_form')))
+            THEN SPLIT_PART(LOWER(TRIM(COALESCE(p2.source, 'web_form'))), ':', 1)
             ELSE 'other'
           END = ${sourceBucket}
           ${prevRangeClause}
