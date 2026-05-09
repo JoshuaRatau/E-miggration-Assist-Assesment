@@ -12,6 +12,7 @@ import {
   renderTemplate,
   findUnknownTokens,
 } from "../lib/campaignRender";
+import { sanitizeEmailHtml } from "../lib/htmlSanitize";
 import { bootstrapCommTemplates } from "../lib/templateBootstrap";
 
 // Phase 5 Phase E — Draft Templates (§3.C).
@@ -335,9 +336,13 @@ router.post("/admin/templates/:id/preview", async (req, res) => {
     referenceNumber: "EMA-DEMO-0001",
     organizationName: "Acme Immigration Co",
   };
+  const renderedBody = renderTemplate(row.body, ctx);
   res.json({
     subject: row.subject ? renderTemplate(row.subject, ctx) : null,
-    body: renderTemplate(row.body, ctx),
+    // 6D-2: sanitise email HTML at preview time so the editor preview
+    // matches what recipients will receive. WhatsApp bodies stay raw —
+    // they are plain text and may contain literal `<` characters.
+    body: row.channel === "email" ? sanitizeEmailHtml(renderedBody) : renderedBody,
     unknownTokens: findUnknownTokens(row.body),
   });
 });

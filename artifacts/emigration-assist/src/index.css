@@ -369,3 +369,25 @@
     inset: -1px;
   }
 }
+/* Phase 6D-2 — TipTap rich email editor surface */
+.rich-email-editor .ProseMirror {
+  outline: none;
+  min-height: inherit;
+}
+.rich-email-editor .ProseMirror p { margin: 0 0 0.6em; }
+.rich-email-editor .ProseMirror h1 { font-size: 1.5rem; font-weight: 700; margin: 0.4em 0 0.4em; line-height: 1.2; }
+.rich-email-editor .ProseMirror h2 { font-size: 1.25rem; font-weight: 700; margin: 0.4em 0 0.4em; line-height: 1.25; }
+.rich-email-editor .ProseMirror h3 { font-size: 1.1rem; font-weight: 600; margin: 0.4em 0 0.3em; }
+.rich-email-editor .ProseMirror ul,
+.rich-email-editor .ProseMirror ol { padding-left: 1.4em; margin: 0 0 0.6em; }
+.rich-email-editor .ProseMirror ul { list-style: disc; }
+.rich-email-editor .ProseMirror ol { list-style: decimal; }
+.rich-email-editor .ProseMirror a { color: #5eead4; text-decoration: underline; }
+.rich-email-editor .ProseMirror img { max-width: 100%; height: auto; border-radius: 4px; }
+.rich-email-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #64748b;
+  pointer-events: none;
+  height: 0;
+}

@@ -37,6 +37,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAdminAuth } from "@/lib/adminAuth";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { RichEmailEditor } from "@/components/admin/RichEmailEditor";
 import {
   Loader2,
   Plus,
@@ -948,16 +949,30 @@ function TemplatesPanel() {
 
                 <div>
                   <Label className="text-xs text-slate-400">Body</Label>
-                  <Textarea
-                    value={draft.body}
-                    onChange={(e) =>
-                      setDraft({ ...draft, body: e.target.value })
-                    }
-                    disabled={isArchived}
-                    rows={8}
-                    className="mt-1 bg-slate-950/40 font-mono text-sm"
-                    data-testid="textarea-template-body"
-                  />
+                  {draft.channel === "email" ? (
+                    <div className="mt-1">
+                      <RichEmailEditor
+                        value={draft.body}
+                        onChange={(html) =>
+                          setDraft({ ...draft, body: html })
+                        }
+                        disabled={isArchived}
+                        testId="editor-template-body"
+                        minHeight={320}
+                      />
+                    </div>
+                  ) : (
+                    <Textarea
+                      value={draft.body}
+                      onChange={(e) =>
+                        setDraft({ ...draft, body: e.target.value })
+                      }
+                      disabled={isArchived}
+                      rows={8}
+                      className="mt-1 bg-slate-950/40 font-mono text-sm"
+                      data-testid="textarea-template-body"
+                    />
+                  )}
                   <p className="mt-1.5 text-xs text-slate-500">
                     Tokens:{" "}
                     {[

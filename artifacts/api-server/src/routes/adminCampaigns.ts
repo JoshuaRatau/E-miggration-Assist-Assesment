@@ -23,6 +23,7 @@ import {
   renderTemplate,
   findUnknownTokens,
 } from "../lib/campaignRender";
+import { sanitizeEmailHtml } from "../lib/htmlSanitize";
 import { sendMessage } from "../lib/messaging";
 import {
   buildUnsubscribeUrl,
@@ -752,7 +753,13 @@ router.post("/admin/campaigns/:id/send", async (req, res) => {
 
     // Render per-lead body.
     const ctx = leadToContext(lead);
-    const renderedBody = renderTemplate(campaign.templateBody ?? "", ctx);
+    const renderedBodyRaw = renderTemplate(campaign.templateBody ?? "", ctx);
+    // 6D-2: sanitise the rich-editor HTML before sending. Email-channel
+    // only — WhatsApp bodies are plain text. Defense in depth: editor
+    // authors are admins, but sanitising at the send boundary covers any
+    // content that bypassed the client (legacy templates, API callers).
+    const renderedBody =
+      channelEnum === "email" ? sanitizeEmailHtml(renderedBodyRaw) : renderedBodyRaw;
     const renderedSubject = renderTemplate(
       campaign.templateSubject ?? "Update from E-Migration Assist",
       ctx,

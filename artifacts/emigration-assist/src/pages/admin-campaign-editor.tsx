@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { RichEmailEditor } from "@/components/admin/RichEmailEditor";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -516,17 +517,16 @@ export function AdminCampaignEditor() {
                       <Label htmlFor="body" className="text-xs text-slate-400">
                         Body
                       </Label>
-                      <Textarea
-                        id="body"
-                        value={draft.templateBody ?? ""}
-                        onChange={(e) =>
-                          setDraft({ ...draft, templateBody: e.target.value })
-                        }
-                        rows={10}
-                        className="mt-1 bg-slate-950/40 font-mono text-sm"
-                        placeholder={`Hi {{first_name}},\n\nWe wanted to share an update...\n\nReference: {{reference}}`}
-                        data-testid="textarea-template-body"
-                      />
+                      <div className="mt-1">
+                        <RichEmailEditor
+                          value={draft.templateBody ?? ""}
+                          onChange={(html) =>
+                            setDraft({ ...draft, templateBody: html })
+                          }
+                          testId="editor-template-body"
+                          minHeight={360}
+                        />
+                      </div>
                       <p className="mt-1.5 text-xs text-slate-500">
                         Tokens:{" "}
                         <code className="rounded bg-slate-800 px-1 py-0.5 text-slate-300">

@@ -189,6 +189,33 @@ export class ObjectStorageService {
     return normalizedPath;
   }
 
+  /**
+   * Phase 6D-2 — Upload a small public asset (e.g. inline rich-editor
+   * image) to the FIRST configured public-search-path. The returned
+   * relative path is what `/api/public-assets/<path>` will serve.
+   */
+  async uploadPublicAsset(
+    relativePath: string,
+    body: Buffer,
+    contentType: string,
+  ): Promise<void> {
+    const searchPath = this.getPublicObjectSearchPaths()[0];
+    if (!searchPath) {
+      throw new Error("PUBLIC_OBJECT_SEARCH_PATHS empty");
+    }
+    const fullPath = `${searchPath.replace(/\/$/, "")}/${relativePath}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    const file = objectStorageClient.bucket(bucketName).file(objectName);
+    await file.save(body, {
+      contentType,
+      resumable: false,
+      metadata: {
+        contentType,
+        cacheControl: "public, max-age=31536000, immutable",
+      },
+    });
+  }
+
   async canAccessObjectEntity({
     userId,
     objectFile,
