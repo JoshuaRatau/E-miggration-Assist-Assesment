@@ -34,6 +34,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
+import { useAdminAuth } from "@/lib/adminAuth";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -445,6 +446,7 @@ const CATEGORIES: TemplateCategory[] = [
 
 function TemplatesPanel() {
   const { toast } = useToast();
+  const { user: currentAdmin } = useAdminAuth();
   const [items, setItems] = useState<CommTemplate[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filterCategory, setFilterCategory] = useState<
@@ -463,6 +465,50 @@ function TemplatesPanel() {
   const [newCategory, setNewCategory] = useState<TemplateCategory>(
     "promotional",
   );
+  const [seeding, setSeeding] = useState(false);
+
+  async function handleSeedDefaults() {
+    setSeeding(true);
+    try {
+      const res = await fetch(`${BASE}/api/admin/templates/seed-defaults`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        inserted?: number;
+        skipped?: number;
+        error?: string;
+      };
+      if (!res.ok) {
+        toast({
+          title: "Couldn't restore defaults",
+          description: body.error ?? `HTTP ${res.status}`,
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({
+        title:
+          body.inserted && body.inserted > 0
+            ? `Restored ${body.inserted} template${body.inserted === 1 ? "" : "s"}`
+            : "Library already complete",
+        description:
+          body.inserted && body.inserted > 0
+            ? `Existing templates were preserved. ${body.skipped ?? 0} already in place.`
+            : "All 20 default templates are already in your library.",
+      });
+      await load();
+    } catch (e) {
+      toast({
+        title: "Couldn't restore defaults",
+        description: e instanceof Error ? e.message : "Network error",
+        variant: "destructive",
+      });
+    } finally {
+      setSeeding(false);
+    }
+  }
 
   async function load() {
     try {
@@ -671,6 +717,18 @@ function TemplatesPanel() {
             />
             Show archived
           </label>
+          {currentAdmin?.isSuperadmin ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleSeedDefaults}
+              disabled={seeding}
+              data-testid="button-seed-defaults"
+              title="Re-seed any missing templates from the default library. Existing templates are not overwritten."
+            >
+              {seeding ? "Restoring…" : "Restore defaults"}
+            </Button>
+          ) : null}
           <Button
             size="sm"
             onClick={() => setCreateOpen(true)}

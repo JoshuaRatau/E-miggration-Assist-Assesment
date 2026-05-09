@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { bootstrapAdminAccounts } from "./lib/adminBootstrap";
+import { bootstrapCommTemplates } from "./lib/templateBootstrap";
 import { startScoreWorker } from "./lib/scoreWorker";
 
 const rawPort = process.env["PORT"];
@@ -30,6 +31,13 @@ app.listen(port, (err) => {
   // server.
   bootstrapAdminAccounts().catch((err) => {
     logger.error({ err }, "Admin bootstrap failed");
+  });
+
+  // Phase 6D-1 — seed the default 20-template communications library on
+  // first boot. Idempotent on `name`: re-runs are no-ops, operator
+  // edits to seeded templates are preserved.
+  bootstrapCommTemplates().catch((err) => {
+    logger.error({ err }, "templateBootstrap: failed");
   });
 
   // Phase 6B — start the in-process tier-aware score recompute worker.

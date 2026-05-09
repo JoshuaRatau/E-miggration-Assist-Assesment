@@ -12,6 +12,7 @@ import {
   renderTemplate,
   findUnknownTokens,
 } from "../lib/campaignRender";
+import { bootstrapCommTemplates } from "../lib/templateBootstrap";
 
 // Phase 5 Phase E — Draft Templates (§3.C).
 //
@@ -339,6 +340,41 @@ router.post("/admin/templates/:id/preview", async (req, res) => {
     body: renderTemplate(row.body, ctx),
     unknownTokens: findUnknownTokens(row.body),
   });
+});
+
+// Phase 6D-1 — Superadmin re-seed of the 20-template default library.
+// Same idempotent function the boot path uses, so any template the
+// operator has already authored or edited is preserved untouched —
+// only missing seed names are inserted. Returns counts so the UI can
+// surface a precise toast.
+// Path is absolute (`/admin/templates/...`) because the router is
+// mounted at `/api` in `routes/index.ts`, mirroring every other route
+// in this file. Authz follows the same `gateSuperadmin` convention as
+// `adminUsers.ts`: cookie-authed admins must have `isSuperadmin=true`;
+// legacy `x-admin-token` callers (operators with the env-var) are
+// trusted as superadmin per existing project convention.
+router.post("/admin/templates/seed-defaults", async (req, res) => {
+  const ok = await requireAdminAuth(req, res);
+  if (!ok) return;
+  const u = req.adminUser;
+  if (u && !u.isSuperadmin) {
+    res.status(403).json({ error: "Superadmin permission required" });
+    return;
+  }
+  const result = await bootstrapCommTemplates();
+  if (!result.ok) {
+    // The bootstrap function swallows DB errors at startup so the
+    // server boots cleanly. For a manual operator trigger we surface
+    // the failure honestly so the toast doesn't mislead.
+    res.status(500).json({ error: "seed_failed", message: result.error });
+    return;
+  }
+  void writeAudit({
+    req,
+    action: "comm_template_defaults_seeded",
+    after: { inserted: result.inserted, skipped: result.skipped },
+  });
+  res.json({ ok: true, inserted: result.inserted, skipped: result.skipped });
 });
 
 export default router;
