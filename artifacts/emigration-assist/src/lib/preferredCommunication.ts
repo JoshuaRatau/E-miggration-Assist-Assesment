@@ -36,6 +36,14 @@ export type LeadForPreferredCommunication = {
   whatsapp?: string | null;
   email?: string | null;
   hasWhatsapp?: boolean;
+  // Phase 6A — B2B contact intelligence fields. All optional; the
+  // hover-card derives sensible fallbacks when missing.
+  organizationName?: string | null;
+  organizationType?: string | null;
+  representativeName?: string | null;
+  representativeEmail?: string | null;
+  representativeRole?: string | null;
+  representativeRelationship?: string | null;
 };
 
 function trimmedNonEmpty(v: string | null | undefined): string | null {

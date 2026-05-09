@@ -84,6 +84,10 @@ export interface Lead {
   representativeName?: string | null;
   representativeEmail?: string | null;
   representativePhone?: string | null;
+  /** Free-text job title for the B2B representative (e.g. "Managing Partner", "Operations Administrator"). Surfaced in the leads-table email-pill hover-card. */
+  representativeRole?: string | null;
+  /** B2B contact relationship classifier (e.g. "Primary Decision Maker", "General Operations Contact", "Departmental Contact"). Falls back to a heuristic derivation when NULL. */
+  representativeRelationship?: string | null;
   website?: string | null;
   firmSize?: string | null;
   operatingRegions?: string[] | null;
@@ -147,6 +151,12 @@ export interface AdminLeadListItem {
   organizationName?: string | null;
   organizationType?: string | null;
   estimatedClientVolume?: number | null;
+  representativeName?: string | null;
+  representativeEmail?: string | null;
+  representativeRole?: string | null;
+  representativeRelationship?: string | null;
+  firmSize?: string | null;
+  serviceFocus?: string | null;
   /** admin_users.id of the operator assigned to this lead */
   assignedTo?: string | null;
   lastContactedAt?: string | null;

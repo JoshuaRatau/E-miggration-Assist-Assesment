@@ -599,6 +599,21 @@ components:
         representativePhone:
           type: string
           nullable: true
+        representativeRole:
+          type: string
+          nullable: true
+          description: >-
+            Free-text job title for the B2B representative
+            (e.g. "Managing Partner", "Operations Administrator").
+            Surfaced in the leads-table email-pill hover-card.
+        representativeRelationship:
+          type: string
+          nullable: true
+          description: >-
+            B2B contact relationship classifier
+            (e.g. "Primary Decision Maker", "General Operations
+            Contact", "Departmental Contact"). Falls back to a
+            heuristic derivation when NULL.
         website:
           type: string
           nullable: true
@@ -748,6 +763,24 @@ components:
           nullable: true
         estimatedClientVolume:
           type: integer
+          nullable: true
+        representativeName:
+          type: string
+          nullable: true
+        representativeEmail:
+          type: string
+          nullable: true
+        representativeRole:
+          type: string
+          nullable: true
+        representativeRelationship:
+          type: string
+          nullable: true
+        firmSize:
+          type: string
+          nullable: true
+        serviceFocus:
+          type: string
           nullable: true
         assignedTo:
           type: string

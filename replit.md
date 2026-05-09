@@ -76,6 +76,14 @@ New tables `campaigns`, `campaign_recipients`, `unsubscribes` in `lib/db/src/sch
 
 **Known V1 limitation:** WhatsApp out-of-window sends require a Twilio Content template; the dispatcher currently returns `wa_template_send_not_implemented` so those recipients land as `failed` until the Content API call is wired in. In-window WA freeform and all email sends are fully functional.
 
+### Phase 6A — B2B Contact Intelligence (email-pill hover)
+
+First slice of the "intelligent CRM" upgrade. The `PreferredCommunicationCell` hover-card now renders a full B2B contact card for `leadType = "professional"` rows: contact name, role/title, organisation name, **relationship classifier** (Primary Decision-Maker Contact / Departmental Contact / General Operations Contact) and **email-type label** (Personal / Departmental / Generic). Individual (B2C) rows are unchanged — they keep the original masked-by-default address with reveal/copy controls.
+
+**Schema:** `prelaunch_leads` gained two nullable text columns — `representative_role` and `representative_relationship` — populated by the import pipeline / manual edit. When NULL, the hover-card derives sensible fallbacks via `lib/b2bContactIntelligence.ts`: role falls back from `organizationType` (e.g. `law_firm` → "Partner / Attorney"); relationship is inferred from the email local-part (generic mailboxes like `info@`, `admin@`, `hr@` → "General Operations Contact"; locals matching the rep's name → "Primary Decision-Maker Contact"; everything else → "Departmental Contact"). Free-mail domains are always classified as personal regardless of local-part because there are no shared inboxes on `gmail.com` etc.
+
+**API contract:** `AdminLeadListItem` extended with `representativeName`, `representativeEmail`, `representativeRole`, `representativeRelationship`, `firmSize`, `serviceFocus` so the slim list endpoint carries enough rep info to render the tooltip without N+1 fetches. The full `Lead` schema also gained the two new role/relationship fields. **Public `POST /api/leads` insert path was not touched** — new columns rely on DB nullability.
+
 ### Phase 5 — Executive Dashboard / CRM Operations
 
 Shipped as one brief; only the surviving end-state is documented here. Iteration history (chrome v1 → v2 → v3 → v3.1 / sidebar+launcher hybrid → sidebarless) lives in git. The chrome layer itself is captured under "Admin Layout Shell" above.

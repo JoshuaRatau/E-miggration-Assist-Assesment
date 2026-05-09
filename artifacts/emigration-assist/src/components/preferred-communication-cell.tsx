@@ -4,6 +4,7 @@ import {
   derivePreferredCommunication,
   type LeadForPreferredCommunication,
 } from "@/lib/preferredCommunication";
+import { deriveB2BContactIntel } from "@/lib/b2bContactIntelligence";
 import {
   HoverCard,
   HoverCardContent,
@@ -53,11 +54,20 @@ export function PreferredCommunicationCell({
   const pref = derivePreferredCommunication(lead);
   const cls = CLASS_BY_CHANNEL[pref.channel] ?? CLASS_BY_CHANNEL["in_app"]!;
 
+  // Phase 6A — B2B contact intelligence. Returns null for individual
+  // (B2C) leads, so the existing minimal hover-card stays unchanged for
+  // them. For professional rows we render the full contact card
+  // (name / role / org / relationship / email-type) ABOVE the masked
+  // address + reveal/copy controls.
+  const intel = deriveB2BContactIntel(lead);
+
+  // For B2B rows the displayed address prefers the rep's email if set,
+  // falling back to the org-level email captured at lead creation.
   const contactValue =
     pref.channel === "whatsapp"
       ? lead.whatsapp ?? ""
       : pref.channel === "email"
-        ? lead.email ?? ""
+        ? (intel ? lead.representativeEmail ?? lead.email ?? "" : lead.email ?? "")
         : "";
 
   const [revealed, setRevealed] = useState(false);
@@ -107,8 +117,51 @@ export function PreferredCommunicationCell({
         className="bg-white text-slate-900 border border-slate-200 shadow-lg rounded-md p-3 w-auto max-w-xs"
       >
         <div className="text-xs leading-snug" data-testid="comm-tooltip-detail">
-          <div className="font-semibold mb-0.5">{pref.label}</div>
-          <div className="text-[11px] text-slate-500 mb-1.5">{pref.reason}</div>
+          {intel ? (
+            <div
+              className="mb-2 pb-2 border-b border-slate-200"
+              data-testid="comm-tooltip-b2b-intel"
+            >
+              {intel.contactName ? (
+                <div className="font-semibold text-[12px] text-slate-900">
+                  {intel.contactName}
+                </div>
+              ) : (
+                <div className="font-semibold text-[12px] italic text-slate-500">
+                  Contact name not on file
+                </div>
+              )}
+              {intel.role ? (
+                <div className="text-[11px] text-slate-700">{intel.role}</div>
+              ) : null}
+              {intel.organization ? (
+                <div className="text-[11px] text-slate-700">
+                  {intel.organization}
+                </div>
+              ) : null}
+              <div className="mt-1 flex flex-wrap items-center gap-1">
+                <span
+                  className="inline-flex items-center rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700"
+                  data-testid="comm-tooltip-relationship"
+                >
+                  {intel.relationship}
+                </span>
+                <span
+                  className="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600"
+                  data-testid="comm-tooltip-emailtype"
+                >
+                  {intel.emailTypeLabel}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="font-semibold mb-0.5">{pref.label}</div>
+              <div className="text-[11px] text-slate-500 mb-1.5">
+                {pref.reason}
+              </div>
+            </>
+          )}
           {contactValue ? (
             <div className="flex items-center gap-2">
               <span className="font-mono text-[11px]">{display}</span>

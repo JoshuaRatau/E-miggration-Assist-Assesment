@@ -130,6 +130,15 @@ function serializeLeadAdminList(
     // extra round-trip per row.
     organizationType: row.organizationType,
     estimatedClientVolume: row.estimatedClientVolume,
+    // Phase 6A — B2B contact intelligence surfaced on the email-pill
+    // hover-card. The slim list endpoint must include enough rep info
+    // to render the tooltip without an N+1 fetch per row.
+    representativeName: row.representativeName,
+    representativeEmail: row.representativeEmail,
+    representativeRole: row.representativeRole,
+    representativeRelationship: row.representativeRelationship,
+    firmSize: row.firmSize,
+    serviceFocus: row.serviceFocus,
     assignedTo: row.assignedTo,
     lastContactedAt: row.lastContactedAt
       ? row.lastContactedAt.toISOString()

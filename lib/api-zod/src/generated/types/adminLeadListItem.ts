@@ -30,6 +30,12 @@ export interface AdminLeadListItem {
   organizationName?: string | null;
   organizationType?: string | null;
   estimatedClientVolume?: number | null;
+  representativeName?: string | null;
+  representativeEmail?: string | null;
+  representativeRole?: string | null;
+  representativeRelationship?: string | null;
+  firmSize?: string | null;
+  serviceFocus?: string | null;
   /** admin_users.id of the operator assigned to this lead */
   assignedTo?: string | null;
   lastContactedAt?: string | null;

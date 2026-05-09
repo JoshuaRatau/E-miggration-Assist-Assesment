@@ -140,6 +140,18 @@ export const CreateLeadResponse = zod.object({
   representativeName: zod.string().nullish(),
   representativeEmail: zod.string().nullish(),
   representativePhone: zod.string().nullish(),
+  representativeRole: zod
+    .string()
+    .nullish()
+    .describe(
+      'Free-text job title for the B2B representative (e.g. \"Managing Partner\", \"Operations Administrator\"). Surfaced in the leads-table email-pill hover-card.',
+    ),
+  representativeRelationship: zod
+    .string()
+    .nullish()
+    .describe(
+      'B2B contact relationship classifier (e.g. \"Primary Decision Maker\", \"General Operations Contact\", \"Departmental Contact\"). Falls back to a heuristic derivation when NULL.',
+    ),
   website: zod.string().nullish(),
   firmSize: zod.string().nullish(),
   operatingRegions: zod.array(zod.string()).nullish(),
@@ -217,6 +229,12 @@ export const ListLeadsResponseItem = zod
     organizationName: zod.string().nullish(),
     organizationType: zod.string().nullish(),
     estimatedClientVolume: zod.number().nullish(),
+    representativeName: zod.string().nullish(),
+    representativeEmail: zod.string().nullish(),
+    representativeRole: zod.string().nullish(),
+    representativeRelationship: zod.string().nullish(),
+    firmSize: zod.string().nullish(),
+    serviceFocus: zod.string().nullish(),
     assignedTo: zod
       .string()
       .nullish()
@@ -336,6 +354,18 @@ export const GetLeadByIdResponse = zod.object({
   representativeName: zod.string().nullish(),
   representativeEmail: zod.string().nullish(),
   representativePhone: zod.string().nullish(),
+  representativeRole: zod
+    .string()
+    .nullish()
+    .describe(
+      'Free-text job title for the B2B representative (e.g. \"Managing Partner\", \"Operations Administrator\"). Surfaced in the leads-table email-pill hover-card.',
+    ),
+  representativeRelationship: zod
+    .string()
+    .nullish()
+    .describe(
+      'B2B contact relationship classifier (e.g. \"Primary Decision Maker\", \"General Operations Contact\", \"Departmental Contact\"). Falls back to a heuristic derivation when NULL.',
+    ),
   website: zod.string().nullish(),
   firmSize: zod.string().nullish(),
   operatingRegions: zod.array(zod.string()).nullish(),

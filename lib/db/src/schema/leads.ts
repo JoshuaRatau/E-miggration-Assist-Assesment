@@ -86,6 +86,15 @@ export const prelaunchLeadsTable = pgTable("prelaunch_leads", {
   representativeName: text("representative_name"),
   representativeEmail: text("representative_email"),
   representativePhone: text("representative_phone"),
+  // Phase 6A — B2B contact intelligence. Free-text job title (e.g.
+  // "Managing Partner", "Operations Administrator") and relationship
+  // classifier (e.g. "Primary Decision Maker", "General Operations
+  // Contact", "Departmental Contact"). Both NULL by default; populated
+  // by the import pipeline / manual edit. The dashboard hover-card
+  // falls back to a heuristic derivation when these are NULL so the
+  // tooltip always renders useful copy.
+  representativeRole: text("representative_role"),
+  representativeRelationship: text("representative_relationship"),
   website: text("website"),
   firmSize: text("firm_size"),
   operatingRegions: text("operating_regions").array(),
