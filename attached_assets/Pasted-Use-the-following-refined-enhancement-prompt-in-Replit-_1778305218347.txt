@@ -1,0 +1,447 @@
+Use the following refined enhancement prompt in Replit exactly as written below:
+
+---
+
+We now need to significantly enhance the Lead Intelligence Dashboard and CRM operational logic to support a more mature commercial lead acquisition, lead scoring, nurturing, and conversion ecosystem for both B2C and B2B users.
+
+This phase is focused on transforming the current dashboard into:
+
+* a true lead intelligence engine,
+* a sales operations workspace,
+* and a CRM-driven lead qualification environment.
+
+The architecture must begin functioning similarly to:
+
+* HubSpot
+* Zoho CRM
+* Salesforce
+* Monday.com
+
+The experience must feel:
+
+* intelligent,
+* commercially scalable,
+* operationally mature,
+* and sales-driven.
+
+---
+
+# 1. B2B EMAIL PILL ENHANCEMENT
+
+## CURRENT ISSUE
+
+Within the B2B leads list view, email pills currently lack contextual intelligence.
+
+Users cannot clearly determine:
+
+* who the email address belongs to,
+* whether it is a general office email,
+* partner email,
+* consultant email,
+* admin contact,
+* HR contact,
+* or decision-maker contact.
+
+This weakens CRM usability.
+
+---
+
+# REQUIRED FIX
+
+Whenever a user hovers over an email pill for a B2B lead:
+
+* a contextual tooltip/popover must appear.
+
+This tooltip must display:
+
+* full contact name
+* position/title
+* company/firm name
+* relationship to the organisation
+* email type classification
+
+---
+
+# EXAMPLES
+
+Example hover output:
+
+John Smith
+Managing Partner
+ABC Immigration Attorneys
+Primary Decision Maker
+[john@abcimmigration.com](mailto:john@abcimmigration.com)
+
+OR
+
+Sarah Jacobs
+Operations Administrator
+XYZ Mobility Group
+General Operations Contact
+[admin@xyzmobility.com](mailto:admin@xyzmobility.com)
+
+---
+
+# REQUIRED LOGIC
+
+Even if the email address is:
+
+* generic,
+* shared,
+* departmental,
+* or non-personal,
+
+the system must still associate and display:
+
+* who internally owns or manages that communication channel.
+
+---
+
+# 2. LEAD CAPTURE ARCHITECTURE EXPANSION
+
+The CRM must now support a structured multi-channel lead acquisition ecosystem.
+
+---
+
+# REQUIRED LEAD SOURCES
+
+The dashboard must clearly display and track leads arriving from the following channels:
+
+## A. Website Forms
+
+Sources include:
+
+* Demo requests
+* Contact Us forms
+* Newsletter signups
+
+All website form submissions must feed directly into:
+
+* the Lead Intelligence Dashboard
+* scoring engine
+* lead assignment queue
+
+---
+
+## B. Self Assessment Webform
+
+Source:
+Check your South African immigration status | E-Migration Assist
+
+This remains the primary B2C acquisition funnel.
+
+All assessment submissions must:
+
+* auto-create leads,
+* auto-categorise enquiry type,
+* auto-score intent,
+* route into the B2C pipeline.
+
+---
+
+## C. Facebook Integration (B2C)
+
+The platform must be architected and prepared for Facebook lead and engagement integration.
+
+Recommended integration:
+
+* [Meta for Developers](https://developers.facebook.com/?utm_source=chatgpt.com)
+* Facebook Graph API
+* Facebook Lead Ads Webhooks
+* Messenger integration readiness
+
+---
+
+# REQUIRED FACEBOOK FUNCTIONALITY
+
+Track:
+
+* direct messages
+* lead form submissions
+* page engagement
+* inquiry intent
+* campaign responses
+
+Store:
+
+* source campaign
+* source post
+* timestamp
+* engagement type
+
+Display:
+“Facebook” as the lead source inside CRM.
+
+---
+
+## D. LinkedIn Integration (B2B)
+
+The platform must also be prepared architecturally for LinkedIn engagement tracking.
+
+Recommended integration:
+
+* [LinkedIn Developer Platform](https://developer.linkedin.com/?utm_source=chatgpt.com)
+
+---
+
+# REQUIRED LINKEDIN FUNCTIONALITY
+
+Track:
+
+* LinkedIn direct enquiries
+* profile engagements
+* sponsored lead forms
+* demo requests
+* B2B campaign interactions
+
+Display:
+“LinkedIn” as source attribution within CRM.
+
+---
+
+## E. Outbound Email Sequences
+
+The Communications module must now support outbound B2B email outreach sequences using pre-approved templates.
+
+These templates must live inside:
+Communications → Templates → Outbound Sequences
+
+---
+
+# 3. IMPLEMENT LEAD SCORING ENGINE
+
+The CRM must now support a dynamic lead scoring system.
+
+This scoring system must:
+
+* calculate engagement intent,
+* identify high-value leads,
+* and prioritise sales follow-up automatically.
+
+---
+
+# REQUIRED LEAD SCORING MODEL
+
+| Action                     | Points | Reason               |
+| -------------------------- | ------ | -------------------- |
+| Visits pricing page        | +10    | High intent          |
+| Requests demo              | +25    | Direct buying signal |
+| Opens nurture email        | +5     | Engagement           |
+| Clicks email link          | +10    | Active interest      |
+| Replies to email           | +15    | Direct engagement    |
+| Downloads guide/whitepaper | +10    | Research phase       |
+| Attends webinar            | +20    | Time investment      |
+| LinkedIn profile visit     | +5     | Brand awareness      |
+
+---
+
+# REQUIRED SYSTEM BEHAVIOUR
+
+The lead score must:
+
+* update dynamically,
+* appear visibly on the lead record,
+* influence lead prioritisation,
+* influence automation workflows,
+* and trigger routing logic.
+
+---
+
+# 4. IMPLEMENT LEAD DECISION LOGIC
+
+## REQUIRED AUTOMATION RULES
+
+IF:
+
+* lead score >= 60
+  AND
+* job title matches target persona
+
+THEN:
+
+* automatically push lead into the Lead Intelligence Dashboard sales queue within 15 minutes.
+
+---
+
+# TARGET PERSONAS
+
+Recognised B2B personas include:
+
+* Immigration Consultant
+* Law Firm Partner
+* HR Manager
+* Corporate Mobility Lead
+* Relocation Specialist
+* Immigration Operations Manager
+
+---
+
+# SECONDARY RULE
+
+IF:
+
+* lead score < 60
+  OR
+* persona unclear
+
+THEN:
+
+* automatically place lead into nurture sequence.
+
+---
+
+# 5. IMPLEMENT NURTURE SEQUENCES
+
+## REQUIRED AUTOMATED NURTURE FLOW
+
+Create a 5-email educational nurture sequence over 14 days.
+
+This sequence must run automatically for leads below qualification threshold.
+
+---
+
+# REQUIRED NURTURE SEQUENCE
+
+## Day 1
+
+Welcome email + short product overview video
+
+---
+
+## Day 3
+
+Industry pain-point insights + case study snippet
+
+---
+
+## Day 6
+
+Educational content:
+“How structured workflows improve immigration operational efficiency”
+
+---
+
+## Day 10
+
+Social proof:
+pilot feedback summaries and platform benefits
+
+---
+
+## Day 14
+
+Direct demo invitation with scheduling CTA
+
+---
+
+# REQUIRED LOGIC
+
+IF lead:
+
+* clicks,
+* opens repeatedly,
+* or replies
+
+THEN:
+
+* immediately re-score lead,
+* and re-evaluate qualification threshold.
+
+If threshold met:
+
+* automatically route into sales queue.
+
+---
+
+# 6. IMPLEMENT SLA LOGIC FOR LEADS
+
+## REQUIRED SALES SLA
+
+The CRM must now monitor operational response timing.
+
+---
+
+# REQUIRED RULES
+
+Lead captured →
+assigned to sales queue within:
+15 minutes
+
+First human engagement:
+within 1 business hour
+
+---
+
+# REQUIRED TRACKING
+
+Dashboard must show:
+
+* SLA breaches
+* delayed follow-ups
+* average response time
+* lead aging
+
+---
+
+# 7. COMMUNICATIONS MODULE ENHANCEMENT
+
+The Communications module must now support:
+
+* campaigns,
+* nurture automation,
+* outbound outreach,
+* educational sequences,
+* and operational reporting.
+
+---
+
+# REQUIRED COMMUNICATION REPORTING
+
+Track:
+
+* sent
+* delivered
+* opened
+* clicked
+* replied
+* unsubscribed
+* failed
+
+Visualise:
+
+* campaign performance
+* engagement trends
+* best-performing campaigns
+* best-performing templates
+
+---
+
+# 8. REQUIRED UI ENHANCEMENTS
+
+The lead list view must visually display:
+
+* lead source
+* lead score
+* qualification level
+* nurture status
+* assigned operator
+* SLA timer
+* engagement status
+
+Use:
+
+* hover tooltips
+* clean status pills
+* executive-grade spacing
+* premium CRM visual hierarchy
+
+---
+
+# 9. FINAL OBJECTIVE
+
+The system should now evolve beyond:
+“a lead dashboard”
+
+and become:
+
+“A commercially intelligent CRM and lead operations platform capable of multi-channel acquisition, automated qualification, lead nurturing, sales routing, subscription conversion tracking, and enterprise-grade customer engagement workflows.”
