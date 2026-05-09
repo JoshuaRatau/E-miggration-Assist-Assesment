@@ -18,6 +18,13 @@ import {
   Building2,
   Plane,
   Briefcase,
+  ChevronDown,
+  ChevronUp,
+  Plug,
+  DollarSign,
+  Users,
+  TrendingUp,
+  AlertCircle,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -305,155 +312,318 @@ export function AdminSubscriptions() {
   const [tab, setTab] = useState<"travellers" | "firms" | "concierge">(
     "travellers",
   );
+  // Pricing & packages defaults to hidden so the live-data section above
+  // owns the visual hierarchy. The reveal toggle is intentionally large
+  // and friendly so operators don't miss it.
+  const [showPricing, setShowPricing] = useState(false);
 
   return (
     <AdminLayout
-      title="Subscriptions"
+      title="Subscription Management"
       bodyClassName="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100"
       contentClassName="flex-1 mx-auto max-w-7xl w-full px-4 sm:px-6 pt-6 pb-16"
     >
       <div className="space-y-8">
-        {/* Header banner — sets context that nothing is wired yet. */}
-        <div className="rounded-xl border border-sky-300/30 bg-sky-500/10 p-4 text-sm text-sky-100 flex items-start gap-3">
-          <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="font-medium">
-              Pricing preview — billing module planned for Phase 7
-            </p>
-            <p className="mt-1 text-sky-200/80">
-              The structure below is the proposed tier model. No customer
-              subscriptions or payments are captured yet. Use this surface to
-              align internally on packaging, positioning, and trial mechanics.
-            </p>
-          </div>
-        </div>
-
-        {/* Title */}
-        <div className="text-center max-w-3xl mx-auto pt-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-teal-300/80">
-            Pricing & Packages
-          </p>
-          <h1
-            className="mt-2 text-3xl sm:text-4xl font-semibold tracking-tight"
-            data-testid="page-title-subscriptions"
-          >
-            Built for travellers, firms, and concierge clients.
-          </h1>
-          <p className="mt-3 text-sm sm:text-base text-slate-400">
-            Choose the audience to preview pricing. Each tier is designed
-            around real product capability — rules engine, document
-            intelligence, copilot actions, and firm-grade workflows.
-          </p>
-        </div>
-
-        {/* Audience tabs — Clio-inspired pill switcher above the pricing grid. */}
-        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-          <div className="flex justify-center">
-            <TabsList
-              className="bg-slate-900/60 border border-slate-700/40 p-1"
-              data-testid="tabs-audience"
-            >
-              <TabsTrigger
-                value="travellers"
-                className="data-[state=active]:bg-teal-500/20 data-[state=active]:text-teal-200 px-4 sm:px-6"
-                data-testid="tab-travellers"
-              >
-                <Plane className="mr-2 h-4 w-4" />
-                Individual Travellers
-              </TabsTrigger>
-              <TabsTrigger
-                value="firms"
-                className="data-[state=active]:bg-teal-500/20 data-[state=active]:text-teal-200 px-4 sm:px-6"
-                data-testid="tab-firms"
-              >
-                <Building2 className="mr-2 h-4 w-4" />
-                Professionals & Firms
-              </TabsTrigger>
-              <TabsTrigger
-                value="concierge"
-                className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-200 px-4 sm:px-6"
-                data-testid="tab-concierge"
-              >
-                <Crown className="mr-2 h-4 w-4" />
-                Premium Concierge
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          <TabsContent value="travellers" className="mt-8">
-            <PricingGrid tiers={TRAVELLER_TIERS} kind="b2c" />
-          </TabsContent>
-          <TabsContent value="firms" className="mt-8">
-            <PricingGrid tiers={FIRM_TIERS} kind="b2b" />
-          </TabsContent>
-          <TabsContent value="concierge" className="mt-8">
-            <ConciergeCard tier={CONCIERGE_TIER} />
-          </TabsContent>
-        </Tabs>
-
-        {/* Trial model + rationale section */}
-        <div className="grid gap-6 md:grid-cols-2 pt-4">
-          <Card className="border-slate-700/40 bg-slate-900/40">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-teal-300" />
-                <CardTitle className="text-base">
-                  Recommended trial model
-                </CardTitle>
-              </div>
-              <CardDescription className="text-slate-400">
-                How users and firms experience the platform before committing.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {TRIAL_NOTES.map((note) => (
-                <div key={note.audience} className="space-y-1.5">
-                  <p className="text-xs font-medium uppercase tracking-wider text-teal-300/80">
-                    {note.audience}
-                  </p>
-                  <p className="text-sm text-slate-300 leading-relaxed">
-                    {note.body}
-                  </p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card className="border-slate-700/40 bg-slate-900/40">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Briefcase className="h-4 w-4 text-teal-300" />
-                <CardTitle className="text-base">
-                  Why this pricing fits the product
-                </CardTitle>
-              </div>
-              <CardDescription className="text-slate-400">
-                The model is justified by what the system actually delivers.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <ul className="space-y-2">
-                {PRICING_RATIONALE.map((line) => (
-                  <li
-                    key={line}
-                    className="flex items-start gap-2 text-sm text-slate-300"
-                  >
-                    <Check className="h-4 w-4 text-teal-300 mt-0.5 flex-shrink-0" />
-                    <span>{line}</span>
-                  </li>
-                ))}
-              </ul>
-              <p className="text-xs text-slate-500 pt-2 border-t border-slate-700/40">
-                Pricing remains realistic — the team has flagged ongoing work
-                on AI document review reliability, communications, broader
-                visa coverage, client editing, eligibility-assessment depth,
-                and task-automation maturity.
+        {/* ---------------------------------------------------------- */}
+        {/* SECTION 1 — Page header + Phase 7 webhook-awaiting notice    */}
+        {/* ---------------------------------------------------------- */}
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-teal-300/80">
+                Billing & Revenue
               </p>
-            </CardContent>
-          </Card>
+              <h1
+                className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight"
+                data-testid="page-title-subscriptions"
+              >
+                Subscription Management
+              </h1>
+              <p className="mt-1 text-sm text-slate-400 max-w-2xl">
+                Customer subscriptions, payments, and revenue intelligence
+                will land in this workspace once the billing provider is
+                connected.
+              </p>
+            </div>
+            <Badge
+              variant="outline"
+              className="border-amber-300/40 bg-amber-500/10 text-amber-200 gap-1.5"
+              data-testid="badge-phase-7"
+            >
+              <Plug className="h-3 w-3" />
+              Phase 7 — webhook integration pending
+            </Badge>
+          </div>
+
+          {/* Webhook-awaiting notice — explicit about external dependency. */}
+          <div
+            className="rounded-xl border border-sky-300/30 bg-sky-500/10 p-4 text-sm text-sky-100 flex items-start gap-3"
+            data-testid="banner-webhook-pending"
+          >
+            <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <div className="space-y-1">
+              <p className="font-medium">
+                Awaiting webhook integration from the external billing
+                provider.
+              </p>
+              <p className="text-sky-200/80">
+                As part of <strong>Phase 7</strong>, this workspace will be
+                wired to receive subscription, invoice, and payment events
+                from the payment provider (Paystack / Stripe). Once those
+                webhooks are live, the panels below will populate automatically
+                with active subscriptions, revenue, churn, and per-customer
+                billing history. Until then, no customer payments are
+                captured.
+              </p>
+            </div>
+          </div>
         </div>
+
+        {/* ---------------------------------------------------------- */}
+        {/* SECTION 2 — Live subscription data (placeholder until P7)   */}
+        {/* ---------------------------------------------------------- */}
+        <Card className="border-slate-700/40 bg-slate-900/40">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-teal-300" />
+              <CardTitle className="text-base">
+                Active subscriptions & revenue
+              </CardTitle>
+            </div>
+            <CardDescription className="text-slate-400">
+              Real customer subscription and cost data will appear here once
+              webhooks from the billing provider are connected.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <PlaceholderTile
+                icon={<Users className="h-4 w-4" />}
+                label="Active subscribers"
+              />
+              <PlaceholderTile
+                icon={<DollarSign className="h-4 w-4" />}
+                label="Monthly recurring revenue"
+              />
+              <PlaceholderTile
+                icon={<TrendingUp className="h-4 w-4" />}
+                label="Net new this month"
+              />
+              <PlaceholderTile
+                icon={<AlertCircle className="h-4 w-4" />}
+                label="At-risk / past due"
+              />
+            </div>
+            <p className="mt-4 text-xs text-slate-500 text-center">
+              No customer billing data captured yet — values will populate
+              automatically once Phase 7 ships.
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* ---------------------------------------------------------- */}
+        {/* SECTION 3 — Pricing & Packages (collapsible reference)      */}
+        {/* ---------------------------------------------------------- */}
+        <Card
+          className="border-slate-700/40 bg-slate-900/40 overflow-hidden"
+          data-testid="section-pricing-packages"
+        >
+          <button
+            type="button"
+            onClick={() => setShowPricing((v) => !v)}
+            className="w-full text-left p-5 hover:bg-slate-800/30 transition-colors flex items-center justify-between gap-4"
+            data-testid="toggle-pricing-packages"
+            aria-expanded={showPricing}
+            aria-controls="pricing-packages-content"
+          >
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-teal-500/15 p-2 text-teal-300">
+                <Briefcase className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-teal-300/80">
+                  Reference
+                </p>
+                <h2 className="text-base font-semibold tracking-tight">
+                  Pricing & Package Structure
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Proposed tier model for travellers, firms, and concierge
+                  clients. Internal alignment only — not shown to customers.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-slate-300 flex-shrink-0">
+              <span className="hidden sm:inline">
+                {showPricing ? "Hide structure" : "Reveal structure"}
+              </span>
+              {showPricing ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </div>
+          </button>
+
+          {showPricing && (
+            <div
+              id="pricing-packages-content"
+              className="border-t border-slate-700/40 p-5 sm:p-6 space-y-8"
+              data-testid="pricing-packages-content"
+            >
+              <div className="text-center max-w-3xl mx-auto">
+                <h3 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+                  Built for travellers, firms, and concierge clients.
+                </h3>
+                <p className="mt-3 text-sm text-slate-400">
+                  Choose the audience to preview pricing. Each tier is
+                  designed around real product capability — rules engine,
+                  document intelligence, copilot actions, and firm-grade
+                  workflows.
+                </p>
+              </div>
+
+              <Tabs
+                value={tab}
+                onValueChange={(v) => setTab(v as typeof tab)}
+              >
+                <div className="flex justify-center">
+                  <TabsList
+                    className="bg-slate-900/60 border border-slate-700/40 p-1"
+                    data-testid="tabs-audience"
+                  >
+                    <TabsTrigger
+                      value="travellers"
+                      className="data-[state=active]:bg-teal-500/20 data-[state=active]:text-teal-200 px-4 sm:px-6"
+                      data-testid="tab-travellers"
+                    >
+                      <Plane className="mr-2 h-4 w-4" />
+                      Individual Travellers
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="firms"
+                      className="data-[state=active]:bg-teal-500/20 data-[state=active]:text-teal-200 px-4 sm:px-6"
+                      data-testid="tab-firms"
+                    >
+                      <Building2 className="mr-2 h-4 w-4" />
+                      Professionals & Firms
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="concierge"
+                      className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-200 px-4 sm:px-6"
+                      data-testid="tab-concierge"
+                    >
+                      <Crown className="mr-2 h-4 w-4" />
+                      Premium Concierge
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
+
+                <TabsContent value="travellers" className="mt-8">
+                  <PricingGrid tiers={TRAVELLER_TIERS} kind="b2c" />
+                </TabsContent>
+                <TabsContent value="firms" className="mt-8">
+                  <PricingGrid tiers={FIRM_TIERS} kind="b2b" />
+                </TabsContent>
+                <TabsContent value="concierge" className="mt-8">
+                  <ConciergeCard tier={CONCIERGE_TIER} />
+                </TabsContent>
+              </Tabs>
+
+              <div className="grid gap-6 md:grid-cols-2 pt-4">
+                <Card className="border-slate-700/40 bg-slate-900/60">
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-teal-300" />
+                      <CardTitle className="text-base">
+                        Recommended trial model
+                      </CardTitle>
+                    </div>
+                    <CardDescription className="text-slate-400">
+                      How users and firms experience the platform before
+                      committing.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {TRIAL_NOTES.map((note) => (
+                      <div key={note.audience} className="space-y-1.5">
+                        <p className="text-xs font-medium uppercase tracking-wider text-teal-300/80">
+                          {note.audience}
+                        </p>
+                        <p className="text-sm text-slate-300 leading-relaxed">
+                          {note.body}
+                        </p>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+
+                <Card className="border-slate-700/40 bg-slate-900/60">
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <Briefcase className="h-4 w-4 text-teal-300" />
+                      <CardTitle className="text-base">
+                        Why this pricing fits the product
+                      </CardTitle>
+                    </div>
+                    <CardDescription className="text-slate-400">
+                      The model is justified by what the system actually
+                      delivers.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <ul className="space-y-2">
+                      {PRICING_RATIONALE.map((line) => (
+                        <li
+                          key={line}
+                          className="flex items-start gap-2 text-sm text-slate-300"
+                        >
+                          <Check className="h-4 w-4 text-teal-300 mt-0.5 flex-shrink-0" />
+                          <span>{line}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-xs text-slate-500 pt-2 border-t border-slate-700/40">
+                      Pricing remains realistic — the team has flagged
+                      ongoing work on AI document review reliability,
+                      communications, broader visa coverage, client editing,
+                      eligibility-assessment depth, and task-automation
+                      maturity.
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
+        </Card>
       </div>
     </AdminLayout>
+  );
+}
+
+// Empty-state tile for the live-revenue section. Renders an em-dash where a
+// real number will eventually live, plus a neutral icon so the grid has
+// visual weight even with no data.
+function PlaceholderTile({
+  icon,
+  label,
+}: {
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <div className="rounded-lg border border-slate-700/40 bg-slate-900/60 p-3">
+      <div className="flex items-center gap-2 text-slate-400">
+        {icon}
+        <span className="text-[11px] uppercase tracking-wider">{label}</span>
+      </div>
+      <div className="mt-2 text-2xl font-semibold tabular-nums text-slate-500">
+        —
+      </div>
+      <div className="text-[10px] text-slate-500 mt-0.5">
+        Awaiting webhook
+      </div>
+    </div>
   );
 }
 
