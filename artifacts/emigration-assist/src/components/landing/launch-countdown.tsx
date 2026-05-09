@@ -147,14 +147,14 @@ function outlookWebUrl() {
 function Tile({ value, label }: { value: number; label: string }) {
   return (
     <div
-      className="relative rounded-xl sm:rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md px-2 py-3 sm:px-4 sm:py-4 lg:px-5 lg:py-5 text-center shadow-[0_8px_30px_rgba(0,0,0,0.25)]"
+      className="relative overflow-hidden rounded-xl sm:rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md px-1 py-3 sm:px-2 sm:py-4 lg:px-3 lg:py-5 text-center shadow-[0_8px_30px_rgba(0,0,0,0.25)]"
       data-testid={`countdown-${label.toLowerCase()}`}
       aria-hidden="true"
     >
-      <div className="text-2xl sm:text-4xl lg:text-5xl font-semibold tracking-tight text-foreground tabular-nums">
+      <div className="text-[1.5rem] leading-none sm:text-3xl lg:text-4xl font-semibold tracking-tight text-foreground tabular-nums">
         {pad(value)}
       </div>
-      <div className="mt-0.5 sm:mt-1 text-[9px] sm:text-[10px] lg:text-xs uppercase tracking-[0.18em] text-muted-foreground">
+      <div className="mt-1.5 sm:mt-2 text-[9px] sm:text-[10px] lg:text-[11px] uppercase tracking-[0.16em] text-muted-foreground truncate">
         {label}
       </div>
     </div>

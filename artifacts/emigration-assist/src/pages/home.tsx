@@ -233,10 +233,11 @@ export function Home() {
             aria-hidden="true"
             className="pointer-events-none absolute -top-20 left-1/2 -translate-x-1/2 h-[420px] w-[820px] max-w-full rounded-full bg-gradient-radial from-primary/15 via-primary/[0.04] to-transparent blur-3xl"
           />
+          {/* Top row: headline left, countdown right (stacks on mobile/tablet). */}
           <div className="relative grid lg:grid-cols-[1.05fr_0.95fr] gap-8 sm:gap-10 lg:gap-12 items-start">
-            <div className="text-center lg:text-left space-y-6 lg:pt-2">
+            <div className="text-center lg:text-left space-y-5 lg:pt-2">
               <h1
-                className="text-[2.25rem] leading-[1.08] sm:text-5xl lg:text-[3.4rem] xl:text-[3.6rem] font-display font-bold tracking-tight text-foreground"
+                className="text-[2rem] leading-[1.1] sm:text-5xl lg:text-[3.2rem] xl:text-[3.5rem] font-display font-bold tracking-tight text-foreground"
                 data-testid="hero-headline"
               >
                 South Africa's next-generation{" "}
@@ -252,53 +253,54 @@ export function Home() {
                 clients. Take the early-access assessment now and reserve your
                 place in the launch.
               </p>
-
-              {/* CTAs + trust tags are centered on every breakpoint, even when
-                  the headline copy aligns left on lg+. The user wanted them
-                  visually centered as the conversion focal point. */}
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 pt-2 w-full">
-                <Link href="/assessment" className="w-full sm:w-auto">
-                  <Button
-                    size="lg"
-                    className="w-full sm:w-auto h-14 px-7 text-base sm:text-lg rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all gap-2"
-                    data-testid="button-start-assessment"
-                  >
-                    Start your early-access assessment
-                    <ArrowRight className="h-5 w-5" />
-                  </Button>
-                </Link>
-                <Link href="/status" className="w-full sm:w-auto">
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    className="w-full sm:w-auto h-14 px-6 text-base rounded-xl border-white/15 bg-white/5 hover:bg-white/10 backdrop-blur-md text-foreground/90 hover:text-foreground shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] transition-all"
-                    data-testid="button-have-reference"
-                  >
-                    I already have a reference
-                  </Button>
-                </Link>
-              </div>
-              <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pt-1 text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1.5">
-                  <Lock className="h-3.5 w-3.5" />
-                  Confidential
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  Structured assessment
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Free reference number
-                </span>
-              </div>
             </div>
 
-            {/* Countdown anchors the top-right of the hero. On mobile it sits
-                below the headline; on lg+ it floats to the right at hero
-                eye-level so launch anticipation is visible above the fold. */}
+            {/* Countdown anchors the top-right of the hero on lg+; stacks
+                neatly under the headline on smaller screens. */}
             <div className="lg:pt-2 w-full max-w-md mx-auto lg:max-w-none">
               <LaunchCountdown />
+            </div>
+          </div>
+
+          {/* CTAs + trust strip live OUTSIDE the two-column grid so they sit
+              visually centered against the FULL page width, not against the
+              narrow left hero column. This is the conversion focal point. */}
+          <div className="relative mt-10 sm:mt-12 lg:mt-14 flex flex-col items-center gap-4 sm:gap-5">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 w-full sm:w-auto">
+              <Link href="/assessment" className="w-full sm:w-auto">
+                <Button
+                  size="lg"
+                  className="w-full sm:w-auto h-14 px-7 text-base sm:text-lg rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all gap-2"
+                  data-testid="button-start-assessment"
+                >
+                  Start your early-access assessment
+                  <ArrowRight className="h-5 w-5" />
+                </Button>
+              </Link>
+              <Link href="/status" className="w-full sm:w-auto">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full sm:w-auto h-14 px-6 text-base rounded-xl border-white/15 bg-white/5 hover:bg-white/10 backdrop-blur-md text-foreground/90 hover:text-foreground shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] transition-all"
+                  data-testid="button-have-reference"
+                >
+                  I already have a reference
+                </Button>
+              </Link>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5">
+                <Lock className="h-3.5 w-3.5" />
+                Confidential
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Structured assessment
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5" />
+                Free reference number
+              </span>
             </div>
           </div>
         </section>
