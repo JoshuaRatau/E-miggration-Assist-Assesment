@@ -127,7 +127,9 @@ export const prelaunchLeadsTable = pgTable("prelaunch_leads", {
   //   leadScoreRubric      Which rubric was applied: 'self_serve' | 'sales'
   //                        | 'static'. Picked from intended_tier motion;
   //                        null/unknown tier → 'static'.
-  leadScoreBreakdown: jsonb("lead_score_breakdown"),
+  leadScoreBreakdown: jsonb("lead_score_breakdown").$type<
+    Array<{ rule: string; points: number; occurrences: number }>
+  >(),
   leadScoreComputedAt: timestamp("lead_score_computed_at", {
     withTimezone: true,
   }),
