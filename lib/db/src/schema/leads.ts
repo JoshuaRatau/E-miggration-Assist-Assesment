@@ -7,6 +7,7 @@ import {
   timestamp,
   date,
   jsonb,
+  index,
 } from "drizzle-orm/pg-core";
 
 export const prelaunchLeadsTable = pgTable("prelaunch_leads", {
@@ -109,6 +110,28 @@ export const prelaunchLeadsTable = pgTable("prelaunch_leads", {
   // row created before the operator picks a tier). Foundational for the
   // tier-aware scoring rubric (Phase 6B) and SLA tracker (Phase 6D).
   intendedTier: text("intended_tier"),
+  // ── Phase 6B — Tier-aware lead scoring ──────────────────────────────────
+  // The canonical numeric score still lives in `leadScore` above (kept as
+  // the indexable sort/filter column for back-compat). These three columns
+  // hold the ancillary metadata produced by the recompute worker.
+  //
+  //   leadScoreBreakdown   jsonb array of { rule, points, occurredAt? }
+  //                        rendered in the LeadScoreBadge tooltip and the
+  //                        lead-detail Activity panel. Null until the
+  //                        worker runs the first time for this lead — the
+  //                        legacy static derivation in lib/leadScore.ts is
+  //                        used as a fallback.
+  //   leadScoreComputedAt  Timestamp of the most recent recompute. The
+  //                        worker uses (max(lead_events.occurred_at) >
+  //                        computed_at) as the dirty predicate.
+  //   leadScoreRubric      Which rubric was applied: 'self_serve' | 'sales'
+  //                        | 'static'. Picked from intended_tier motion;
+  //                        null/unknown tier → 'static'.
+  leadScoreBreakdown: jsonb("lead_score_breakdown"),
+  leadScoreComputedAt: timestamp("lead_score_computed_at", {
+    withTimezone: true,
+  }),
+  leadScoreRubric: text("lead_score_rubric"),
   representativeRole: text("representative_role"),
   representativeRelationship: text("representative_relationship"),
   website: text("website"),
@@ -272,6 +295,59 @@ export const leadAuditTable = pgTable("lead_audit", {
 
 export type LeadAudit = typeof leadAuditTable.$inferSelect;
 export type InsertLeadAudit = typeof leadAuditTable.$inferInsert;
+
+// Lead Events --------------------------------------------------------------
+//
+// Append-only event stream that drives Phase 6B tier-aware scoring. Distinct
+// from `lead_audit`:
+//   - `lead_audit`  records WHO did WHAT to a lead (operator forensics).
+//   - `lead_events` records SIGNALS used to score the lead (system + webhook
+//     + operator events that move the score needle).
+//
+// Rows are written by `recordLeadEvent()` from system code paths
+// (POST /api/leads, finalize, PATCH admin/leads/:id) and from webhook
+// receivers (Resend/Twilio in Phase 6E). The recompute worker reads them
+// on its 60-second tick and overwrites `prelaunch_leads.lead_score` +
+// `lead_score_breakdown` + `lead_score_computed_at`.
+//
+//   type        snake_case event verb (e.g. 'lead_created',
+//               'documents_uploaded', 'demo_requested', 'email_opened').
+//               The rubric definitions in `scoringRubrics.ts` map type →
+//               points.
+//   points      Authoritative point value for this event under the rubric
+//               that applied at write-time. Stored on the row so a later
+//               rubric tweak doesn't silently rewrite history.
+//   rubric      Which rubric emitted this row ('self_serve' | 'sales' |
+//               'static'). Useful for filtering when a lead's tier flips.
+//   source      'system' | 'webhook' | 'operator'.
+export const leadEventsTable = pgTable(
+  "lead_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leadId: uuid("lead_id").notNull(),
+    type: text("type").notNull(),
+    points: integer("points").notNull().default(0),
+    rubric: text("rubric"),
+    payload: jsonb("payload"),
+    source: text("source").notNull().default("system"),
+    occurredAt: timestamp("occurred_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    // Powers the recompute worker's dirty-predicate scan:
+    //   WHERE lead_id = ? AND occurred_at > computed_at
+    // Without this index the scan degrades to a seq scan that grows with
+    // the entire event log.
+    leadOccurredIdx: index("lead_events_lead_occurred_idx").on(
+      t.leadId,
+      t.occurredAt,
+    ),
+  }),
+);
+
+export type LeadEvent = typeof leadEventsTable.$inferSelect;
+export type InsertLeadEvent = typeof leadEventsTable.$inferInsert;
 
 export type PrelaunchLead = typeof prelaunchLeadsTable.$inferSelect;
 export type InsertPrelaunchLead = typeof prelaunchLeadsTable.$inferInsert;
