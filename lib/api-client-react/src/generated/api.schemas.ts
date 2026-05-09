@@ -63,7 +63,7 @@ export interface Lead {
   leadCategory?: string | null;
   /** critical | high | medium | low */
   leadPriority?: string | null;
-  /** new | reviewing | contacted | awaiting_response | engaged | qualified | proposal_sent | ready_for_case | converted | closed. Forward-only — PATCH /admin/leads/{id} returns 409 on regression. */
+  /** new | reviewing | contacted | engaged | qualified | proposal_sent | ready_for_case | converted | closed. Bidirectional except for the `converted` predecessor lock (must come from `ready_for_case`). */
   leadStatus: string;
   /** CRM Phase A discriminator. "individual" for B2C leads from the public assessment form; "professional" for B2B leads from CSV/XLSX import or future API integrations. Defaults to "individual". */
   leadType: string;

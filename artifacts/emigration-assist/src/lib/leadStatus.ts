@@ -12,7 +12,6 @@ export const LEAD_STATUS_ORDER = [
   "new",
   "reviewing",
   "contacted",
-  "awaiting_response",
   "engaged",
   "qualified",
   "proposal_sent",

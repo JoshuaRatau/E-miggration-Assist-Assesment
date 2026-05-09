@@ -67,14 +67,15 @@ import { Textarea } from "@/components/ui/textarea";
 
 // Lowercase canonical enums shared with the server (see classification.ts
 // and lib/leadStatus.ts).  V2 added `ready_for_case` between qualified
-// and converted; CRM Phase A added awaiting_response, engaged, proposal_sent
-// in funnel-monotonic positions and `critical` above `high`. The funnel is
-// forward-only (server returns 409 on regression).
+// and converted; CRM Phase A added engaged and proposal_sent, plus
+// `critical` above `high`. Phase 6A.1 dropped `awaiting_response` —
+// the "I'm waiting" state is now expressed by `next_follow_up_at` on
+// the `contacted` row, not its own stage. The funnel itself is
+// bidirectional but converting still requires `ready_for_case`.
 const STATUS_VALUES = [
   "new",
   "reviewing",
   "contacted",
-  "awaiting_response",
   "engaged",
   "qualified",
   "proposal_sent",
@@ -97,7 +98,6 @@ const STATUS_OPTIONS = [
   { value: "new", label: "New" },
   { value: "reviewing", label: "Reviewing" },
   { value: "contacted", label: "Contacted" },
-  { value: "awaiting_response", label: "Awaiting response" },
   { value: "engaged", label: "Engaged" },
   { value: "qualified", label: "Qualified" },
   { value: "proposal_sent", label: "Proposal sent" },
@@ -158,8 +158,7 @@ function priorityRank(p: string | null | undefined): number {
 const NEXT_STEP_BY_STATUS: Record<string, string> = {
   new: "Review lead",
   reviewing: "Contact lead",
-  contacted: "Await response",
-  awaiting_response: "Follow up",
+  contacted: "Follow up",
   engaged: "Qualify lead",
   qualified: "Send proposal",
   proposal_sent: "Prepare case conversion",

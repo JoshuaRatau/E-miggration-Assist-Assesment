@@ -17,7 +17,7 @@ import { deriveLeadVelocity } from "./leadVelocity";
 //
 //   priority      → critical 35 / high 25 / medium 15 / low 5
 //   funnelStage   → new 5 / reviewing 10 / contacted 15 /
-//                   awaiting_response 15 / engaged 20 / qualified 25 /
+//                   engaged 20 / qualified 25 /
 //                   proposal_sent 30 / ready_for_case 35 /
 //                   converted 10 (already won — lower urgency to act) /
 //                   closed 0
@@ -54,7 +54,6 @@ const FUNNEL_WEIGHTS: Record<string, number> = {
   new: 5,
   reviewing: 10,
   contacted: 15,
-  awaiting_response: 15,
   engaged: 20,
   qualified: 25,
   proposal_sent: 30,

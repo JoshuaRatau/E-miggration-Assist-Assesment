@@ -158,16 +158,18 @@ export function deriveAutoPriority(
 
 // Canonical lead-status enum AND funnel order.  The array order is the
 // forward-only progression operators must follow:
-//   new → reviewing → contacted → awaiting_response → engaged → qualified
+//   new → reviewing → contacted → engaged → qualified
 //       → proposal_sent → ready_for_case → converted → closed
 //
 // `ready_for_case` (V2) sits between "qualified" and "converted":
 // "all checks passed, awaiting handover".
 //
-// CRM Phase A added `awaiting_response`, `engaged`, and `proposal_sent` to
-// match the SaaS-CRM funnel from the platform brief. The new statuses are
-// inserted such that every previously-valid transition remains monotonic
-// (no existing flow becomes a "regression").
+// CRM Phase A originally added `awaiting_response`, `engaged`, and
+// `proposal_sent`. Phase 6A.1 dropped `awaiting_response` because it
+// duplicated `contacted + next_follow_up_at`; the same information is
+// now expressed as a date-filter on `contacted` rather than its own
+// stage. Any historical rows with `awaiting_response` are migrated
+// to `contacted` by the same release.
 //
 // Funnel-regression guard: every status PATCH is validated against this
 // order (see `canAdvanceStatus` + the PATCH /api/admin/leads/:id route).
@@ -175,7 +177,6 @@ export const LEAD_STATUS_VALUES = [
   "new",
   "reviewing",
   "contacted",
-  "awaiting_response",
   "engaged",
   "qualified",
   "proposal_sent",
@@ -215,8 +216,7 @@ export function canAdvanceStatus(
 const NEXT_STEP_BY_STATUS: Record<string, string> = {
   new: "Review lead",
   reviewing: "Contact lead",
-  contacted: "Await response",
-  awaiting_response: "Follow up",
+  contacted: "Follow up",
   engaged: "Qualify lead",
   qualified: "Send proposal",
   proposal_sent: "Prepare case conversion",

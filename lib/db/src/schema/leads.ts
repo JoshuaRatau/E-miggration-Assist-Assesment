@@ -31,9 +31,13 @@ export const prelaunchLeadsTable = pgTable("prelaunch_leads", {
   leadScore: integer("lead_score"),
   leadCategory: text("lead_category"),
   // Business CRM fields. Lowercase canonical enums (see classification.ts):
-  //   leadStatus   ∈ {new, reviewing, contacted, awaiting_response, engaged,
+  //   leadStatus   ∈ {new, reviewing, contacted, engaged,
   //                   qualified, proposal_sent, ready_for_case, converted,
-  //                   closed} — forward-only; funnel regression rejected by PATCH.
+  //                   closed}. Phase 5 §10 made the funnel BIDIRECTIONAL;
+  //                   the only remaining hard invariant is the `converted`
+  //                   predecessor lock (must come from ready_for_case).
+  //                   Phase 6A.1 dropped `awaiting_response` — that
+  //                   "waiting" state is now `contacted + next_follow_up_at`.
   //   leadPriority ∈ {critical, high, medium, low}
   // adminNotes holds internal-only operator notes (never exposed publicly).
   leadPriority: text("lead_priority").default("medium"),

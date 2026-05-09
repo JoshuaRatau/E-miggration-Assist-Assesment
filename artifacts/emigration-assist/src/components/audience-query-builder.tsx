@@ -93,7 +93,6 @@ const ENUM_VALUES: Partial<Record<AudienceField, string[]>> = {
     "new",
     "reviewing",
     "contacted",
-    "awaiting_response",
     "engaged",
     "qualified",
     "proposal_sent",

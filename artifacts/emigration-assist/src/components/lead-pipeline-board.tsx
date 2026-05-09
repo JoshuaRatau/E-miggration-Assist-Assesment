@@ -26,7 +26,6 @@ const COLUMN_HEADER_CLASS: Record<LeadStatus, string> = {
   new: "border-blue-500/60 text-blue-300",
   reviewing: "border-sky-500/60 text-sky-300",
   contacted: "border-amber-500/60 text-amber-300",
-  awaiting_response: "border-yellow-500/60 text-yellow-200",
   engaged: "border-teal-500/60 text-teal-300",
   qualified: "border-green-500/60 text-green-300",
   proposal_sent: "border-violet-500/60 text-violet-300",

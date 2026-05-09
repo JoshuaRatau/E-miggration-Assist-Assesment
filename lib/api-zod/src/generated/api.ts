@@ -97,7 +97,7 @@ export const CreateLeadResponse = zod.object({
   leadStatus: zod
     .string()
     .describe(
-      "new | reviewing | contacted | awaiting_response | engaged | qualified | proposal_sent | ready_for_case | converted | closed. Forward-only — PATCH \/admin\/leads\/{id} returns 409 on regression.",
+      "new | reviewing | contacted | engaged | qualified | proposal_sent | ready_for_case | converted | closed. Bidirectional except for the `converted` predecessor lock (must come from `ready_for_case`).",
     ),
   leadType: zod
     .string()
@@ -311,7 +311,7 @@ export const GetLeadByIdResponse = zod.object({
   leadStatus: zod
     .string()
     .describe(
-      "new | reviewing | contacted | awaiting_response | engaged | qualified | proposal_sent | ready_for_case | converted | closed. Forward-only — PATCH \/admin\/leads\/{id} returns 409 on regression.",
+      "new | reviewing | contacted | engaged | qualified | proposal_sent | ready_for_case | converted | closed. Bidirectional except for the `converted` predecessor lock (must come from `ready_for_case`).",
     ),
   leadType: zod
     .string()

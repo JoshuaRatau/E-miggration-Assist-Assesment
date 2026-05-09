@@ -31,7 +31,6 @@ const STATUS_OPTIONS = [
   "new",
   "reviewing",
   "contacted",
-  "awaiting_response",
   "engaged",
   "qualified",
   "proposal_sent",

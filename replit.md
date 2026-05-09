@@ -76,6 +76,10 @@ New tables `campaigns`, `campaign_recipients`, `unsubscribes` in `lib/db/src/sch
 
 **Known V1 limitation:** WhatsApp out-of-window sends require a Twilio Content template; the dispatcher currently returns `wa_template_send_not_implemented` so those recipients land as `failed` until the Content API call is wired in. In-window WA freeform and all email sends are fully functional.
 
+### Phase 6A.1 — Lead funnel trim (10 → 9 stages)
+
+Dropped the `awaiting_response` status. It was a "state of mind" stage that duplicated `contacted` + `next_follow_up_at` and forced operators to context-switch with no information gain. The same query is now expressed as a date filter on `contacted` rows. Touched the canonical enum in `artifacts/api-server/src/lib/classification.ts`, the frontend mirror in `lib/leadStatus.ts`, the kanban column map, the lead-score weights, the audience-query builder, both leads-table dropdowns, the Lead schema description in `openapi.yaml`, and the schema comment on `prelaunch_leads.lead_status`. The pre-existing `lead_audit` rows that mention `awaiting_response` are immutable history and have been left untouched. No live rows in that status at the time of cutover so no data migration was required (defensive `UPDATE … WHERE lead_status='awaiting_response'` was run as a safety net and matched zero rows).
+
 ### Phase 6A — B2B Contact Intelligence (email-pill hover)
 
 First slice of the "intelligent CRM" upgrade. The `PreferredCommunicationCell` hover-card now renders a full B2B contact card for `leadType = "professional"` rows: contact name, role/title, organisation name, **relationship classifier** (Primary Decision-Maker Contact / Departmental Contact / General Operations Contact) and **email-type label** (Personal / Departmental / Generic). Individual (B2C) rows are unchanged — they keep the original masked-by-default address with reveal/copy controls.
