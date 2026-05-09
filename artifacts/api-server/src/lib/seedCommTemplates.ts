@@ -35,28 +35,43 @@ export interface SeedTemplate {
   body: string;
 }
 
-// Shared HTML wrapper. Keeps every template visually consistent:
-// 600px container, generous padding, neutral typography stack, brand
-// accent colour reused across CTAs.
-const wrap = (inner: string): string => `<div style="background:#0b1220;padding:32px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-  <table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;max-width:600px;width:100%;">
-    <tr><td style="padding:40px 40px 16px 40px;">
-      <div style="font-weight:700;font-size:18px;color:#0b1220;letter-spacing:-0.01em;">E-Migration Assist</div>
+// Brand palette — sourced from migrations.co.za to keep email chrome
+// visually native to the product surface customers already know:
+//   Petrol teal gradient (hero band)        #0e6470 → #1a8c9c
+//   Mint accent / primary CTA               #2dd4a7  (dark text inside)
+//   Dark navy surround / footer parity      #0a1929
+//   Slate body text                         #1f2937
+//   Muted border / hairline                 #e5e7eb
+//
+// Shared HTML wrapper. Every seeded template uses this so the library
+// reads as one cohesive brand voice. 600px container, table-based
+// layout for Outlook compatibility, all styles inline (Gmail / Yahoo
+// strip <style> blocks unpredictably).
+const wrap = (inner: string): string => `<div style="background:#0a1929;padding:32px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:14px;max-width:600px;width:100%;overflow:hidden;">
+    <tr><td style="background:linear-gradient(135deg,#0e6470 0%,#1a8c9c 100%);padding:28px 40px;">
+      <div style="font-weight:700;font-size:18px;color:#ffffff;letter-spacing:0.08em;text-transform:uppercase;">E-Migration Assist</div>
+      <div style="font-size:12px;color:#a7e8de;letter-spacing:0.02em;margin-top:4px;">Your trusted immigration platform</div>
     </td></tr>
-    <tr><td style="padding:0 40px 40px 40px;color:#1f2937;font-size:15px;line-height:1.65;">
+    <tr><td style="padding:36px 40px 32px 40px;color:#1f2937;font-size:15px;line-height:1.65;">
 ${inner}
     </td></tr>
-    <tr><td style="padding:0 40px 32px 40px;color:#6b7280;font-size:12px;line-height:1.5;border-top:1px solid #e5e7eb;padding-top:24px;">
-      You are receiving this email because you registered with E-Migration Assist (reference {{reference}}).
+    <tr><td style="padding:20px 40px 28px 40px;color:#6b7280;font-size:12px;line-height:1.55;border-top:1px solid #e5e7eb;background:#fafbfc;">
+      <div style="margin-bottom:6px;color:#0e6470;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;font-size:11px;">E-Migration Assist · South Africa</div>
+      You are receiving this email because you registered with E-Migration Assist (reference <strong style="color:#1f2937;">{{reference}}</strong>). If you'd prefer not to receive these updates, you can unsubscribe below.
     </td></tr>
   </table>
 </div>`;
 
+// Mint pill CTA mirrors the "Start as a Traveller" button on the
+// product homepage — vibrant accent on dark text for high contrast.
 const cta = (label: string, href = "#"): string =>
-  `<p style="margin:28px 0 8px 0;"><a href="${href}" style="background:#0ea5e9;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:8px;display:inline-block;">${label}</a></p>`;
+  `<p style="margin:28px 0 8px 0;"><a href="${href}" style="background:#2dd4a7;color:#0a1929;text-decoration:none;font-weight:600;padding:13px 26px;border-radius:999px;display:inline-block;font-size:14px;">${label} ›</a></p>`;
 
-const banner = (text: string, bg = "#eff6ff", colour = "#1d4ed8"): string =>
-  `<div style="background:${bg};color:${colour};padding:14px 18px;border-radius:8px;font-weight:600;font-size:14px;margin:0 0 24px 0;">${text}</div>`;
+// Inline notice band. Defaults to brand teal; pass overrides for
+// warning (amber) / success (mint) / alert (rose) variants.
+const banner = (text: string, bg = "#e0f2f1", colour = "#0e6470"): string =>
+  `<div style="background:${bg};color:${colour};padding:14px 18px;border-radius:10px;font-weight:600;font-size:13px;letter-spacing:0.01em;margin:0 0 24px 0;border-left:3px solid ${colour};">${text}</div>`;
 
 // ---------------------------------------------------------------------
 // Promotional (4)
