@@ -189,4 +189,316 @@ router.get("/stats/source-mix", async (req, res) => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// /stats/source-attribution — Phase 6E enhanced source intelligence.
+//
+// Powers the dashboard's "Source Performance" card. Accepts a time
+// `range` and a B2C/B2B `segment` filter; returns
+//   - per-source rows (leads / converted / conv-rate / growth%)
+//   - a date-bucketed time series for the multi-line trend chart
+//   - auto-generated insights for the operator-summary panel
+//   - totals echoed back so the table footer can render without a
+//     second client-side reduce.
+//
+// Deliberately bespoke (not in OpenAPI). The shape will iterate over
+// the next phase; pinning it in the spec now would force codegen
+// churn for every tweak. Frontend fetches it directly via fetch +
+// react-query.
+
+type RangeKey = "7d" | "30d" | "1m" | "3m" | "6m" | "all";
+type SegmentKey = "all" | "b2c" | "b2b";
+
+interface RangeMeta {
+  /** Postgres interval clause for the CURRENT window, or null for "all". */
+  intervalSql: string | null;
+  /**
+   * Bucket width for the time-series. Postgres `date_trunc` unit:
+   * shorter ranges use day, longer ranges use week, "all" uses month.
+   */
+  bucket: "day" | "week" | "month";
+  /** Number of buckets we expect to render — informational. */
+  approxBuckets: number;
+}
+
+const RANGE_META: Record<RangeKey, RangeMeta> = {
+  "7d": { intervalSql: "7 days", bucket: "day", approxBuckets: 7 },
+  "30d": { intervalSql: "30 days", bucket: "day", approxBuckets: 30 },
+  "1m": { intervalSql: "1 month", bucket: "day", approxBuckets: 30 },
+  "3m": { intervalSql: "3 months", bucket: "week", approxBuckets: 13 },
+  "6m": { intervalSql: "6 months", bucket: "week", approxBuckets: 26 },
+  all: { intervalSql: null, bucket: "month", approxBuckets: 24 },
+};
+
+const KNOWN_SOURCES = [
+  "web_form",
+  "referral",
+  "linkedin",
+  "facebook",
+  "google",
+  "direct",
+  "csv_import",
+  "manual",
+  "api",
+  "other",
+] as const;
+type KnownSource = (typeof KNOWN_SOURCES)[number];
+
+const SOURCE_LABELS: Record<KnownSource, string> = {
+  web_form: "Web form",
+  referral: "Referral",
+  linkedin: "LinkedIn",
+  facebook: "Facebook",
+  google: "Google",
+  direct: "Direct",
+  csv_import: "CSV import",
+  manual: "Manual",
+  api: "API",
+  other: "Other",
+};
+
+router.get("/stats/source-attribution", async (req, res) => {
+  if (!(await requireAdminAuth(req, res))) return;
+
+  const rangeRaw = String(req.query.range ?? "30d") as RangeKey;
+  const segmentRaw = String(req.query.segment ?? "all") as SegmentKey;
+  const range: RangeKey = (Object.keys(RANGE_META) as RangeKey[]).includes(
+    rangeRaw,
+  )
+    ? rangeRaw
+    : "30d";
+  const segment: SegmentKey = (["all", "b2c", "b2b"] as const).includes(
+    segmentRaw,
+  )
+    ? segmentRaw
+    : "all";
+  const meta = RANGE_META[range];
+
+  // Same canonicalisation as /source-mix so legacy / mixed-case rows
+  // bucket consistently.
+  const canonicalSource = sql<string>`LOWER(TRIM(COALESCE(${prelaunchLeadsTable.source}, 'web_form')))`;
+  const sourceBucket = sql<string>`
+    CASE
+      WHEN ${canonicalSource} IN (
+        'web_form','referral','linkedin','facebook','google','direct',
+        'csv_import','manual','api','other'
+      ) THEN ${canonicalSource}
+      ELSE 'other'
+    END
+  `;
+
+  // WHERE clauses. We compose them inline since drizzle's sql template
+  // is happy to be concatenated into the same query body.
+  const segmentClause = sql.raw(
+    segment === "b2c"
+      ? `AND lead_type = 'individual'`
+      : segment === "b2b"
+        ? `AND lead_type = 'professional'`
+        : "",
+  );
+  const currentRangeClause = meta.intervalSql
+    ? sql.raw(`AND created_at > NOW() - INTERVAL '${meta.intervalSql}'`)
+    : sql.raw("");
+  // Previous-period clause is the equal-length window immediately
+  // before the current one — used to compute growth %.
+  const prevRangeClause = meta.intervalSql
+    ? sql.raw(
+        `AND created_at > NOW() - INTERVAL '${meta.intervalSql}' * 2 AND created_at <= NOW() - INTERVAL '${meta.intervalSql}'`,
+      )
+    : sql.raw("");
+
+  // 1. Per-source counts in the CURRENT window (+ converted +
+  //    previous-period leads for growth %).
+  const rows = await db.execute(sql<{
+    source: string;
+    leads: number;
+    converted: number;
+    prev_leads: number;
+  }>`
+    SELECT
+      ${sourceBucket} AS source,
+      COUNT(*)::int AS leads,
+      COUNT(*) FILTER (WHERE lead_status = 'converted')::int AS converted,
+      ${
+        meta.intervalSql === null
+          ? sql.raw("0::int")
+          : sql`(
+        SELECT COUNT(*)::int FROM prelaunch_leads p2
+        WHERE
+          CASE
+            WHEN LOWER(TRIM(COALESCE(p2.source, 'web_form'))) IN (
+              'web_form','referral','linkedin','facebook','google','direct',
+              'csv_import','manual','api','other'
+            )
+            THEN LOWER(TRIM(COALESCE(p2.source, 'web_form')))
+            ELSE 'other'
+          END = ${sourceBucket}
+          ${prevRangeClause}
+          ${segment === "b2c" ? sql.raw("AND p2.lead_type = 'individual'") : segment === "b2b" ? sql.raw("AND p2.lead_type = 'professional'") : sql.raw("")}
+      )`
+      } AS prev_leads
+    FROM prelaunch_leads
+    WHERE 1=1
+      ${currentRangeClause}
+      ${segmentClause}
+    GROUP BY source
+    ORDER BY leads DESC
+  `);
+
+  type Row = {
+    source: string;
+    leads: number;
+    converted: number;
+    prev_leads: number;
+  };
+  // node-postgres returns Result with `.rows`; drizzle's execute mirrors
+  // that. We guard for both shapes.
+  const rawRows: Row[] = (
+    Array.isArray(rows)
+      ? rows
+      : ((rows as unknown as { rows: Row[] }).rows ?? [])
+  ) as Row[];
+
+  const enrichedRows = rawRows.map((r) => {
+    const leads = Number(r.leads) || 0;
+    const prev = Number(r.prev_leads) || 0;
+    const conv = Number(r.converted) || 0;
+    const growthPct =
+      meta.intervalSql === null
+        ? null
+        : prev === 0
+          ? leads === 0
+            ? 0
+            : null // new channel — undefined growth
+          : Math.round(((leads - prev) / prev) * 1000) / 10;
+    return {
+      source: r.source,
+      label: SOURCE_LABELS[r.source as KnownSource] ?? r.source,
+      leads,
+      converted: conv,
+      conversionPct: leads > 0 ? Math.round((conv / leads) * 1000) / 10 : 0,
+      growthPct,
+    };
+  });
+
+  // 2. Time-series buckets for the chart. We pivot in JS rather than
+  //    SQL because the active-source set is small and JS is cheaper to
+  //    iterate than a CROSSTAB.
+  const seriesRows = await db.execute(sql<{
+    bucket: string;
+    source: string;
+    leads: number;
+  }>`
+    SELECT
+      to_char(date_trunc('${sql.raw(meta.bucket)}', created_at), 'YYYY-MM-DD') AS bucket,
+      ${sourceBucket} AS source,
+      COUNT(*)::int AS leads
+    FROM prelaunch_leads
+    WHERE 1=1
+      ${currentRangeClause}
+      ${segmentClause}
+    GROUP BY 1, 2
+    ORDER BY 1 ASC
+  `);
+  const rawSeries = (
+    Array.isArray(seriesRows)
+      ? seriesRows
+      : ((seriesRows as unknown as { rows: unknown[] }).rows ?? [])
+  ) as { bucket: string; source: string; leads: number }[];
+
+  const bucketSet = new Set<string>();
+  const pivot = new Map<string, Record<string, number>>();
+  for (const row of rawSeries) {
+    bucketSet.add(row.bucket);
+    const entry = pivot.get(row.bucket) ?? {};
+    entry[row.source] = Number(row.leads) || 0;
+    pivot.set(row.bucket, entry);
+  }
+  const series = Array.from(bucketSet)
+    .sort()
+    .map((date) => {
+      const entry = pivot.get(date) ?? {};
+      // Backfill 0 for known sources so the chart line is continuous.
+      const point: Record<string, string | number> = { date };
+      for (const s of enrichedRows) {
+        point[s.source] = entry[s.source] ?? 0;
+      }
+      return point;
+    });
+
+  // 3. Totals
+  const totals = enrichedRows.reduce(
+    (acc, r) => {
+      acc.leads += r.leads;
+      acc.converted += r.converted;
+      return acc;
+    },
+    { leads: 0, converted: 0 },
+  );
+  const totalsConvPct =
+    totals.leads > 0
+      ? Math.round((totals.converted / totals.leads) * 1000) / 10
+      : 0;
+
+  // 4. Auto-insights — pure derivations from `enrichedRows`. Kept
+  //    deliberately small so the panel stays scannable.
+  const insights: { tone: "positive" | "neutral" | "warning"; text: string }[] =
+    [];
+  if (enrichedRows.length > 0) {
+    const topVolume = [...enrichedRows].sort((a, b) => b.leads - a.leads)[0];
+    if (topVolume && topVolume.leads > 0) {
+      insights.push({
+        tone: "neutral",
+        text: `${topVolume.label} produced the highest lead volume (${topVolume.leads} leads).`,
+      });
+    }
+    const topConv = [...enrichedRows]
+      .filter((r) => r.leads >= 3)
+      .sort((a, b) => b.conversionPct - a.conversionPct)[0];
+    if (topConv && topConv.conversionPct > 0) {
+      insights.push({
+        tone: "positive",
+        text: `${topConv.label} achieved the highest conversion efficiency at ${topConv.conversionPct}%.`,
+      });
+    }
+    const fastest = [...enrichedRows]
+      .filter((r) => r.growthPct !== null && r.leads >= 3)
+      .sort((a, b) => (b.growthPct ?? 0) - (a.growthPct ?? 0))[0];
+    if (fastest && (fastest.growthPct ?? 0) > 25) {
+      insights.push({
+        tone: "positive",
+        text: `${fastest.label} is the fastest-growing channel (+${fastest.growthPct}% vs previous period).`,
+      });
+    }
+    const declining = [...enrichedRows]
+      .filter((r) => r.growthPct !== null && r.leads >= 3)
+      .sort((a, b) => (a.growthPct ?? 0) - (b.growthPct ?? 0))[0];
+    if (declining && (declining.growthPct ?? 0) < -25) {
+      insights.push({
+        tone: "warning",
+        text: `${declining.label} engagement declining (${declining.growthPct}% vs previous period).`,
+      });
+    }
+  }
+  if (insights.length === 0) {
+    insights.push({
+      tone: "neutral",
+      text: "Not enough activity in this window to surface insights yet.",
+    });
+  }
+
+  return res.json({
+    range,
+    segment,
+    bucket: meta.bucket,
+    rows: enrichedRows,
+    totals: {
+      leads: totals.leads,
+      converted: totals.converted,
+      conversionPct: totalsConvPct,
+    },
+    series,
+    insights,
+  });
+});
+
 export default router;
