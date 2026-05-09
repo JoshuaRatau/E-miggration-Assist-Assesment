@@ -4,6 +4,10 @@ import { bootstrapAdminAccounts } from "./lib/adminBootstrap";
 import { bootstrapCommTemplates } from "./lib/templateBootstrap";
 import { startScoreWorker } from "./lib/scoreWorker";
 import { startQueue, stopQueue } from "./lib/queue";
+import {
+  startCampaignScheduleWorker,
+  stopCampaignScheduleWorker,
+} from "./lib/campaignScheduleWorker";
 
 const rawPort = process.env["PORT"];
 
@@ -54,11 +58,19 @@ app.listen(port, (err) => {
   startQueue().catch((err) => {
     logger.error({ err }, "queue: start failed");
   });
+
+  // Phase 6D-3B — start the scheduled-send worker. Single-replica,
+  // 30s tick. Runs once immediately to pick up any campaigns whose
+  // scheduled_at fired during a deploy window. Safe to call before
+  // the queue is fully ready — the worker self-skips ticks until
+  // `isQueueReady()` returns true.
+  startCampaignScheduleWorker();
 });
 
 // Graceful shutdown — let in-flight jobs finish before exiting.
 const shutdown = async (signal: string) => {
   logger.info({ signal }, "Shutdown signal received; stopping queue");
+  stopCampaignScheduleWorker();
   await stopQueue();
   process.exit(0);
 };

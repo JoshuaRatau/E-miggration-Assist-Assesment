@@ -32,6 +32,11 @@ import {
 } from "../lib/unsubscribe";
 import { decideWaSend, executeWaDecision } from "../lib/whatsappCampaign";
 import { enqueueCampaignSends, isQueueReady } from "../lib/queue";
+import {
+  dispatchClaimedCampaign,
+  MAX_RECIPIENTS_PER_CAMPAIGN as MAX_RECIPIENTS_FROM_DISPATCH,
+} from "../lib/campaignDispatch";
+import { maybeFinaliseCampaign } from "../lib/campaignSendWorker";
 
 // Phase 4 — Admin Campaign routes.
 //
@@ -50,13 +55,11 @@ const router: IRouter = Router();
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// Hard cap, enforced server-side. Phase 6D-3A moved per-recipient sends
-// into a pg-boss queue (`lib/queue.ts` + `lib/campaignSendWorker.ts`),
-// so the route is no longer wall-clock-bound by Resend's rate limit.
-// Cap raised 200 → 2000 — the new ceiling is set by Resend free-tier
-// monthly volume + the polling/concurrency model in the worker, not
-// by the HTTP request lifetime.
-const MAX_RECIPIENTS_PER_CAMPAIGN = 2000;
+// Re-exported from `lib/campaignDispatch.ts` (single source of truth so
+// the scheduled-send worker uses the same ceiling). Phase 6D-3A moved
+// per-recipient sends into a pg-boss queue, so the route is no longer
+// wall-clock-bound by Resend's rate limit.
+const MAX_RECIPIENTS_PER_CAMPAIGN = MAX_RECIPIENTS_FROM_DISPATCH;
 
 const ChannelEnum = z.enum(["email", "whatsapp"]);
 
@@ -97,6 +100,7 @@ function serializeCampaign(c: Campaign) {
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
     sentAt: c.sentAt ? c.sentAt.toISOString() : null,
+    scheduledAt: c.scheduledAt ? c.scheduledAt.toISOString() : null,
   };
 }
 
@@ -141,7 +145,9 @@ router.get("/admin/campaigns/stats", async (req, res) => {
     .select({
       totalCampaigns: sql<number>`count(*)::int`,
       drafts: sql<number>`count(*) filter (where ${campaignsTable.status} = 'draft')::int`,
+      scheduled: sql<number>`count(*) filter (where ${campaignsTable.status} = 'scheduled')::int`,
       sending: sql<number>`count(*) filter (where ${campaignsTable.status} = 'sending')::int`,
+      paused: sql<number>`count(*) filter (where ${campaignsTable.status} = 'paused')::int`,
       completed: sql<number>`count(*) filter (where ${campaignsTable.status} = 'completed')::int`,
       cancelled: sql<number>`count(*) filter (where ${campaignsTable.status} = 'cancelled')::int`,
       emailCampaigns: sql<number>`count(*) filter (where ${campaignsTable.channel} = 'email')::int`,
@@ -174,7 +180,9 @@ router.get("/admin/campaigns/stats", async (req, res) => {
     totals: totals ?? {
       totalCampaigns: 0,
       drafts: 0,
+      scheduled: 0,
       sending: 0,
+      paused: 0,
       completed: 0,
       cancelled: 0,
       emailCampaigns: 0,
@@ -329,10 +337,16 @@ router.patch("/admin/campaigns/:id", async (req, res) => {
     .where(eq(campaignsTable.id, id))
     .limit(1);
   if (!existing) return res.status(404).json({ error: "Campaign not found" });
-  if (existing.status !== "draft") {
+  // Phase 6D-3B — `scheduled` campaigns are also editable until the
+  // scheduler claims them (the dispatch path re-runs at fire time, so
+  // last-minute audience/body changes are honoured). The atomic UPDATE
+  // below uses `status IN (draft, scheduled)` so we don't trample a row
+  // mid-claim — the scheduler's own UPDATE flips status='sending' first,
+  // and our WHERE will then return 0 rows = 409.
+  if (existing.status !== "draft" && existing.status !== "scheduled") {
     return res
       .status(409)
-      .json({ error: "Only draft campaigns can be edited" });
+      .json({ error: "Only draft or scheduled campaigns can be edited" });
   }
 
   // Build a defined-only patch to preserve unspecified columns.
@@ -351,13 +365,16 @@ router.patch("/admin/campaigns/:id", async (req, res) => {
     .update(campaignsTable)
     .set(patch)
     .where(
-      and(eq(campaignsTable.id, id), eq(campaignsTable.status, "draft")),
+      and(
+        eq(campaignsTable.id, id),
+        sql`${campaignsTable.status} in ('draft','scheduled')`,
+      ),
     )
     .returning();
   if (!updated) {
     return res
       .status(409)
-      .json({ error: "Campaign is no longer in draft state" });
+      .json({ error: "Campaign is no longer editable" });
   }
 
   return res.json(serializeCampaign(updated));
@@ -537,17 +554,15 @@ router.post("/admin/campaigns/:id/test", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// SEND — the meaty one.
+// SEND — synchronous claim, async dispatch.
 //
-// Synchronous bulk send with hard ≤200 cap. Flow:
-//   1. Atomically transition campaign draft → sending (refuse if not draft).
-//      The UPDATE … WHERE status='draft' RETURNING * is the lock; a second
-//      concurrent click sees zero rows and 409s.
-//   2. Compile + run audience query. If 0 results or > 200, refuse and
-//      revert the campaign to draft.
-//   3. For each lead: build recipient row (transactional with engagement +
-//      counter increment), call sendMessage(), set terminal status.
-//   4. Mark campaign completed with final counts + sentAt.
+// Flow (Phase 6D-3A + 6D-3B refactor):
+//   0. Queue-readiness gate (503 if pg-boss not yet up; leaves draft alone).
+//   1. Atomic draft → sending claim. Concurrent click 409s.
+//   2. Hand off to `dispatchClaimedCampaign` (shared with the scheduled-send
+//      worker). The helper handles audience compile, materialise, pre-settle,
+//      enqueue, and self-reverts to draft / cancelled on failure.
+//   3. Audit + 202 with {campaign, queued, preSettled}.
 
 router.post("/admin/campaigns/:id/send", async (req, res) => {
   if (!(await requireAdminAuth(req, res))) return;
@@ -556,13 +571,6 @@ router.post("/admin/campaigns/:id/send", async (req, res) => {
     return res.status(400).json({ error: "Invalid campaign id" });
   }
 
-  // ── Step 0: queue-readiness gate ─────────────────────────────────────
-  // Architect-flagged: if the queue isn't up yet (boot race, pgboss
-  // schema-create failure, transient DB hiccup), refuse the send WITHOUT
-  // claiming the campaign. Returning 503 + leaving the row in `draft`
-  // lets the operator retry once the queue heals. The previous design
-  // would atomically claim → fail to enqueue → flip to `cancelled`,
-  // permanently burying a valid draft.
   if (!isQueueReady()) {
     return res.status(503).json({
       error:
@@ -570,7 +578,6 @@ router.post("/admin/campaigns/:id/send", async (req, res) => {
     });
   }
 
-  // ── Step 1: claim the campaign ───────────────────────────────────────
   const [campaign] = await db
     .update(campaignsTable)
     .set({ status: "sending", updatedAt: new Date() })
@@ -584,302 +591,289 @@ router.post("/admin/campaigns/:id/send", async (req, res) => {
       .json({ error: "Campaign is not in draft state" });
   }
 
-  // Helper to revert on early-exit conditions (empty audience, too large…).
-  // We DON'T revert on per-recipient send failures — those are normal and
-  // just produce a `failed` recipient row.
-  const revertToDraft = async (reason: string) => {
-    await db
-      .update(campaignsTable)
-      .set({ status: "draft", updatedAt: new Date() })
-      .where(eq(campaignsTable.id, id));
-    req.log.info(
-      { campaignId: id, reason },
-      "Reverted campaign to draft after send refusal",
-    );
-  };
-
-  const filter = (campaign.audienceFilter ?? null) as AudienceQuery | null;
-  if (!filter || filter.rules.length === 0) {
-    await revertToDraft("empty_filter");
-    return res
-      .status(400)
-      .json({ error: "Campaign has no audience filter configured" });
-  }
-
-  const channelEnum: "email" | "whatsapp" =
-    campaign.channel === "whatsapp" ? "whatsapp" : "email";
-
-  const body = (campaign.templateBody ?? "").trim();
-  if (channelEnum === "email") {
-    if (body.length === 0) {
-      await revertToDraft("empty_body");
-      return res
-        .status(400)
-        .json({ error: "Email campaigns require a template body" });
-    }
-    if (findUnknownTokens(body).length > 0) {
-      await revertToDraft("unknown_tokens");
-      return res.status(400).json({
-        error: "Template body contains unknown merge tokens",
-        unknownTokens: findUnknownTokens(body),
-      });
-    }
-  }
-
-  const where = compileAudience(filter);
-  if (!where) {
-    await revertToDraft("compile_failed");
-    return res
-      .status(500)
-      .json({ error: "Failed to compile audience filter" });
-  }
-
-  // ── Step 2: snapshot the audience ────────────────────────────────────
-  let audience: PrelaunchLead[];
-  try {
-    audience = await db
-      .select()
-      .from(prelaunchLeadsTable)
-      .where(where);
-  } catch (err) {
-    req.log.error({ err }, "Audience query failed");
-    await revertToDraft("query_failed");
-    return res.status(500).json({ error: "Failed to load audience" });
-  }
-
-  if (audience.length === 0) {
-    await revertToDraft("empty_audience");
-    return res
-      .status(400)
-      .json({ error: "Audience filter matched zero leads" });
-  }
-  if (audience.length > MAX_RECIPIENTS_PER_CAMPAIGN) {
-    await revertToDraft("over_cap");
-    return res.status(413).json({
-      error: `Audience of ${audience.length} exceeds the ${MAX_RECIPIENTS_PER_CAMPAIGN}-recipient cap. Tighten the filter and try again.`,
-      audienceSize: audience.length,
-      cap: MAX_RECIPIENTS_PER_CAMPAIGN,
-    });
-  }
-
-  // ── Step 3: pre-load unsubscribed set in one query ───────────────────
-  const contactsForChannel = audience
-    .map((l) => (channelEnum === "whatsapp" ? l.whatsapp : l.email))
-    .filter((v): v is string => typeof v === "string" && v.length > 0);
-  const unsubSet = await findUnsubscribed(channelEnum, contactsForChannel);
-
-  // ── Step 4: snapshot count + audit start ─────────────────────────────
-  await db
-    .update(campaignsTable)
-    .set({
-      audienceSnapshotCount: audience.length,
-      recipientsTotal: audience.length,
-      updatedAt: new Date(),
-    })
-    .where(eq(campaignsTable.id, id));
-
   void writeAudit({
     req,
     action: "campaign_started",
-    after: {
-      campaignId: id,
-      audienceSize: audience.length,
-      channel: channelEnum,
-    },
+    after: { campaignId: id, channel: campaign.channel },
   });
 
-  const baseUrl =
-    process.env.PUBLIC_BASE_URL ??
-    (process.env.REPLIT_DEV_DOMAIN
-      ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-      : "");
-  if (channelEnum === "email" && !baseUrl) {
-    await revertToDraft("missing_base_url");
-    return res.status(500).json({
-      error:
-        "Email campaigns require PUBLIC_BASE_URL (or REPLIT_DEV_DOMAIN) so the unsubscribe link can be built. Refusing to send without it.",
-    });
-  }
-
-  // ── Step 5: create recipient rows + enqueue jobs ─────────────────────
-  // Phase 6D-3A: per-recipient sends moved into the pg-boss queue. The
-  // route's job is now to materialise `queued` recipient rows for every
-  // audience lead (so the detail page renders in-progress state
-  // immediately) and hand them off to the worker. Counters and the
-  // `completed` finalise are written by the worker as recipients settle.
-  const recipientIds: string[] = [];
-  let preCounted = { skipped: 0, unsub: 0 };
-  let runtimeError: unknown = null;
-  try {
-  for (const lead of audience) {
-    const contact =
-      channelEnum === "whatsapp" ? lead.whatsapp : lead.email;
-    const canonical = canonicalContact(channelEnum, contact);
-
-    // Insert the recipient row in `queued`. ON CONFLICT DO NOTHING handles
-    // any operator-induced re-send to the same audience — second attempt
-    // becomes a no-op for already-tracked leads. Since the campaign was
-    // just claimed from `draft`, this is mostly defensive.
-    const [recipient] = await db
-      .insert(campaignRecipientsTable)
-      .values({
-        campaignId: id,
-        leadId: lead.id,
-        status: "queued",
-      })
-      .onConflictDoNothing({
-        target: [
-          campaignRecipientsTable.campaignId,
-          campaignRecipientsTable.leadId,
-        ],
-      })
-      .returning();
-    if (!recipient) {
-      // Already tracked in a previous run (defensive — fresh draft means
-      // this can't normally happen). Skip enqueue.
-      continue;
-    }
-
-    // Pre-settle suppressions and no-recipient skips at the route. The
-    // worker would handle these too, but settling here saves a job
-    // round-trip + a fresh unsub query for already-known-bad recipients,
-    // and surfaces accurate counters before the queue even ticks.
-    if (canonical && unsubSet.has(canonical)) {
-      await db
-        .update(campaignRecipientsTable)
-        .set({
-          status: "unsubscribed",
-          reason: "unsubscribed",
-          channelUsed: channelEnum,
-        })
-        .where(eq(campaignRecipientsTable.id, recipient.id));
-      preCounted.unsub++;
-      continue;
-    }
-    if (!canonical) {
-      await db
-        .update(campaignRecipientsTable)
-        .set({
-          status: "skipped",
-          reason: "no_recipient",
-          channelUsed: channelEnum,
-        })
-        .where(eq(campaignRecipientsTable.id, recipient.id));
-      preCounted.skipped++;
-      continue;
-    }
-
-    // Eligible — leave row in `queued` and enqueue a job.
-    recipientIds.push(recipient.id);
-  }
-  } catch (err) {
-    runtimeError = err;
-    req.log.error({ err, campaignId: id }, "Recipient materialisation failed");
-  }
-
-  // Flush pre-settled counters in a single UPDATE so the campaign row
-  // shows them before the worker starts ticking.
-  if (preCounted.skipped > 0 || preCounted.unsub > 0) {
-    await db
-      .update(campaignsTable)
-      .set({
-        recipientsSkipped: sql`${campaignsTable.recipientsSkipped} + ${preCounted.skipped}`,
-        recipientsUnsubscribed: sql`${campaignsTable.recipientsUnsubscribed} + ${preCounted.unsub}`,
-        updatedAt: new Date(),
-      })
-      .where(eq(campaignsTable.id, id));
-  }
-
-  if (runtimeError) {
-    // Couldn't even materialise the recipients table — abort, mark cancelled.
-    const [final] = await db
-      .update(campaignsTable)
-      .set({
-        status: "cancelled",
-        sentAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(campaignsTable.id, id))
-      .returning();
+  const outcome = await dispatchClaimedCampaign({ campaign, log: req.log });
+  if (!outcome.ok) {
     void writeAudit({
       req,
-      action: "campaign_cancelled",
-      after: { campaignId: id, reason: "materialisation_failed" },
+      action: outcome.cancelled
+        ? "campaign_cancelled"
+        : "campaign_send_refused",
+      after: { campaignId: id, reason: outcome.reason },
     });
-    return res.status(500).json({
-      error: "Campaign send aborted; marked cancelled.",
-      campaign: final ? serializeCampaign(final) : null,
+    return res.status(outcome.status).json({
+      error: outcome.message,
+      campaign: outcome.campaign ? serializeCampaign(outcome.campaign) : null,
     });
   }
-
-  // ── Step 6: enqueue queue jobs (batch insert) ────────────────────────
-  // pg-boss `insert` is one round-trip regardless of count — critical at
-  // the new 2000 cap (would otherwise be 2000 INSERTs).
-  if (recipientIds.length > 0) {
-    try {
-      await enqueueCampaignSends(
-        recipientIds.map((recipientId) => ({
-          campaignId: id,
-          recipientId,
-          baseUrl,
-        })),
-      );
-    } catch (err) {
-      req.log.error(
-        { err, campaignId: id, queued: recipientIds.length },
-        "Failed to enqueue campaign jobs",
-      );
-      const [final] = await db
-        .update(campaignsTable)
-        .set({
-          status: "cancelled",
-          sentAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(campaignsTable.id, id))
-        .returning();
-      return res.status(500).json({
-        error: "Failed to enqueue send jobs; campaign marked cancelled.",
-        campaign: final ? serializeCampaign(final) : null,
-      });
-    }
-  } else if (preCounted.skipped + preCounted.unsub === audience.length) {
-    // Every recipient was pre-settled (all unsubscribed or no-contact) —
-    // nothing for the worker to do, finalise immediately.
-    await db
-      .update(campaignsTable)
-      .set({
-        status: "completed",
-        sentAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(campaignsTable.id, id));
-  }
-
-  // Read back the campaign with the freshly-flushed pre-settled counters.
-  const [campaignAfter] = await db
-    .select()
-    .from(campaignsTable)
-    .where(eq(campaignsTable.id, id))
-    .limit(1);
 
   void writeAudit({
     req,
     action: "campaign_send_enqueued",
     after: {
       campaignId: id,
-      audienceSize: audience.length,
-      queued: recipientIds.length,
-      preSettled: preCounted,
+      queued: outcome.queued,
+      preSettled: outcome.preSettled,
     },
   });
 
   return res.status(202).json({
-    campaign: campaignAfter ? serializeCampaign(campaignAfter) : null,
-    queued: recipientIds.length,
-    preSettled: preCounted,
+    campaign: serializeCampaign(outcome.campaign),
+    queued: outcome.queued,
+    preSettled: outcome.preSettled,
   });
 });
+
+// ---------------------------------------------------------------------------
+// Phase 6D-3B — schedule / unschedule / pause / resume
+//
+// Schedule: draft → scheduled (with `scheduled_at`). Picked up by
+//   `lib/campaignScheduleWorker.ts` (30s tick) when scheduled_at <= now.
+// Unschedule: scheduled → draft. Editable again.
+// Pause: sending → paused. In-flight workers complete their current
+//   recipient (atomic claim already won) but no NEW recipients are
+//   started — the per-recipient worker checks campaign.status before
+//   each dispatch and settles 'queued' rows as 'skipped' if paused.
+// Resume: paused → sending. Re-enqueues all 'queued' recipients (the
+//   pause may have happened mid-batch leaving rows that the worker
+//   already pre-settled-as-skipped; those terminal rows are NOT
+//   re-enqueued, only ones still in queued state).
+
+const ScheduleCampaignSchema = z.object({
+  scheduledAt: z.string().datetime({ offset: true }),
+});
+
+// Max 90 days in the future — guards against accidental year-2099 typos
+// that would silently never fire. Enforced at the API; UI also caps.
+const MAX_SCHEDULE_AHEAD_MS = 90 * 24 * 60 * 60 * 1000;
+
+router.post("/admin/campaigns/:id/schedule", async (req, res) => {
+  if (!(await requireAdminAuth(req, res))) return;
+  const { id } = req.params;
+  if (!UUID_RE.test(id)) {
+    return res.status(400).json({ error: "Invalid campaign id" });
+  }
+
+  const parsed = ScheduleCampaignSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: "scheduledAt must be an ISO 8601 timestamp",
+      details: parsed.error.issues,
+    });
+  }
+  const scheduledAt = new Date(parsed.data.scheduledAt);
+  const now = Date.now();
+  if (scheduledAt.getTime() <= now + 30_000) {
+    return res.status(400).json({
+      error:
+        "scheduledAt must be at least 30 seconds in the future. To send now, use POST /:id/send.",
+    });
+  }
+  if (scheduledAt.getTime() > now + MAX_SCHEDULE_AHEAD_MS) {
+    return res.status(400).json({
+      error: "scheduledAt cannot be more than 90 days in the future",
+    });
+  }
+
+  // We do NOT pre-validate audience/body here — the scheduler worker
+  // will run the same dispatch path at fire time and revert to draft if
+  // anything's wrong. This lets operators schedule campaigns whose
+  // audience may grow / body may be edited up until execution. Only
+  // requirement: the campaign exists and is currently in draft.
+  const [updated] = await db
+    .update(campaignsTable)
+    .set({
+      status: "scheduled",
+      scheduledAt,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(eq(campaignsTable.id, id), eq(campaignsTable.status, "draft")),
+    )
+    .returning();
+  if (!updated) {
+    return res
+      .status(409)
+      .json({ error: "Campaign must be in draft to schedule" });
+  }
+
+  void writeAudit({
+    req,
+    action: "campaign_scheduled",
+    after: { campaignId: id, scheduledAt: scheduledAt.toISOString() },
+  });
+
+  return res.json({ campaign: serializeCampaign(updated) });
+});
+
+router.post("/admin/campaigns/:id/unschedule", async (req, res) => {
+  if (!(await requireAdminAuth(req, res))) return;
+  const { id } = req.params;
+  if (!UUID_RE.test(id)) {
+    return res.status(400).json({ error: "Invalid campaign id" });
+  }
+
+  const [updated] = await db
+    .update(campaignsTable)
+    .set({
+      status: "draft",
+      scheduledAt: null,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(eq(campaignsTable.id, id), eq(campaignsTable.status, "scheduled")),
+    )
+    .returning();
+  if (!updated) {
+    return res
+      .status(409)
+      .json({ error: "Campaign is not currently scheduled" });
+  }
+
+  void writeAudit({
+    req,
+    action: "campaign_unscheduled",
+    after: { campaignId: id },
+  });
+
+  return res.json({ campaign: serializeCampaign(updated) });
+});
+
+router.post("/admin/campaigns/:id/pause", async (req, res) => {
+  if (!(await requireAdminAuth(req, res))) return;
+  const { id } = req.params;
+  if (!UUID_RE.test(id)) {
+    return res.status(400).json({ error: "Invalid campaign id" });
+  }
+
+  const [updated] = await db
+    .update(campaignsTable)
+    .set({ status: "paused", updatedAt: new Date() })
+    .where(
+      and(eq(campaignsTable.id, id), eq(campaignsTable.status, "sending")),
+    )
+    .returning();
+  if (!updated) {
+    return res
+      .status(409)
+      .json({ error: "Only sending campaigns can be paused" });
+  }
+
+  void writeAudit({ req, action: "campaign_paused", after: { campaignId: id } });
+
+  return res.json({ campaign: serializeCampaign(updated) });
+});
+
+router.post("/admin/campaigns/:id/resume", async (req, res) => {
+  if (!(await requireAdminAuth(req, res))) return;
+  const { id } = req.params;
+  if (!UUID_RE.test(id)) {
+    return res.status(400).json({ error: "Invalid campaign id" });
+  }
+
+  if (!isQueueReady()) {
+    return res.status(503).json({
+      error:
+        "Send queue is not ready yet. Wait a few seconds for the API to finish booting, then try again.",
+    });
+  }
+
+  const [updated] = await db
+    .update(campaignsTable)
+    .set({ status: "sending", updatedAt: new Date() })
+    .where(
+      and(eq(campaignsTable.id, id), eq(campaignsTable.status, "paused")),
+    )
+    .returning();
+  if (!updated) {
+    return res
+      .status(409)
+      .json({ error: "Only paused campaigns can be resumed" });
+  }
+
+  // Re-enqueue every recipient still in 'queued'. The atomic claim in
+  // the worker (queued→sending) means already-in-flight recipients
+  // simply no-op a duplicate job. baseUrl mirrors the send route's
+  // resolution for consistent unsubscribe footers.
+  const queuedRecipients = await db
+    .select({ id: campaignRecipientsTable.id })
+    .from(campaignRecipientsTable)
+    .where(
+      and(
+        eq(campaignRecipientsTable.campaignId, id),
+        eq(campaignRecipientsTable.status, "queued"),
+      ),
+    );
+
+  const baseUrl =
+    process.env.PUBLIC_BASE_URL ??
+    (process.env.REPLIT_DEV_DOMAIN
+      ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+      : "");
+
+  if (queuedRecipients.length > 0) {
+    try {
+      await enqueueCampaignSends(
+        queuedRecipients.map((r) => ({
+          campaignId: id,
+          recipientId: r.id,
+          baseUrl,
+        })),
+      );
+    } catch (err) {
+      req.log.error(
+        { err, campaignId: id },
+        "Resume: failed to re-enqueue recipients",
+      );
+      // Don't roll the status back to paused — the operator pressed
+      // Resume and the campaign IS now in 'sending'; some recipients
+      // may already be in flight from before pause. They'll continue
+      // and finalise normally. The newly-queued ones won't fire until
+      // the next manual resume — surface that.
+      return res.status(500).json({
+        error:
+          "Resume succeeded but re-enqueueing pending recipients failed. Try Resume again.",
+        campaign: serializeCampaign(updated),
+      });
+    }
+  }
+
+  // Architect-flagged safety finalizer. If the pause happened after
+  // the worker already drained every queued recipient (counters already
+  // meet recipientsTotal), the resume would otherwise leave the
+  // campaign stuck in 'sending' forever — no jobs to run, no worker
+  // tick to call maybeFinalise. The atomic finaliser is a no-op when
+  // counters < total, so it's safe to always call.
+  await maybeFinaliseCampaign(id);
+
+  void writeAudit({
+    req,
+    action: "campaign_resumed",
+    after: { campaignId: id, requeued: queuedRecipients.length },
+  });
+
+  // Re-read in case the safety finaliser flipped status to completed.
+  const [final] = await db
+    .select()
+    .from(campaignsTable)
+    .where(eq(campaignsTable.id, id))
+    .limit(1);
+
+  return res.json({
+    campaign: serializeCampaign(final ?? updated),
+    requeued: queuedRecipients.length,
+  });
+});
+
+// ---------------------------------------------------------------------------
+// (Legacy send body removed — see dispatchClaimedCampaign in
+// `lib/campaignDispatch.ts` for the shared materialise + enqueue path.)
+
 
 // suppress unused warnings for `sql` import (kept available for future
 // per-row counter updates if we move to incremental flushing)

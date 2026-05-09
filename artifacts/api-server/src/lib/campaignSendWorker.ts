@@ -72,6 +72,10 @@ async function bumpCounter(
     .where(eq(campaignsTable.id, campaignId));
 }
 
+export async function maybeFinaliseCampaign(campaignId: string): Promise<void> {
+  return maybeFinalise(campaignId);
+}
+
 async function maybeFinalise(campaignId: string): Promise<void> {
   // Atomic finalise. The WHERE clause guarantees exactly one worker
   // wins this transition — `status='sending'` filters out an already-
@@ -238,6 +242,25 @@ async function runClaimedJob(args: {
       channelUsed: "",
       engagementId: null,
     });
+    return;
+  }
+  // Phase 6D-3B — pause check. If the operator paused the campaign
+  // between enqueue and our atomic queued→sending claim, REVERT the
+  // recipient back to 'queued' so resume re-enqueues it. Settling as
+  // 'skipped' here would terminally lose the recipient (architect-
+  // flagged). The revert UPDATE has WHERE status='sending' so a worker
+  // that already settled this row (race-defensive) doesn't accidentally
+  // resurrect it.
+  if (campaign.status === "paused") {
+    await db
+      .update(campaignRecipientsTable)
+      .set({ status: "queued" })
+      .where(
+        and(
+          eq(campaignRecipientsTable.id, recipientId),
+          eq(campaignRecipientsTable.status, "sending"),
+        ),
+      );
     return;
   }
 

@@ -41,6 +41,7 @@ import {
   Save,
   Eye,
   FileText,
+  Clock,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -54,6 +55,17 @@ interface CampaignDraft {
   templateBody: string | null;
   whatsappTemplateSid: string | null;
   audienceFilter: AudienceQuery | null;
+  scheduledAt?: string | null;
+}
+
+// Format a Date as the local-time `YYYY-MM-DDTHH:mm` value an
+// <input type="datetime-local"> expects. Defaults to "1 hour from now"
+// rounded to the next 5-minute mark.
+function defaultScheduleValue(): string {
+  const d = new Date(Date.now() + 60 * 60 * 1000);
+  d.setMinutes(Math.ceil(d.getMinutes() / 5) * 5, 0, 0);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 interface PreviewResult {
@@ -96,6 +108,11 @@ export function AdminCampaignEditor() {
   const [testing, setTesting] = useState(false);
   const [sending, setSending] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduleValue, setScheduleValue] = useState<string>(
+    defaultScheduleValue,
+  );
+  const [scheduling, setScheduling] = useState(false);
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const [templateOptions, setTemplateOptions] = useState<
     TemplateOption[] | null
@@ -154,8 +171,12 @@ export function AdminCampaignEditor() {
         const json = (await res.json()) as { campaign: CampaignDraft };
         if (cancelled) return;
         setDraft(json.campaign);
-        if (json.campaign.status !== "draft") {
-          // Already sent — bounce to detail page.
+        // Drafts and scheduled campaigns are editable; anything else
+        // (sending / paused / completed / cancelled) bounces to detail.
+        if (
+          json.campaign.status !== "draft" &&
+          json.campaign.status !== "scheduled"
+        ) {
           setLocation(`/admin/communications/campaigns/${id}`);
         }
       } catch (e) {
@@ -276,8 +297,8 @@ export function AdminCampaignEditor() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
       toast({
-        title: "Campaign sent",
-        description: `Sent: ${json.tally.sent} · Failed: ${json.tally.failed} · Skipped: ${json.tally.skipped + json.tally.unsub}`,
+        title: "Campaign queued",
+        description: `${json.queued ?? 0} recipient${json.queued === 1 ? "" : "s"} are sending in the background. ${json.preSettled?.unsub ?? 0} unsubscribed, ${json.preSettled?.skipped ?? 0} skipped.`,
       });
       setConfirmOpen(false);
       setLocation(`/admin/communications/campaigns/${draft.id}`);
@@ -289,6 +310,50 @@ export function AdminCampaignEditor() {
       });
     } finally {
       setSending(false);
+    }
+  }
+
+  async function scheduleCampaign() {
+    if (!draft) return;
+    // datetime-local gives us a wall-clock string with no timezone; new
+    // Date(...) interprets it as local time, then toISOString() converts
+    // to UTC for the wire — matches what the API's z.datetime() expects.
+    const local = new Date(scheduleValue);
+    if (isNaN(local.getTime())) {
+      toast({
+        title: "Invalid date",
+        description: "Pick a valid date and time.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setScheduling(true);
+    try {
+      const res = await fetch(
+        `${BASE}/api/admin/campaigns/${draft.id}/schedule`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ scheduledAt: local.toISOString() }),
+        },
+      );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      toast({
+        title: "Campaign scheduled",
+        description: `Will send around ${local.toLocaleString()}.`,
+      });
+      setScheduleOpen(false);
+      setLocation(`/admin/communications/campaigns/${draft.id}`);
+    } catch (e) {
+      toast({
+        title: "Schedule failed",
+        description: e instanceof Error ? e.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setScheduling(false);
     }
   }
 
@@ -675,7 +740,21 @@ export function AdminCampaignEditor() {
                   ) : (
                     <Send className="mr-2 h-4 w-4" />
                   )}
-                  Send campaign
+                  Send now
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    setScheduleValue(defaultScheduleValue());
+                    setScheduleOpen(true);
+                  }}
+                  disabled={!canSend || scheduling}
+                  data-testid="button-open-schedule"
+                >
+                  <Clock className="mr-2 h-4 w-4" />
+                  Schedule for later
                 </Button>
                 {!canSend && preview ? (
                   <p className="text-xs text-slate-500">
@@ -720,6 +799,55 @@ export function AdminCampaignEditor() {
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : null}
                 Yes, send now
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
+          <DialogContent data-testid="dialog-schedule">
+            <DialogHeader>
+              <DialogTitle>
+                Schedule send for {preview?.eligibleCount ?? 0} leads
+              </DialogTitle>
+              <DialogDescription>
+                The campaign stays editable until ~30 seconds before the
+                scheduled time. The system checks every 30 seconds, so
+                actual send may be slightly delayed.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 py-2">
+              <Label htmlFor="schedule-at" className="text-xs text-slate-400">
+                Send at (your local time)
+              </Label>
+              <Input
+                id="schedule-at"
+                type="datetime-local"
+                value={scheduleValue}
+                onChange={(e) => setScheduleValue(e.target.value)}
+                data-testid="input-schedule-at"
+              />
+              <p className="text-xs text-slate-500">
+                Must be at least 30 seconds and at most 90 days in the future.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setScheduleOpen(false)}
+                disabled={scheduling}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={scheduleCampaign}
+                disabled={scheduling}
+                data-testid="button-confirm-schedule"
+              >
+                {scheduling ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                Schedule
               </Button>
             </DialogFooter>
           </DialogContent>

@@ -30,11 +30,24 @@ export const campaignsTable = pgTable("campaigns", {
   name: text("name").notNull(),
 
   //   channel  ∈ email | whatsapp
-  //   status   ∈ draft | sending | completed | cancelled
-  // The send endpoint enforces draft → sending → completed atomically; any
-  // other transition is rejected at the API layer.
+  //   status   ∈ draft | scheduled | sending | paused | completed | cancelled
+  // Transitions (enforced at the API layer):
+  //   draft     → sending      (POST /:id/send, immediate)
+  //   draft     → scheduled    (POST /:id/schedule, with scheduled_at)
+  //   scheduled → draft        (POST /:id/unschedule)
+  //   scheduled → sending      (scheduler worker, when scheduled_at <= now)
+  //   sending   → paused       (POST /:id/pause)
+  //   paused    → sending      (POST /:id/resume; re-enqueues queued)
+  //   sending   → completed    (worker, when all recipients terminal)
+  //   *         → cancelled    (system, on materialise/enqueue failure)
   channel: text("channel").notNull(),
   status: text("status").notNull().default("draft"),
+
+  // Phase 6D-3B — scheduled-send target. Set by POST /:id/schedule (draft
+  // → scheduled). The scheduler worker (`lib/campaignScheduleWorker.ts`,
+  // 30s tick) claims rows where status='scheduled' AND scheduled_at<=now()
+  // and flips them to sending. Cleared on unschedule.
+  scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
 
   // Email template fields. Body supports {{first_name}} and {{reference}}
   // merge tokens; the renderer is in `lib/campaignRender.ts`.
