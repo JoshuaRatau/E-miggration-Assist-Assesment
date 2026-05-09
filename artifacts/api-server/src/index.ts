@@ -3,6 +3,7 @@ import { logger } from "./lib/logger";
 import { bootstrapAdminAccounts } from "./lib/adminBootstrap";
 import { bootstrapCommTemplates } from "./lib/templateBootstrap";
 import { startScoreWorker } from "./lib/scoreWorker";
+import { startQueue, stopQueue } from "./lib/queue";
 
 const rawPort = process.env["PORT"];
 
@@ -46,4 +47,20 @@ app.listen(port, (err) => {
   startScoreWorker().catch((err) => {
     logger.error({ err }, "scoreWorker: start failed");
   });
+
+  // Phase 6D-3A — start the pg-boss durable job queue. Auto-creates the
+  // `pgboss` schema on first run and registers the campaign-send worker.
+  // Single-replica deploy means jobs run in-process; no external worker.
+  startQueue().catch((err) => {
+    logger.error({ err }, "queue: start failed");
+  });
 });
+
+// Graceful shutdown — let in-flight jobs finish before exiting.
+const shutdown = async (signal: string) => {
+  logger.info({ signal }, "Shutdown signal received; stopping queue");
+  await stopQueue();
+  process.exit(0);
+};
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+process.on("SIGINT", () => void shutdown("SIGINT"));

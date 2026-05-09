@@ -31,6 +31,7 @@ import {
   canonicalContact,
 } from "../lib/unsubscribe";
 import { decideWaSend, executeWaDecision } from "../lib/whatsappCampaign";
+import { enqueueCampaignSends, isQueueReady } from "../lib/queue";
 
 // Phase 4 — Admin Campaign routes.
 //
@@ -49,10 +50,13 @@ const router: IRouter = Router();
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// Hard cap, enforced server-side. Synchronous send + Resend's ~2 req/sec
-// sustained limit means ~200 recipients ≈ 100 seconds wall clock. Above
-// that we'd need a background worker — out of scope for V1.
-const MAX_RECIPIENTS_PER_CAMPAIGN = 200;
+// Hard cap, enforced server-side. Phase 6D-3A moved per-recipient sends
+// into a pg-boss queue (`lib/queue.ts` + `lib/campaignSendWorker.ts`),
+// so the route is no longer wall-clock-bound by Resend's rate limit.
+// Cap raised 200 → 2000 — the new ceiling is set by Resend free-tier
+// monthly volume + the polling/concurrency model in the worker, not
+// by the HTTP request lifetime.
+const MAX_RECIPIENTS_PER_CAMPAIGN = 2000;
 
 const ChannelEnum = z.enum(["email", "whatsapp"]);
 
@@ -552,6 +556,20 @@ router.post("/admin/campaigns/:id/send", async (req, res) => {
     return res.status(400).json({ error: "Invalid campaign id" });
   }
 
+  // ── Step 0: queue-readiness gate ─────────────────────────────────────
+  // Architect-flagged: if the queue isn't up yet (boot race, pgboss
+  // schema-create failure, transient DB hiccup), refuse the send WITHOUT
+  // claiming the campaign. Returning 503 + leaving the row in `draft`
+  // lets the operator retry once the queue heals. The previous design
+  // would atomically claim → fail to enqueue → flip to `cancelled`,
+  // permanently burying a valid draft.
+  if (!isQueueReady()) {
+    return res.status(503).json({
+      error:
+        "Send queue is not ready yet. Wait a few seconds for the API to finish booting, then try again.",
+    });
+  }
+
   // ── Step 1: claim the campaign ───────────────────────────────────────
   const [campaign] = await db
     .update(campaignsTable)
@@ -683,15 +701,14 @@ router.post("/admin/campaigns/:id/send", async (req, res) => {
     });
   }
 
-  // ── Step 5: synchronous loop ─────────────────────────────────────────
-  // Counters are tallied in-memory and flushed in a single UPDATE at the
-  // end. Per-recipient state changes still write their own rows so the
-  // detail page reflects in-progress sends if the operator opens it.
-  //
-  // The whole loop is wrapped in try/catch/finally so any uncaught provider
-  // or DB exception still writes a terminal status to the campaign row —
-  // we never leave the campaign stuck in `sending`.
-  const tally = { sent: 0, failed: 0, skipped: 0, unsub: 0 };
+  // ── Step 5: create recipient rows + enqueue jobs ─────────────────────
+  // Phase 6D-3A: per-recipient sends moved into the pg-boss queue. The
+  // route's job is now to materialise `queued` recipient rows for every
+  // audience lead (so the detail page renders in-progress state
+  // immediately) and hand them off to the worker. Counters and the
+  // `completed` finalise are written by the worker as recipients settle.
+  const recipientIds: string[] = [];
+  let preCounted = { skipped: 0, unsub: 0 };
   let runtimeError: unknown = null;
   try {
   for (const lead of audience) {
@@ -718,12 +735,15 @@ router.post("/admin/campaigns/:id/send", async (req, res) => {
       })
       .returning();
     if (!recipient) {
-      // Already sent in a previous run; skip without re-sending. (Cannot
-      // happen on a fresh draft, but defended for safety.)
+      // Already tracked in a previous run (defensive — fresh draft means
+      // this can't normally happen). Skip enqueue.
       continue;
     }
 
-    // Suppression check.
+    // Pre-settle suppressions and no-recipient skips at the route. The
+    // worker would handle these too, but settling here saves a job
+    // round-trip + a fresh unsub query for already-known-bad recipients,
+    // and surfaces accurate counters before the queue even ticks.
     if (canonical && unsubSet.has(canonical)) {
       await db
         .update(campaignRecipientsTable)
@@ -733,11 +753,9 @@ router.post("/admin/campaigns/:id/send", async (req, res) => {
           channelUsed: channelEnum,
         })
         .where(eq(campaignRecipientsTable.id, recipient.id));
-      tally.unsub++;
+      preCounted.unsub++;
       continue;
     }
-
-    // No-recipient skip (lead has no email / no WA).
     if (!canonical) {
       await db
         .update(campaignRecipientsTable)
@@ -747,142 +765,119 @@ router.post("/admin/campaigns/:id/send", async (req, res) => {
           channelUsed: channelEnum,
         })
         .where(eq(campaignRecipientsTable.id, recipient.id));
-      tally.skipped++;
+      preCounted.skipped++;
       continue;
     }
 
-    // Render per-lead body.
-    const ctx = leadToContext(lead);
-    const renderedBodyRaw = renderTemplate(campaign.templateBody ?? "", ctx);
-    // 6D-2: sanitise the rich-editor HTML before sending. Email-channel
-    // only — WhatsApp bodies are plain text. Defense in depth: editor
-    // authors are admins, but sanitising at the send boundary covers any
-    // content that bypassed the client (legacy templates, API callers).
-    const renderedBody =
-      channelEnum === "email" ? sanitizeEmailHtml(renderedBodyRaw) : renderedBodyRaw;
-    const renderedSubject = renderTemplate(
-      campaign.templateSubject ?? "Update from E-Migration Assist",
-      ctx,
-    );
-
-    // Append unsubscribe footer to email body. WA messages don't get a
-    // footer: WhatsApp's "Block" / STOP keyword IS the unsubscribe path.
-    let outboundBody = renderedBody;
-    if (channelEnum === "email" && baseUrl) {
-      const unsubUrl = buildUnsubscribeUrl(baseUrl, "email", canonical);
-      outboundBody = `${renderedBody}\n\n—\nDon't want these emails? Unsubscribe: ${unsubUrl}`;
-    }
-
-    // Insert engagement row first (so a crash mid-send still leaves a
-    // 'pending' row for forensic review).
-    const [engagement] = await db
-      .insert(leadEngagementsTable)
-      .values({
-        leadId: lead.id,
-        channel: channelEnum,
-        type: "manual",
-        status: "pending",
-        message: outboundBody,
-      })
-      .returning();
-
-    // Dispatch.
-    let ok = false;
-    let reason: string | null = null;
-    let channelUsed: string = channelEnum;
-    if (channelEnum === "whatsapp") {
-      const decision = await decideWaSend({
-        leadId: lead.id,
-        whatsapp: canonical,
-        templateSid: campaign.whatsappTemplateSid ?? null,
-        freeformBody: outboundBody,
-      });
-      const exec = await executeWaDecision({ to: canonical, decision });
-      if (exec.ok) {
-        ok = true;
-        channelUsed = exec.channelUsed;
-      } else {
-        reason = exec.reason;
-        if (decision.mode === "freeform") channelUsed = "whatsapp_freeform";
-        else if (decision.mode === "template")
-          channelUsed = "whatsapp_template";
-      }
-    } else {
-      const result = await sendMessage({
-        channel: "email",
-        to: canonical,
-        message: outboundBody,
-        subject: renderedSubject,
-        referenceNumber: lead.referenceNumber,
-      });
-      ok = result.ok;
-      if (!result.ok) reason = result.reason;
-    }
-
-    // Persist terminal state on both rows.
-    if (engagement) {
-      await db
-        .update(leadEngagementsTable)
-        .set({ status: ok ? "sent" : "failed" })
-        .where(eq(leadEngagementsTable.id, engagement.id));
-    }
-    await db
-      .update(campaignRecipientsTable)
-      .set({
-        status: ok ? "sent" : "failed",
-        reason,
-        engagementId: engagement?.id ?? null,
-        channelUsed,
-        sentAt: new Date(),
-      })
-      .where(eq(campaignRecipientsTable.id, recipient.id));
-
-    if (ok) tally.sent++;
-    else tally.failed++;
+    // Eligible — leave row in `queued` and enqueue a job.
+    recipientIds.push(recipient.id);
   }
   } catch (err) {
     runtimeError = err;
-    req.log.error({ err, campaignId: id }, "Campaign send loop crashed");
+    req.log.error({ err, campaignId: id }, "Recipient materialisation failed");
   }
 
-  // ── Step 6: finalize counters + status ───────────────────────────────
-  // On uncaught exception we still mark the campaign terminal — `cancelled`
-  // — so it can never get stuck in `sending`. Operator can inspect the
-  // recipients table to see how far the run got.
-  const finalStatus = runtimeError ? "cancelled" : "completed";
-  const [final] = await db
-    .update(campaignsTable)
-    .set({
-      status: finalStatus,
-      sentAt: new Date(),
-      updatedAt: new Date(),
-      recipientsSent: tally.sent,
-      recipientsFailed: tally.failed,
-      recipientsSkipped: tally.skipped,
-      recipientsUnsubscribed: tally.unsub,
-    })
+  // Flush pre-settled counters in a single UPDATE so the campaign row
+  // shows them before the worker starts ticking.
+  if (preCounted.skipped > 0 || preCounted.unsub > 0) {
+    await db
+      .update(campaignsTable)
+      .set({
+        recipientsSkipped: sql`${campaignsTable.recipientsSkipped} + ${preCounted.skipped}`,
+        recipientsUnsubscribed: sql`${campaignsTable.recipientsUnsubscribed} + ${preCounted.unsub}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(campaignsTable.id, id));
+  }
+
+  if (runtimeError) {
+    // Couldn't even materialise the recipients table — abort, mark cancelled.
+    const [final] = await db
+      .update(campaignsTable)
+      .set({
+        status: "cancelled",
+        sentAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(campaignsTable.id, id))
+      .returning();
+    void writeAudit({
+      req,
+      action: "campaign_cancelled",
+      after: { campaignId: id, reason: "materialisation_failed" },
+    });
+    return res.status(500).json({
+      error: "Campaign send aborted; marked cancelled.",
+      campaign: final ? serializeCampaign(final) : null,
+    });
+  }
+
+  // ── Step 6: enqueue queue jobs (batch insert) ────────────────────────
+  // pg-boss `insert` is one round-trip regardless of count — critical at
+  // the new 2000 cap (would otherwise be 2000 INSERTs).
+  if (recipientIds.length > 0) {
+    try {
+      await enqueueCampaignSends(
+        recipientIds.map((recipientId) => ({
+          campaignId: id,
+          recipientId,
+          baseUrl,
+        })),
+      );
+    } catch (err) {
+      req.log.error(
+        { err, campaignId: id, queued: recipientIds.length },
+        "Failed to enqueue campaign jobs",
+      );
+      const [final] = await db
+        .update(campaignsTable)
+        .set({
+          status: "cancelled",
+          sentAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(campaignsTable.id, id))
+        .returning();
+      return res.status(500).json({
+        error: "Failed to enqueue send jobs; campaign marked cancelled.",
+        campaign: final ? serializeCampaign(final) : null,
+      });
+    }
+  } else if (preCounted.skipped + preCounted.unsub === audience.length) {
+    // Every recipient was pre-settled (all unsubscribed or no-contact) —
+    // nothing for the worker to do, finalise immediately.
+    await db
+      .update(campaignsTable)
+      .set({
+        status: "completed",
+        sentAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(campaignsTable.id, id));
+  }
+
+  // Read back the campaign with the freshly-flushed pre-settled counters.
+  const [campaignAfter] = await db
+    .select()
+    .from(campaignsTable)
     .where(eq(campaignsTable.id, id))
-    .returning();
+    .limit(1);
 
   void writeAudit({
     req,
-    action: "campaign_completed",
+    action: "campaign_send_enqueued",
     after: {
       campaignId: id,
-      tally,
+      audienceSize: audience.length,
+      queued: recipientIds.length,
+      preSettled: preCounted,
     },
   });
 
-  if (runtimeError) {
-    return res.status(500).json({
-      error: "Campaign send aborted due to runtime error; marked cancelled.",
-      campaign: final ? serializeCampaign(final) : null,
-      tally,
-    });
-  }
-  return res.json({
-    campaign: final ? serializeCampaign(final) : null,
-    tally,
+  return res.status(202).json({
+    campaign: campaignAfter ? serializeCampaign(campaignAfter) : null,
+    queued: recipientIds.length,
+    preSettled: preCounted,
   });
 });
 
