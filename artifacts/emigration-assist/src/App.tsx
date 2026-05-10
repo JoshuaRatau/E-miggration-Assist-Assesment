@@ -114,6 +114,11 @@ function Router() {
           <AdminCommunications />
         </RequireAdminAuth>
       </Route>
+      <Route path="/admin/communications/automations">
+        <RequireAdminAuth>
+          <AdminCommunications />
+        </RequireAdminAuth>
+      </Route>
       <Route path="/admin/communications/notifications">
         <RequireAdminAuth>
           <AdminCommunications />

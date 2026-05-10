@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { bootstrapAdminAccounts } from "./lib/adminBootstrap";
 import { bootstrapCommTemplates } from "./lib/templateBootstrap";
+import { bootstrapLifecycleRules } from "./lib/lifecycleBootstrap";
 import { startScoreWorker } from "./lib/scoreWorker";
 import { startQueue, stopQueue } from "./lib/queue";
 import {
@@ -43,6 +44,13 @@ app.listen(port, (err) => {
   // edits to seeded templates are preserved.
   bootstrapCommTemplates().catch((err) => {
     logger.error({ err }, "templateBootstrap: failed");
+  });
+
+  // Phase 6F-4a — seed three starter lifecycle rules (welcome drip,
+  // SLA breach, re-engagement). All inserted with enabled='false';
+  // operator must explicitly turn them on. Idempotent on `name`.
+  bootstrapLifecycleRules().catch((err) => {
+    logger.error({ err }, "lifecycleBootstrap: failed");
   });
 
   // Phase 6B — start the in-process tier-aware score recompute worker.

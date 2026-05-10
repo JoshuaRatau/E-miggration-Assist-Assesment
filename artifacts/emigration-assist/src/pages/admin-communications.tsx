@@ -53,7 +53,12 @@ import { format } from "date-fns";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-type TabKey = "campaigns" | "templates" | "notifications" | "reports";
+type TabKey =
+  | "campaigns"
+  | "templates"
+  | "automations"
+  | "notifications"
+  | "reports";
 
 const TABS: Array<{ key: TabKey; href: string; label: string; testId: string }> = [
   {
@@ -67,6 +72,12 @@ const TABS: Array<{ key: TabKey; href: string; label: string; testId: string }> 
     href: "/admin/communications/templates",
     label: "Templates",
     testId: "tab-templates",
+  },
+  {
+    key: "automations",
+    href: "/admin/communications/automations",
+    label: "Automations",
+    testId: "tab-automations",
   },
   {
     key: "notifications",
@@ -84,6 +95,7 @@ const TABS: Array<{ key: TabKey; href: string; label: string; testId: string }> 
 
 function tabFromLocation(loc: string): TabKey {
   if (loc.startsWith("/admin/communications/templates")) return "templates";
+  if (loc.startsWith("/admin/communications/automations")) return "automations";
   if (loc.startsWith("/admin/communications/notifications"))
     return "notifications";
   if (loc.startsWith("/admin/communications/reports")) return "reports";
@@ -143,6 +155,7 @@ export function AdminCommunications() {
 
         {active === "campaigns" ? <CampaignsPanel /> : null}
         {active === "templates" ? <TemplatesPanel /> : null}
+        {active === "automations" ? <AutomationsPanel /> : null}
         {active === "notifications" ? (
           <ComingSoonPanel kind="notifications" />
         ) : null}
@@ -1130,6 +1143,311 @@ function findUnknownSampleTokens(input: string): string[] {
     if (!(name in SAMPLE_TOKENS)) out.push(name);
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 6F-4a — Lifecycle Automations panel (READ-ONLY scaffold).
+//
+// Lists every rule, shows enabled/disabled state and the last 10
+// executions per rule on click. No create/edit/toggle yet — those
+// land in 6F-4d. Worker is also not wired (6F-4b/c). The intent
+// here is purely surface-area: operators can see what rules exist
+// and what would fire if they were enabled.
+
+interface LifecycleRule {
+  id: string;
+  name: string;
+  description: string | null;
+  enabled: boolean;
+  triggerType: string;
+  triggerConfig: Record<string, unknown>;
+  conditions: Record<string, unknown>;
+  actionType: string;
+  actionConfig: Record<string, unknown>;
+  delayMinutes: number;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+}
+
+interface LifecycleExecution {
+  id: string;
+  ruleId: string;
+  leadId: string;
+  triggeredBy: string;
+  scheduledFor: string;
+  executedAt: string | null;
+  status: "pending" | "completed" | "skipped" | "failed";
+  skipReason: string | null;
+  result: unknown;
+  error: string | null;
+  createdAt: string;
+}
+
+const TRIGGER_LABEL: Record<string, string> = {
+  lead_created: "Lead created",
+  status_changed: "Status changed",
+  sla_breached: "SLA breached",
+  time_since_event: "Time since event",
+  tier_set: "Tier set",
+};
+
+const ACTION_LABEL: Record<string, string> = {
+  send_email_template: "Send email template",
+  send_wa_template: "Send WhatsApp template",
+  notify_assignee_email: "Notify assigned admin",
+  set_tag: "Set tag",
+  advance_status: "Advance status",
+};
+
+const EXEC_STATUS_TONE: Record<LifecycleExecution["status"], string> = {
+  pending: "border-amber-300/40 bg-amber-500/10 text-amber-200",
+  completed: "border-emerald-300/40 bg-emerald-500/10 text-emerald-200",
+  skipped: "border-slate-300/40 bg-slate-500/10 text-slate-300",
+  failed: "border-rose-300/40 bg-rose-500/10 text-rose-200",
+};
+
+function formatDelay(mins: number): string {
+  if (mins === 0) return "Immediate";
+  if (mins < 60) return `${mins} min`;
+  if (mins < 60 * 24) return `${Math.round(mins / 60)} h`;
+  return `${Math.round(mins / (60 * 24))} d`;
+}
+
+function AutomationsPanel() {
+  const [rules, setRules] = useState<LifecycleRule[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [executions, setExecutions] = useState<LifecycleExecution[] | null>(
+    null,
+  );
+
+  async function loadRules() {
+    try {
+      const res = await fetch(`${BASE}/api/admin/lifecycle/rules`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = (await res.json()) as { rules: LifecycleRule[] };
+      setRules(json.rules);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load");
+    }
+  }
+
+  useEffect(() => {
+    void loadRules();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedId) {
+      setExecutions(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `${BASE}/api/admin/lifecycle/rules/${selectedId}/executions?limit=10`,
+          { credentials: "include" },
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = (await res.json()) as { executions: LifecycleExecution[] };
+        if (!cancelled) setExecutions(json.executions);
+      } catch {
+        if (!cancelled) setExecutions([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId]);
+
+  const selected = useMemo(
+    () => rules?.find((r) => r.id === selectedId) ?? null,
+    [rules, selectedId],
+  );
+
+  return (
+    <div data-testid="panel-automations" className="space-y-4">
+      <Card className="border-amber-500/30 bg-amber-500/5">
+        <CardContent className="py-3 text-xs text-amber-200">
+          Read-only preview. No rules will fire yet — the evaluator and
+          editor ship in subsequent updates. Toggle, create, and edit are
+          deliberately disabled.
+        </CardContent>
+      </Card>
+
+      {error ? (
+        <Card className="border-rose-500/30 bg-rose-500/10">
+          <CardContent className="py-4 text-sm text-rose-200">
+            {error}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
+        <Card className="border-slate-700/40 bg-slate-900/40">
+          <CardHeader>
+            <CardTitle className="text-base">All automations</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {rules === null ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+              </div>
+            ) : rules.length === 0 ? (
+              <div className="px-6 py-12 text-center text-sm text-slate-400">
+                No automations defined.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Trigger</TableHead>
+                      <TableHead>Action</TableHead>
+                      <TableHead>Delay</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rules.map((r) => (
+                      <TableRow
+                        key={r.id}
+                        data-testid={`row-automation-${r.id}`}
+                        className={
+                          "cursor-pointer " +
+                          (selectedId === r.id
+                            ? "bg-slate-800/60"
+                            : "hover:bg-slate-800/40")
+                        }
+                        onClick={() => setSelectedId(r.id)}
+                      >
+                        <TableCell className="font-medium">{r.name}</TableCell>
+                        <TableCell className="text-xs text-slate-300">
+                          {TRIGGER_LABEL[r.triggerType] ?? r.triggerType}
+                        </TableCell>
+                        <TableCell className="text-xs text-slate-300">
+                          {ACTION_LABEL[r.actionType] ?? r.actionType}
+                        </TableCell>
+                        <TableCell className="text-xs text-slate-400 tabular-nums">
+                          {formatDelay(r.delayMinutes)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className={
+                              r.enabled
+                                ? "border-emerald-300/40 bg-emerald-500/10 text-emerald-200"
+                                : "border-slate-300/40 bg-slate-500/10 text-slate-300"
+                            }
+                          >
+                            {r.enabled ? "Enabled" : "Disabled"}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card
+          className="border-slate-700/40 bg-slate-900/40"
+          data-testid="panel-automation-detail"
+        >
+          <CardHeader>
+            <CardTitle className="text-base">
+              {selected ? "Rule detail" : "Select a rule"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            {!selected ? (
+              <p className="text-xs text-slate-400">
+                Pick a row to see its trigger config, conditions, action
+                config, and recent executions.
+              </p>
+            ) : (
+              <>
+                {selected.description ? (
+                  <p className="text-xs text-slate-400">
+                    {selected.description}
+                  </p>
+                ) : null}
+
+                <div>
+                  <Label className="text-[10px] uppercase tracking-wide text-slate-500">
+                    Trigger config
+                  </Label>
+                  <pre className="mt-1 max-h-32 overflow-auto rounded bg-slate-950/60 p-2 text-[11px] text-slate-300">
+                    {JSON.stringify(selected.triggerConfig, null, 2)}
+                  </pre>
+                </div>
+
+                <div>
+                  <Label className="text-[10px] uppercase tracking-wide text-slate-500">
+                    Conditions
+                  </Label>
+                  <pre className="mt-1 max-h-32 overflow-auto rounded bg-slate-950/60 p-2 text-[11px] text-slate-300">
+                    {JSON.stringify(selected.conditions, null, 2)}
+                  </pre>
+                </div>
+
+                <div>
+                  <Label className="text-[10px] uppercase tracking-wide text-slate-500">
+                    Action config
+                  </Label>
+                  <pre className="mt-1 max-h-32 overflow-auto rounded bg-slate-950/60 p-2 text-[11px] text-slate-300">
+                    {JSON.stringify(selected.actionConfig, null, 2)}
+                  </pre>
+                </div>
+
+                <div>
+                  <Label className="text-[10px] uppercase tracking-wide text-slate-500">
+                    Recent executions
+                  </Label>
+                  {executions === null ? (
+                    <div className="flex items-center gap-2 py-2 text-xs text-slate-400">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Loading…
+                    </div>
+                  ) : executions.length === 0 ? (
+                    <p className="py-2 text-xs text-slate-500">
+                      No executions yet.
+                    </p>
+                  ) : (
+                    <ul className="mt-1 space-y-1">
+                      {executions.map((e) => (
+                        <li
+                          key={e.id}
+                          className="flex items-center justify-between gap-2 rounded bg-slate-950/40 px-2 py-1.5 text-[11px]"
+                          data-testid={`exec-${e.id}`}
+                        >
+                          <span className="text-slate-400 tabular-nums">
+                            {format(new Date(e.createdAt), "MMM d HH:mm")}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className={EXEC_STATUS_TONE[e.status]}
+                          >
+                            {e.status}
+                          </Badge>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
