@@ -13,7 +13,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Disclaimer } from "@/components/disclaimer";
 import { BrandHeader } from "@/components/brand-header";
-import { LaunchCountdown } from "@/components/landing/launch-countdown";
 import heroFolders from "@assets/hero-folders_1778252732296_nobg.png";
 import {
   ArrowRight,
@@ -195,7 +194,7 @@ const TRUST_POINTS = [
   {
     icon: Globe2,
     title: "South Africa first, globally scalable",
-    body: "Launching for the South African immigration ecosystem in June 2026, with an architecture built to expand beyond.",
+    body: "Built for the South African immigration ecosystem, with an architecture designed to expand beyond.",
   },
 ];
 
@@ -225,7 +224,7 @@ export function Home() {
         />
 
         {/* ============================================================ */}
-        {/* HERO — launch positioning + countdown anchor (top right)      */}
+        {/* HERO — launch positioning (centered, countdown removed)       */}
         {/* ============================================================ */}
         <section className="relative pt-4">
           {/* Ambient backdrop glow ties the whole section together. */}
@@ -233,37 +232,29 @@ export function Home() {
             aria-hidden="true"
             className="pointer-events-none absolute -top-20 left-1/2 -translate-x-1/2 h-[420px] w-[820px] max-w-full rounded-full bg-gradient-radial from-primary/15 via-primary/[0.04] to-transparent blur-3xl"
           />
-          {/* Top row: headline left, countdown right (stacks on mobile/tablet). */}
-          <div className="relative grid lg:grid-cols-[1.05fr_0.95fr] gap-8 sm:gap-10 lg:gap-12 items-start">
-            <div className="text-center lg:text-left space-y-5 lg:pt-2">
-              <h1
-                className="text-[2rem] leading-[1.1] sm:text-5xl lg:text-[3.2rem] xl:text-[3.5rem] font-display font-bold tracking-tight text-foreground"
-                data-testid="hero-headline"
-              >
-                South Africa's next-generation{" "}
-                <span className="bg-gradient-to-r from-primary to-cyan-400 bg-clip-text text-transparent">
-                  immigration platform
-                </span>{" "}
-                is arriving.
-              </h1>
-              <p className="text-base sm:text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto lg:mx-0 leading-relaxed">
-                A new immigration technology ecosystem — structured workflows,
-                document intelligence, and AI-assisted guidance for travellers,
-                firms, and concierge clients.
-              </p>
-            </div>
-
-            {/* Countdown anchors the top-right of the hero on lg+; stacks
-                neatly under the headline on smaller screens. */}
-            <div className="lg:pt-2 w-full max-w-md mx-auto lg:max-w-none">
-              <LaunchCountdown />
-            </div>
+          {/* Headline + sub centered now that the right-column countdown
+              has been retired. Keeps the hero balanced against the full
+              page width. */}
+          <div className="relative text-center max-w-3xl mx-auto space-y-5">
+            <h1
+              className="text-[2rem] leading-[1.1] sm:text-5xl lg:text-[3.2rem] xl:text-[3.5rem] font-display font-bold tracking-tight text-foreground"
+              data-testid="hero-headline"
+            >
+              South Africa's next-generation{" "}
+              <span className="bg-gradient-to-r from-primary to-cyan-400 bg-clip-text text-transparent">
+                immigration platform
+              </span>{" "}
+              is arriving.
+            </h1>
+            <p className="text-base sm:text-lg lg:text-xl text-muted-foreground leading-relaxed">
+              A new immigration technology ecosystem — structured workflows,
+              document intelligence, and AI-assisted guidance for travellers,
+              firms, and concierge clients.
+            </p>
           </div>
 
-          {/* CTAs + trust strip live OUTSIDE the two-column grid so they sit
-              visually centered against the FULL page width, not against the
-              narrow left hero column. This is the conversion focal point. */}
-          <div className="relative mt-10 sm:mt-12 lg:mt-14 flex flex-col items-center gap-4 sm:gap-5">
+          {/* CTAs + trust strip — the conversion focal point. */}
+          <div className="relative mt-8 sm:mt-10 lg:mt-12 flex flex-col items-center gap-4 sm:gap-5">
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 w-full sm:w-auto">
               <Link href="/assessment" className="w-full sm:w-auto">
                 <Button

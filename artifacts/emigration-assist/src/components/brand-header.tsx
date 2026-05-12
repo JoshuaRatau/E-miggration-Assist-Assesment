@@ -63,8 +63,6 @@ export function BrandHeader({
                 className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(56,189,248,0.9)] animate-pulse"
               />
               <span className="font-medium">Pre-launch immigration assessment</span>
-              <span className="text-primary/40">·</span>
-              <span className="text-primary/90">Public launch 1 June 2026</span>
             </span>
           ) : null}
         </Link>
