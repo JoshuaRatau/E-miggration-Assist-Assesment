@@ -58,8 +58,8 @@ export function LeadActivityPanel({ leadId }: { leadId: string }) {
       const token = getAdminToken();
       if (!token) throw new Error("Admin token required");
       const res = await fetch(
-        `${import.meta.env.BASE_URL}api/admin/leads/${leadId}/events`,
-        { headers: { "x-admin-token": token } },
+        `${(import.meta.env.VITE_API_URL ?? import.meta.env.BASE_URL).replace(/\/$/, "")}/api/admin/leads/${leadId}/events`,
+        { credentials: "include", headers: { "x-admin-token": token } },
       );
       if (res.status === 401) {
         clearAdminToken();

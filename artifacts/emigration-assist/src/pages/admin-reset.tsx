@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { BrandHeader } from "@/components/brand-header";
 import { Loader2, KeyRound } from "lucide-react";
 
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const BASE = (import.meta.env.VITE_API_URL ?? import.meta.env.BASE_URL).replace(/\/$/, "");
 
 export function AdminReset() {
   const [, params] = useRoute("/admin/reset/:token");

@@ -40,7 +40,7 @@ import {
   Table as TableIcon,
 } from "lucide-react";
 
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const BASE = (import.meta.env.VITE_API_URL ?? import.meta.env.BASE_URL).replace(/\/$/, "");
 
 // ---------------------------------------------------------------------------
 // Phase 6E — Source attribution intelligence.

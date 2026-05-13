@@ -97,11 +97,14 @@ export function RichEmailEditor(props: RichEmailEditorProps) {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/admin/uploads/image", {
-        method: "POST",
-        credentials: "include",
-        body: fd,
-      });
+      const res = await fetch(
+        `${(import.meta.env.VITE_API_URL ?? import.meta.env.BASE_URL).replace(/\/$/, "")}/api/admin/uploads/image`,
+        {
+          method: "POST",
+          credentials: "include",
+          body: fd,
+        },
+      );
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error || `Upload failed (${res.status})`);

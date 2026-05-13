@@ -41,7 +41,7 @@ import {
 } from "@/lib/personalisedNote";
 import { Loader2, MailCheck, Phone, ShieldCheck } from "lucide-react";
 
-const BASE_URL = import.meta.env.BASE_URL.replace(/\/$/, "");
+const BASE_URL = (import.meta.env.VITE_API_URL ?? import.meta.env.BASE_URL).replace(/\/$/, "");
 
 const assessmentSchema = z.object({
   // Step 1

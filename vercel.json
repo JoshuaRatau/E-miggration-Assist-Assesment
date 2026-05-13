@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "pnpm --filter @workspace/emigration-assist run build",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "outputDirectory": "artifacts/emigration-assist/dist/public",
+  "framework": null,
+  "rewrites": [
+    {
+      "source": "/((?!assets/|.*\\.(?:js|css|png|jpg|jpeg|gif|svg|ico|webp|avif|woff|woff2|ttf|eot|map|txt|json|xml|webmanifest)$).*)",
+      "destination": "/index.html"
+    }
+  ]
+}

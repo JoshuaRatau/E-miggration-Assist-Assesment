@@ -21,7 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Loader2, Pause, Play, X } from "lucide-react";
 import { format } from "date-fns";
 
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const BASE = (import.meta.env.VITE_API_URL ?? import.meta.env.BASE_URL).replace(/\/$/, "");
 
 interface Campaign {
   id: string;

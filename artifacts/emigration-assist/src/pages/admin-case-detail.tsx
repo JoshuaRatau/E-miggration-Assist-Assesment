@@ -52,7 +52,7 @@ type CaseDetail = {
   };
 };
 
-const apiBase = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
+const apiBase = (import.meta.env.VITE_API_URL ?? import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
 export function AdminCaseDetail() {
   const params = useParams<{ caseId: string }>();
@@ -92,6 +92,7 @@ export function AdminCaseDetail() {
     try {
       const res = await fetch(`${apiBase}/api/admin/cases/${caseRow.id}`, {
         method: "PATCH",
+        credentials: "include",
         headers: {
           "content-type": "application/json",
           "x-admin-token": token,

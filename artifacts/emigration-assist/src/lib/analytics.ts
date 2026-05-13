@@ -8,7 +8,9 @@ type EventName =
   // on /admin.  Payload: { leadId, channel: "whatsapp" | "email" }.
   | "lead_contact_clicked";
 
-const ENDPOINT = `${import.meta.env.BASE_URL}api/analytics/events`;
+import { apiUrl } from "./apiBase";
+
+const ENDPOINT = apiUrl("/api/analytics/events");
 
 export function trackEvent(
   eventName: EventName,

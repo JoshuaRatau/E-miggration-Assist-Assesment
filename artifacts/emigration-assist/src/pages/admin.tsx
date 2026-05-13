@@ -315,13 +315,14 @@ export function Admin() {
       const token = getAdminToken();
       if (!token) throw new Error("Admin token required");
       const url = new URL(
-        `${import.meta.env.BASE_URL}api/leads`,
+        `${(import.meta.env.VITE_API_URL ?? import.meta.env.BASE_URL).replace(/\/$/, "")}/api/leads`,
         window.location.origin,
       );
       for (const [k, v] of Object.entries(serverParams)) {
         url.searchParams.set(k, String(v));
       }
       const res = await fetch(url.toString(), {
+        credentials: "include",
         headers: { "x-admin-token": token },
       });
       if (res.status === 401) {
@@ -356,13 +357,14 @@ export function Admin() {
       const token = getAdminToken();
       if (!token) throw new Error("Admin token required");
       const url = new URL(
-        `${import.meta.env.BASE_URL}api/leads`,
+        `${(import.meta.env.VITE_API_URL ?? import.meta.env.BASE_URL).replace(/\/$/, "")}/api/leads`,
         window.location.origin,
       );
       url.searchParams.set("limit", "5000");
       if (leadTypeSegment !== "ALL")
         url.searchParams.set("leadType", leadTypeSegment);
       const res = await fetch(url.toString(), {
+        credentials: "include",
         headers: { "x-admin-token": token },
       });
       if (res.status === 401) {
@@ -476,7 +478,7 @@ export function Admin() {
   } | null>(null);
 
   const adminLeadUrl = (id: string) =>
-    `${import.meta.env.BASE_URL}api/admin/leads/${id}`;
+    `${(import.meta.env.VITE_API_URL ?? import.meta.env.BASE_URL).replace(/\/$/, "")}/api/admin/leads/${id}`;
 
   // ---------------------------------------------------------------------
   // Inline CRM mutation (PATCH /api/admin/leads/:id)
@@ -526,6 +528,7 @@ export function Admin() {
     try {
       const res = await fetch(adminLeadUrl(id), {
         method: "PATCH",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
           "x-admin-token": token,
@@ -1446,9 +1449,10 @@ function SendUpdateDialog({
     setSending(true);
     try {
       const res = await fetch(
-        `${import.meta.env.BASE_URL}api/admin/leads/${target.id}/send-update`,
+        `${(import.meta.env.VITE_API_URL ?? import.meta.env.BASE_URL).replace(/\/$/, "")}/api/admin/leads/${target.id}/send-update`,
         {
           method: "POST",
+          credentials: "include",
           headers: {
             "Content-Type": "application/json",
             "x-admin-token": token,

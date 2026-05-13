@@ -87,27 +87,38 @@ export async function loadSessionUser(
   return user;
 }
 
+// Cross-site cookies (`SameSite=None; Secure`) are required when the
+// admin UI is served from a different origin than the API (e.g. Vercel
+// frontend → Replit API). Flip `CROSS_SITE_COOKIES=true` in that case.
+// `SameSite=None` REQUIRES `Secure`, so we force `secure: true` whenever
+// cross-site is on — even in dev. This is fine on Replit because the
+// shared proxy serves HTTPS to the client.
+const crossSite = process.env["CROSS_SITE_COOKIES"] === "true";
+const sameSite: "lax" | "none" = crossSite ? "none" : "lax";
+
+function cookieSecure(): boolean {
+  return crossSite || process.env.NODE_ENV === "production";
+}
+
 export function setSessionCookie(
   res: Response,
   id: string,
   expiresAt: Date,
 ): void {
-  const isProd = process.env.NODE_ENV === "production";
   res.cookie(SESSION_COOKIE, id, {
     httpOnly: true,
-    secure: isProd,
-    sameSite: "lax",
+    secure: cookieSecure(),
+    sameSite,
     path: "/",
     expires: expiresAt,
   });
 }
 
 export function clearSessionCookie(res: Response): void {
-  const isProd = process.env.NODE_ENV === "production";
   res.clearCookie(SESSION_COOKIE, {
     httpOnly: true,
-    secure: isProd,
-    sameSite: "lax",
+    secure: cookieSecure(),
+    sameSite,
     path: "/",
   });
 }

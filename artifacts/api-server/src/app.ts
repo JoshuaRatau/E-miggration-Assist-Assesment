@@ -26,11 +26,49 @@ app.use(
     },
   }),
 );
-// Same-origin in normal Replit deployments (proxy puts web + api behind
-// the same host), so default CORS is fine. `credentials: true` is set
-// in case a future operator hosts the admin UI on a different origin —
-// the session cookie still needs to be allowed.
-app.use(cors({ origin: true, credentials: true }));
+// CORS — the web frontend may live on a different origin from the API
+// (e.g. Vercel-hosted frontend talking back to the Replit-hosted API).
+// `WEB_ORIGIN` env var carries a comma-separated allow-list of trusted
+// origins. When unset (Replit-only / same-origin dev), we fall back to
+// `origin: true` which simply reflects the request's Origin header —
+// keeps local dev frictionless without weakening production once
+// WEB_ORIGIN is configured.
+const webOriginEnv = process.env["WEB_ORIGIN"]?.trim();
+const allowedOrigins = webOriginEnv
+  ? webOriginEnv
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+  : null;
+
+// Fail closed in production: if cross-site cookies are enabled but no
+// origin allow-list is configured, `origin: true` would reflect ANY
+// origin and let any site make credentialed requests on behalf of a
+// signed-in admin (CSRF-style exposure). Refuse to boot rather than
+// silently expose the API.
+if (
+  process.env.NODE_ENV === "production" &&
+  process.env["CROSS_SITE_COOKIES"] === "true" &&
+  !allowedOrigins
+) {
+  throw new Error(
+    "CROSS_SITE_COOKIES=true requires WEB_ORIGIN to be set in production " +
+      "(comma-separated list of trusted browser origins).",
+  );
+}
+app.use(
+  cors({
+    origin: allowedOrigins
+      ? (origin, cb) => {
+          // Same-origin / non-browser requests (curl, server-to-server)
+          // omit Origin entirely — always allow those.
+          if (!origin) return cb(null, true);
+          cb(null, allowedOrigins.includes(origin));
+        }
+      : true,
+    credentials: true,
+  }),
+);
 app.use(cookieParser());
 // Trust the Replit reverse proxy so `req.ip` and `req.protocol` reflect
 // the original client / scheme rather than the loopback hop. Required

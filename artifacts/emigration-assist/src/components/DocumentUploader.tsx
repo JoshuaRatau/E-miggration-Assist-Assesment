@@ -81,7 +81,7 @@ function labelForType(value: string): string {
   return DOCUMENT_TYPE_OPTIONS.find((o) => o.value === value)?.label ?? value;
 }
 
-const BASE_URL = import.meta.env.BASE_URL.replace(/\/$/, "");
+const BASE_URL = (import.meta.env.VITE_API_URL ?? import.meta.env.BASE_URL).replace(/\/$/, "");
 
 async function fetchDocuments(leadId: string): Promise<DocumentRow[]> {
   const res = await fetch(

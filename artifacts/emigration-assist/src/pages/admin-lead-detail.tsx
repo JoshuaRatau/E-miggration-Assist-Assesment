@@ -99,8 +99,8 @@ export function AdminLeadDetail() {
       const token = getAdminToken();
       if (!token) throw new Error("Admin token required");
       const res = await fetch(
-        `${import.meta.env.BASE_URL}api/leads/by-id/${id}`,
-        { headers: { "x-admin-token": token } },
+        `${(import.meta.env.VITE_API_URL ?? import.meta.env.BASE_URL).replace(/\/$/, "")}/api/leads/by-id/${id}`,
+        { credentials: "include", headers: { "x-admin-token": token } },
       );
       if (res.status === 401) {
         clearAdminToken();
@@ -141,9 +141,10 @@ export function AdminLeadDetail() {
     setSaving(true);
     try {
       const res = await fetch(
-        `${import.meta.env.BASE_URL}api/admin/leads/${id}`,
+        `${(import.meta.env.VITE_API_URL ?? import.meta.env.BASE_URL).replace(/\/$/, "")}/api/admin/leads/${id}`,
         {
           method: "PATCH",
+          credentials: "include",
           headers: {
             "Content-Type": "application/json",
             "x-admin-token": token,
@@ -542,8 +543,8 @@ function InboundMessages({ leadId }: { leadId: string }) {
       setError(null);
       try {
         const res = await fetch(
-          `${import.meta.env.BASE_URL}api/admin/leads/${leadId}/messages`,
-          { headers: { "x-admin-token": token } },
+          `${(import.meta.env.VITE_API_URL ?? import.meta.env.BASE_URL).replace(/\/$/, "")}/api/admin/leads/${leadId}/messages`,
+          { credentials: "include", headers: { "x-admin-token": token } },
         );
         if (res.status === 401) {
           clearAdminToken();
@@ -675,8 +676,8 @@ function EngagementHistory({ leadId }: { leadId: string }) {
       setError(null);
       try {
         const res = await fetch(
-          `${import.meta.env.BASE_URL}api/admin/leads/${leadId}/engagements`,
-          { headers: { "x-admin-token": token } },
+          `${(import.meta.env.VITE_API_URL ?? import.meta.env.BASE_URL).replace(/\/$/, "")}/api/admin/leads/${leadId}/engagements`,
+          { credentials: "include", headers: { "x-admin-token": token } },
         );
         if (res.status === 401) {
           clearAdminToken();

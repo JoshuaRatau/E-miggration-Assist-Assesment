@@ -8,7 +8,7 @@ import { useAdminAuth } from "@/lib/adminAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const BASE = (import.meta.env.VITE_API_URL ?? import.meta.env.BASE_URL).replace(/\/$/, "");
 
 export function AdminProfile() {
   const { user } = useAdminAuth();

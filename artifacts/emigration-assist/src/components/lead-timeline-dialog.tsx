@@ -92,9 +92,12 @@ export function LeadTimelineDialog({
     setLoading(true);
     setError(null);
     setData(null);
-    fetch(`/api/admin/leads/${leadId}/timeline`, {
-      credentials: "include",
-    })
+    fetch(
+      `${(import.meta.env.VITE_API_URL ?? import.meta.env.BASE_URL).replace(/\/$/, "")}/api/admin/leads/${leadId}/timeline`,
+      {
+        credentials: "include",
+      },
+    )
       .then(async (r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return (await r.json()) as TimelineResponse;

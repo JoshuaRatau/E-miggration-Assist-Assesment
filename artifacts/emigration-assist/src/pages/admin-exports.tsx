@@ -31,7 +31,7 @@ export function AdminExports() {
       // header which the cookie-auth shim populates with "cookie-auth"
       // (the cookie itself is sent automatically; the header is harmless).
       const res = await fetch(
-        `${import.meta.env.BASE_URL}api/leads/export.csv`,
+        `${(import.meta.env.VITE_API_URL ?? import.meta.env.BASE_URL).replace(/\/$/, "")}/api/leads/export.csv`,
         { credentials: "include" },
       );
       if (!res.ok) {

@@ -4,27 +4,20 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
-const rawPort = process.env.PORT;
-
-if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided.",
-  );
-}
-
+// On Replit, the workflow always provides PORT; on Vercel only `vite build`
+// runs and PORT is irrelevant — fall back to a harmless dev port instead of
+// throwing so the static build succeeds.
+const rawPort = process.env.PORT ?? "5173";
 const port = Number(rawPort);
 
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const basePath = process.env.BASE_PATH;
-
-if (!basePath) {
-  throw new Error(
-    "BASE_PATH environment variable is required but was not provided.",
-  );
-}
+// On Replit, the workflow injects BASE_PATH (e.g. "/" for the emigration
+// artifact). On Vercel the frontend lives at the site root — default to "/"
+// so the build doesn't require an extra env var.
+const basePath = process.env.BASE_PATH ?? "/";
 
 export default defineConfig({
   base: basePath,

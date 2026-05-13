@@ -360,7 +360,16 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  // Default `credentials: "include"` so the admin session cookie travels
+  // with cross-site requests when the web app is served from a different
+  // origin than the API (e.g. Vercel frontend → Replit API). Caller can
+  // override by passing an explicit `credentials` value in `init`.
+  const response = await fetch(input, {
+    credentials: "include",
+    ...init,
+    method,
+    headers,
+  });
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);
