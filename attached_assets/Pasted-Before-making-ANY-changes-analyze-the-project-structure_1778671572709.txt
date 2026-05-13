@@ -1,0 +1,98 @@
+Before making ANY changes, analyze the project structure carefully and DO NOT modify unrelated pages, components, styles, routes, layouts, database logic, environment variables, or existing functionality outside the deployment/build issue scope.
+
+TASK:
+Fix the Vercel production build issues in this pnpm monorepo React/Vite application.
+
+CURRENT ISSUE:
+Vercel build logs show sourcemap resolution warnings from shadcn/ui components such as:
+
+* src/components/ui/tooltip.tsx
+* src/components/ui/select.tsx
+* src/components/ui/dropdown-menu.tsx
+* src/components/ui/command.tsx
+* src/components/ui/progress.tsx
+* src/components/ui/label.tsx
+
+The build reaches:
+✓ 2894 modules transformed
+
+The project uses:
+
+* Vite
+* pnpm workspaces / monorepo
+* React
+* shadcn/ui
+* Radix UI
+* Vercel deployment
+
+YOUR OBJECTIVES:
+
+1. Fix ALL dependency/version mismatches related to:
+
+* Radix UI packages
+* cmdk
+* shadcn/ui components
+* Vite sourcemap handling
+
+2. Verify ALL required Radix packages used by the UI components are installed correctly.
+
+3. Disable problematic production sourcemaps safely in vite.config.ts:
+   Example:
+   build: {
+   sourcemap: false
+   }
+
+4. Inspect and fix:
+
+* vite.config.ts
+* package.json
+* pnpm workspace configuration
+* tsconfig paths
+* alias resolution
+* shadcn/ui imports
+
+5. Ensure ALL imports resolve correctly and no broken generated source maps remain.
+
+6. Remove corrupted cache/build artifacts safely:
+
+* node_modules
+* .turbo
+* dist
+* Vercel cache-related issues if necessary
+
+7. Ensure the app builds successfully locally using:
+   pnpm build
+
+8. DO NOT break:
+
+* Existing UI
+* Styling
+* Tailwind
+* Routing
+* API integrations
+* Forms
+* Authentication
+* Existing business logic
+
+9. If dependencies are missing, install ONLY the exact required packages.
+
+10. After fixes:
+
+* Run a production build verification
+* Ensure Vercel compatibility
+* Ensure monorepo workspace compatibility
+
+11. Add concise code comments ONLY where necessary for deployment-related fixes.
+
+12. At the end, provide a short summary containing:
+
+* What was broken
+* What was fixed
+* Which files were modified
+* Why the fix works
+
+IMPORTANT:
+Do NOT refactor unrelated code.
+Do NOT redesign components.
+Do NOT remove existing functionality.
+Focus ONLY on fixing the deployment/build issue cleanly and safely.

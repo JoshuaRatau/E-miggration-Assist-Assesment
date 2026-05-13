@@ -4,6 +4,13 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
+// Replit dev-only plugins should never run during a production build.
+// `runtimeErrorOverlay` injects helper code without sourcemaps, which is
+// what surfaces as "Can't resolve original location of error" warnings on
+// shadcn/ui components during `vercel build`. Gating it (and skipping
+// sourcemaps in prod) keeps Vercel logs clean.
+const isProdBuild = process.env.NODE_ENV === "production";
+
 // On Replit, the workflow always provides PORT; on Vercel only `vite build`
 // runs and PORT is irrelevant — fall back to a harmless dev port instead of
 // throwing so the static build succeeds.
@@ -24,8 +31,8 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    runtimeErrorOverlay(),
-    ...(process.env.NODE_ENV !== "production" &&
+    ...(isProdBuild ? [] : [runtimeErrorOverlay()]),
+    ...(!isProdBuild &&
     process.env.REPL_ID !== undefined
       ? [
           await import("@replit/vite-plugin-cartographer").then((m) =>
@@ -50,6 +57,7 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    sourcemap: false,
   },
   server: {
     port,
