@@ -24,3 +24,9 @@ id = "LPTvVhnA7TXxote_bKyFN"
 uri = "file://docs/FUNCTIONAL_SPEC.pdf"
 type = "pdf"
 title = "E-Migration Assist — Functional Specification (PDF)"
+
+[[outputs]]
+id = "-UmyiiTaiwRLod_3x9v05"
+uri = "file://replit.md"
+type = "text"
+title = "E-Migration Assist — replit.md (project README)"
