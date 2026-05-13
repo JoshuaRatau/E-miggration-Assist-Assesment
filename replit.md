@@ -13,6 +13,38 @@ E-Migration Assist helps users navigate the immigration process via a 5-step ass
 
 Express 5 + React, Node 24, TS 5.9, Drizzle, Zod, esbuild, PostgreSQL. pg-boss v12 for background jobs.
 
+## Deployment topology (live)
+
+Split deploy — frontend on Vercel, backend + Postgres + queue on Replit, marketing site reverse-proxies the Vercel app at a subpath.
+
+```
+Browser → www.emigration-assist.com/assessment/*   (marketing site, separate Vercel project)
+              │  rewrite (path-stripped)
+              ▼
+          <assessment>.vercel.app/*                 (this repo's Vite SPA build)
+              │  XHR / fetch with credentials
+              ▼
+          immigrationassist.replit.app/api/*        (this repo's Express + pg-boss + Postgres)
+```
+
+**Repo:** `github.com/JoshuaRatau/E-miggration-Assist-Assesment` (typo'd, but stable). Replit auto-pushes every checkpoint to `main`; Vercel auto-deploys on push.
+
+**Vite `base`:** defaults to `/assessment/` in `artifacts/emigration-assist/vite.config.ts` so every asset href + Wouter `<Link href="/admin">` is built with the prefix baked in. `BASE_PATH` env var still overrides for Replit dev (workflow sets its own).
+
+**CORS / cookies (cross-origin):** `artifacts/api-server/src/app.ts` honours a comma-separated `WEB_ORIGIN` allow-list; `lib/adminSession.ts` flips the admin cookie to `SameSite=None; Secure` when `CROSS_SITE_COOKIES=true`. **Production fail-closed:** boots refuse to start if `CROSS_SITE_COOKIES=true && !WEB_ORIGIN` — refuses to silently expose the API to any origin. Frontend Orval `customFetch` defaults to `credentials: "include"`; every direct admin `fetch()` site that sends `x-admin-token` also sets `credentials: "include"` so cookies traverse cross-site.
+
+**Frontend → API resolution:** every API call uses `${VITE_API_URL ?? BASE_URL}/api/...`. On Vercel `VITE_API_URL=https://immigrationassist.replit.app` so calls bypass the `/assessment` prefix entirely. On Replit dev the var is unset and same-origin BASE_URL is used.
+
+**Vercel project settings:** Root Directory **must be empty / `./`** (not `artifacts/emigration-assist`); `vercel.json` at repo root drives `buildCommand`, `outputDirectory: "artifacts/emigration-assist/dist/public"`, and the SPA rewrite (negative lookahead excludes static asset extensions so `/favicon.svg`, `/opengraph.jpg`, etc. don't collapse to `/index.html`).
+
+**Required envs by surface:**
+- **Vercel (frontend):** `VITE_API_URL=https://immigrationassist.replit.app`
+- **Replit Secrets (api-server):** `WEB_ORIGIN=https://<vercel-domain>` (comma-separate for previews), `CROSS_SITE_COOKIES=true` — plus all the Run-&-Operate envs above.
+
+**Build hygiene fix shipped with the deploy:** stripped `"use client"` directive (RSC marker, meaningless in a Vite SPA) from 15 `src/components/ui/*.tsx` shadcn files — Rollup's source-map handling chokes on the directive's trailing blank line during prod build, surfacing as the "Can't resolve original location of error" warnings on `tooltip` / `label` / `select` / `progress` / `command` / `dropdown-menu`. Build also gates `@replit/vite-plugin-runtime-error-modal` behind `NODE_ENV !== "production"` and sets `build.sourcemap: false` explicitly.
+
+**Known limits:** marketing-site rewrite must strip the `/assessment` prefix before forwarding (otherwise Vercel sees `/assessment/assets/...` and 404s — would need a vercel.json prefix-rewrite to fix); main JS chunk is 1.69 MB (493 kB gzipped) — code-splitting deferred.
+
 ## Where things live
 
 *   **API routes:** `artifacts/api-server/src/routes/`
