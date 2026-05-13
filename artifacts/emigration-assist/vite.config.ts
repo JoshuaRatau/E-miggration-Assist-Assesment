@@ -22,9 +22,11 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 // On Replit, the workflow injects BASE_PATH (e.g. "/" for the emigration
-// artifact). On Vercel the frontend lives at the site root — default to "/"
-// so the build doesn't require an extra env var.
-const basePath = process.env.BASE_PATH ?? "/";
+// artifact). On Vercel the deployed app lives behind a `/assessment` proxy
+// rewrite on the marketing site, so all assets / router routes need that
+// prefix baked in at build time. The env-var override means Replit dev
+// (BASE_PATH=/) and other future hosts can still set their own root.
+const basePath = process.env.BASE_PATH ?? "/assessment/";
 
 export default defineConfig({
   base: basePath,
