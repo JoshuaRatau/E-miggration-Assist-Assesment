@@ -30,3 +30,9 @@ id = "-UmyiiTaiwRLod_3x9v05"
 uri = "file://replit.md"
 type = "text"
 title = "E-Migration Assist — replit.md (project README)"
+
+[[outputs]]
+id = "T2N1HLDKAN3zWxuPQAX7B"
+uri = "file://docs/AWS_DEPLOYMENT.md"
+type = "text"
+title = "AWS Deployment — Phase 1 (RDS provisioning)"
