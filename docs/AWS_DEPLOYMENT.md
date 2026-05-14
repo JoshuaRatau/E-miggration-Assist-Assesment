@@ -11,18 +11,18 @@ Browser → www.emigration-assist.com/assessment/*   (marketing site, Vercel pro
           <assessment>.vercel.app/*                 (this repo's Vite SPA build, unchanged)
               │  XHR / fetch with credentials
               ▼
-          <app-runner-url>.awsapprunner.com/api/*   (App Runner, eu-west-1)
-              │  VPC connector, private network
+          <eb-or-ecs-url>                            (Elastic Beanstalk or ECS Fargate, af-south-1)
+              │  same VPC, private subnets
               ▼
-          <rds-endpoint>.rds.amazonaws.com:5432     (RDS Postgres 16, eu-west-1)
+          <rds-endpoint>.rds.amazonaws.com:5432     (RDS Postgres 16, af-south-1)
 ```
 
-**Region:** `eu-west-1` (Ireland) — chosen for App Runner availability with acceptable latency to South African users (~150ms baseline). See git history for the af-south-1 vs eu-west-1 tradeoff discussion.
+**Region:** `af-south-1` (Cape Town) — chosen for proximity to South African users (~30–50ms baseline). **Caveat:** AWS App Runner is not deployed in af-south-1, so the backend uses Elastic Beanstalk or ECS Fargate instead (see Phase 2 below). af-south-1 also has slightly higher per-resource pricing than eu-west-1 (~15–20% premium).
 
 **Phases:**
 1. ✅ Phase 1 — Provision RDS Postgres + push schema (this document)
-2. ⬜ Phase 2 — Dockerfile + App Runner service (pending Phase 1 completion)
-3. ⬜ Phase 3 — Cutover (Vercel `VITE_API_URL` flip, App Runner `WEB_ORIGIN` set)
+2. ⬜ Phase 2 — Dockerfile + Elastic Beanstalk service (recommended) — pending Phase 1 completion
+3. ⬜ Phase 3 — Cutover (Vercel `VITE_API_URL` flip, backend `WEB_ORIGIN` set)
 4. ⬜ Phase 4 — Lock down RDS public access, document final state
 
 ---
@@ -43,11 +43,11 @@ Browser → www.emigration-assist.com/assessment/*   (marketing site, Vercel pro
 | Master username | `ema_admin` | Avoid the default `postgres` for slightly better security through obscurity. |
 | Master password | **Auto-generate, store in Secrets Manager** | Don't pick a password yourself. Let AWS create one and Secrets Manager will hold it. |
 
-**Estimated monthly cost (Phase 1 setup only):** ~$18/month (db.t4g.micro + 20 GB gp3 + backups). App Runner adds ~$25–35/mo on top in Phase 2.
+**Estimated monthly cost (Phase 1 setup only):** ~$22/month (db.t4g.micro + 20 GB gp3 + backups, with af-south-1 ~15-20% pricing premium vs other regions). Phase 2 backend compute adds ~$30–45/mo on top.
 
 ### 1.2 Step-by-step in AWS Console
 
-1. **Sign in to AWS Console** → top-right region selector → **Europe (Ireland) eu-west-1**. Confirm before clicking anything else.
+1. **Sign in to AWS Console** → top-right region selector → **Africa (Cape Town) af-south-1**. Confirm before clicking anything else. (Note: af-south-1 may need to be **opted in** the first time you use it — Account → AWS Regions → Enable af-south-1. Takes a few minutes.)
 
 2. Navigate to **RDS** → **Create database**.
 
@@ -115,7 +115,7 @@ If your laptop IP changes (different network, VPN, etc.) before Phase 4, just re
 Once RDS shows **Available**:
 
 1. RDS console → click your `emigration-assist-prod` instance.
-2. Top of page: **Connectivity & security** tab → copy the **Endpoint** (e.g. `emigration-assist-prod.abc123xyz.eu-west-1.rds.amazonaws.com`).
+2. Top of page: **Connectivity & security** tab → copy the **Endpoint** (e.g. `emigration-assist-prod.abc123xyz.af-south-1.rds.amazonaws.com`).
 3. Top of page: **Configuration** tab → scroll to "Master credentials ARN" → click the linked Secrets Manager entry.
 4. In Secrets Manager: **Retrieve secret value** → copy the password.
 
@@ -176,12 +176,34 @@ I'll then start Phase 2 (Dockerfile + App Runner setup). I won't need the connec
 
 ---
 
-## Phase 2 — Dockerfile + App Runner (preview, not started yet)
+## Phase 2 — Dockerfile + backend compute (preview, not started yet)
 
-What's coming so you know:
-- A `Dockerfile` at the repo root that builds the api-server in a multi-stage pnpm-aware build
-- An `apprunner.yaml` config so App Runner knows how to build & run
-- Step-by-step App Runner setup (connect to GitHub, set env vars, configure VPC connector to RDS)
-- Env-var checklist (DATABASE_URL, all the secrets currently in Replit)
+**Compute service: AWS Elastic Beanstalk (Docker platform).** Recommended for af-south-1.
+
+### Why Elastic Beanstalk and not ECS Fargate
+
+App Runner — our first choice — isn't available in af-south-1, so the realistic options are Elastic Beanstalk or ECS Fargate. Quick comparison:
+
+| | Elastic Beanstalk (Docker) | ECS Fargate |
+|---|---|---|
+| Setup effort | ~3 hours | ~1.5 days |
+| Ongoing ops | Single console page, push to GitHub via CodePipeline | Task definitions, services, ALB, target groups, ECR — multiple consoles |
+| Single-replica enforcement (your pg-boss code needs this) | "Single-instance environment" — one click | Set `desiredCount: 1` in service def |
+| Auto-deploy on git push | Yes, via CodePipeline (one-time setup) | Yes, via CodePipeline + buildspec.yml |
+| HTTPS / load balancer | Auto-provisioned ALB + ACM cert | You wire it manually |
+| Scaling later if you need it | Single-instance → load-balanced is one toggle | Already there, just bump count |
+
+Elastic Beanstalk gives you the closest experience to App Runner that's available in af-south-1. ECS Fargate is the right answer if you outgrow EB or need more control — neither is true today.
+
+### What's coming when you say "Phase 1 done"
+
+- A `Dockerfile` at the repo root — multi-stage pnpm-aware build that produces a small runtime image (~150 MB) running `node ./artifacts/api-server/dist/index.mjs`
+- A `Dockerrun.aws.json` so Beanstalk knows how to run the container
+- A `.ebextensions/` config dir for env-var defaults and health check tuning
+- Step-by-step EB setup (create application, create environment, connect to RDS via security-group rule, set env vars from Replit Secrets, hook GitHub via CodePipeline)
+- Full env-var checklist mapping your current Replit Secrets → Beanstalk environment properties
+- Smoke-test plan before Phase 3 cutover
+
+Estimated cost for Phase 2 backend: ~$30–45/month (single t3.small EC2 + ALB + minimal data transfer). ALB is the largest line item at ~$22/mo — unavoidable when you want HTTPS.
 
 Will deliver when Phase 1 is signed off.
