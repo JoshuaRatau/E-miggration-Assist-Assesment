@@ -1,4 +1,5 @@
 import { PgBoss, type Job } from "pg-boss";
+import { buildPgPoolConfig } from "@workspace/db/ssl";
 import { logger } from "./logger";
 import {
   handleCampaignSendJob,
@@ -46,8 +47,14 @@ export async function startQueue(): Promise<void> {
       throw new Error("DATABASE_URL is required to start the job queue");
     }
 
+    // Strip URL-level sslmode and apply explicit ssl config so RDS / other
+    // managed Postgres providers connect cleanly. See `lib/db/src/ssl.ts`.
+    const { connectionString: cleanUrl, ssl } =
+      buildPgPoolConfig(connectionString);
+
     const instance = new PgBoss({
-      connectionString,
+      connectionString: cleanUrl,
+      ssl,
       schema: "pgboss",
     });
 
