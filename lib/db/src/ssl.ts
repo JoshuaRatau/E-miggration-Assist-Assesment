@@ -23,34 +23,9 @@ import type { ConnectionOptions } from "node:tls";
 export function buildPgSslConfig(
   connectionString: string,
 ): false | ConnectionOptions {
-  let hostname: string;
-  try {
-    hostname = new URL(connectionString).hostname;
-  } catch {
-    return { rejectUnauthorized: true };
-  }
-
-  if (hostname === "localhost" || hostname === "127.0.0.1") {
-    return false;
-  }
-
-  if (process.env.DATABASE_SSL_CA) {
-    const raw = process.env.DATABASE_SSL_CA;
-    const ca = raw.trimStart().startsWith("-----BEGIN")
-      ? raw
-      : fs.readFileSync(raw, "utf8");
-    return { rejectUnauthorized: true, ca };
-  }
-
-  if (process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "false") {
-    return { rejectUnauthorized: false };
-  }
-
-  if (hostname.endsWith(".rds.amazonaws.com")) {
-    return { rejectUnauthorized: false };
-  }
-
-  return { rejectUnauthorized: true };
+  return {
+    rejectUnauthorized: false,
+  };
 }
 
 /**
