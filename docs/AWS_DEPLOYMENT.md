@@ -131,13 +131,16 @@ postgresql://ema_admin:<URL-ENCODED-PASSWORD>@<endpoint>:5432/ema_prod?sslmode=r
 
 ### 1.5 Push schema + seed admin user
 
-From your laptop (or from the Replit Shell — both work since RDS is temporarily public):
+From your laptop (or from the Replit Shell — both work since RDS is temporarily public). The repo uses **Drizzle ORM**, and the push script lives in the `@workspace/db` package — not at repo root:
 
 ```bash
-# Set the prod DATABASE_URL ONLY for this command — don't export it permanently
+# From the repo root. Set the prod DATABASE_URL ONLY for this command —
+# do NOT export it permanently or paste it into Replit Secrets.
 DATABASE_URL='postgresql://ema_admin:<password>@<endpoint>:5432/ema_prod?sslmode=require' \
-  pnpm db:push
+  pnpm --filter @workspace/db run push
 ```
+
+This invokes `drizzle-kit push --config ./drizzle.config.ts`, which reads the schema from `lib/db/src/schema/index.ts` and **directly syncs** RDS to match — no migration files generated, no migration history table. (That's how Drizzle's `push` works, similar to Prisma's `db push` and unlike Sequelize/TypeORM which use versioned migrations.)
 
 You should see Drizzle output like:
 ```
@@ -145,9 +148,11 @@ You should see Drizzle output like:
 [✓] Changes applied
 ```
 
-This creates **all application tables** (leads, cases, admin, campaigns, templates, lifecycle, etc.). pg-boss tables (`pgboss.*`) will be auto-created later when the App Runner backend starts up — don't worry about them now.
+This creates **all application tables** (leads, cases, admin, campaigns, templates, lifecycle, etc.). pg-boss tables (`pgboss.*` schema) will be auto-created later when the Beanstalk backend boots and pg-boss runs its own startup migration — don't worry about them now.
 
-**Seed the bootstrap admin user:** the api-server seeds a demo admin (`demo@admin.local` / `ChangeMe!2026`) automatically on first boot when `admin_users` is empty. To override with your real credentials, set `BOOTSTRAP_ADMIN_EMAIL` + `BOOTSTRAP_ADMIN_PASSWORD` as App Runner env vars in Phase 2 — the seed runs once on first App Runner deploy, then never again.
+**If `drizzle-kit push` asks "Is X column created or renamed from Y?":** for a brand-new empty database, always answer **created** (it's an empty DB — there's nothing to rename from). This prompt only appears when push detects ambiguity.
+
+**Seed the bootstrap admin user:** the api-server seeds a demo admin (`demo@admin.local` / `ChangeMe!2026`) automatically on first boot when `admin_users` is empty. To override with your real credentials, set `BOOTSTRAP_ADMIN_EMAIL` + `BOOTSTRAP_ADMIN_PASSWORD` as Beanstalk environment properties in Phase 2 — the seed runs once on first Beanstalk deploy, then never again.
 
 ### 1.6 Verify
 
