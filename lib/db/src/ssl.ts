@@ -23,9 +23,45 @@ import type { ConnectionOptions } from "node:tls";
 export function buildPgSslConfig(
   connectionString: string,
 ): false | ConnectionOptions {
-  return {
-    rejectUnauthorized: false,
-  };
+  let host = "";
+  try {
+    host = new URL(connectionString).hostname;
+  } catch {
+    // unparseable URL → fall through to safest default (SSL on, relaxed verify)
+  }
+
+  // (1) Local dev / Replit-managed internal hosts (no dots = single-label
+  // hostname like `helium`, `localhost`, `127.0.0.1`). These speak plain TCP
+  // only and reject SSL negotiation outright.
+  if (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    (host.length > 0 && !host.includes("."))
+  ) {
+    return false;
+  }
+
+  // (2) Operator-supplied CA bundle → strict verification (recommended for RDS).
+  const caEnv = process.env.DATABASE_SSL_CA?.trim();
+  if (caEnv) {
+    const ca = caEnv.startsWith("-----BEGIN")
+      ? caEnv
+      : fs.readFileSync(caEnv, "utf8");
+    return { ca, rejectUnauthorized: true };
+  }
+
+  // (3) Explicit escape hatch.
+  if (process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "false") {
+    return { rejectUnauthorized: false };
+  }
+
+  // (4) AWS RDS → SSL on, relaxed verify (set DATABASE_SSL_CA to harden).
+  if (host.endsWith(".rds.amazonaws.com")) {
+    return { rejectUnauthorized: false };
+  }
+
+  // (5) Everything else (Neon, Supabase, etc.) → SSL on, strict verification.
+  return { rejectUnauthorized: true };
 }
 
 /**

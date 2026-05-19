@@ -27,9 +27,34 @@ const SPEC_FROM_NAME = "E-Migration Assist";
 
 let cachedSettings: { apiKey: string; fromEmail: string } | null = null;
 
+/**
+ * Resolve Resend credentials in two modes:
+ *
+ *   1. Production / portable hosts (AWS EC2, Docker, anywhere outside
+ *      Replit): read `RESEND_API_KEY` + `EMAIL_FROM` directly from env.
+ *      This path has zero dependency on Replit-injected variables.
+ *
+ *   2. Replit (dev workspace + Replit deployments): fall back to the
+ *      Replit Connectors HTTP API, which mints short-lived Resend
+ *      credentials from the linked connector. Keeps the dev flow
+ *      identical to what it was before.
+ *
+ * Result is cached for the process lifetime. Throws with a clear message
+ * when neither path is configured — callers (`sendSafely`) catch and
+ * log via the recipient-redacted `logger.warn` path.
+ */
 async function loadResendSettings(): Promise<{ apiKey: string; fromEmail: string }> {
   if (cachedSettings) return cachedSettings;
 
+  // Path 1: explicit env vars (production / non-Replit hosts).
+  const envApiKey = process.env.RESEND_API_KEY?.trim();
+  const envFromEmail = process.env.EMAIL_FROM?.trim();
+  if (envApiKey && envFromEmail) {
+    cachedSettings = { apiKey: envApiKey, fromEmail: envFromEmail };
+    return cachedSettings;
+  }
+
+  // Path 2: Replit Connectors fallback (dev / Replit deployments).
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY
     ? "repl " + process.env.REPL_IDENTITY
@@ -38,7 +63,21 @@ async function loadResendSettings(): Promise<{ apiKey: string; fromEmail: string
       : null;
 
   if (!hostname || !xReplitToken) {
-    throw new Error("Replit connectors host/token not available");
+    logger.error(
+      {
+        hasResendApiKey: Boolean(envApiKey),
+        hasEmailFrom: Boolean(envFromEmail),
+        hasReplitConnectorsHostname: Boolean(hostname),
+        hasReplitIdentity: Boolean(process.env.REPL_IDENTITY),
+        hasWebReplRenewal: Boolean(process.env.WEB_REPL_RENEWAL),
+      },
+      "Email send unavailable: set RESEND_API_KEY+EMAIL_FROM (production) " +
+        "or run inside Replit with Resend connector linked (dev).",
+    );
+    throw new Error(
+      "Email credentials missing: set RESEND_API_KEY and EMAIL_FROM, " +
+        "or run inside Replit with the Resend connector linked.",
+    );
   }
 
   const res = await fetch(
