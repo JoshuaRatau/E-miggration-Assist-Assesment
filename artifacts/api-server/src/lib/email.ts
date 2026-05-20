@@ -1,3 +1,4 @@
+import nodemailer, { type Transporter } from "nodemailer";
 import { Resend } from "resend";
 import { logger } from "./logger";
 
@@ -28,6 +29,57 @@ const SPEC_FROM_NAME = "E-Migration Assist";
 let cachedSettings: { apiKey: string; fromEmail: string } | null = null;
 
 /**
+ * SMTP transport for production (e.g. AWS EC2 → Office 365 SMTP). Only
+ * active when NODE_ENV=production AND all five SMTP_* / EMAIL_FROM vars
+ * are set. Cached for the process lifetime.
+ *
+ * Replit dev + Replit deployment intentionally bypass this path and keep
+ * using the existing Resend/Connector flow — no behavioural change there.
+ */
+let cachedSmtp:
+  | { transporter: Transporter; from: string; loggedActiveProvider: boolean }
+  | null = null;
+
+function loadSmtpTransport(): {
+  transporter: Transporter;
+  from: string;
+} | null {
+  if (cachedSmtp) return cachedSmtp;
+
+  if (process.env.NODE_ENV !== "production") return null;
+
+  const host = process.env.SMTP_HOST?.trim();
+  const portRaw = process.env.SMTP_PORT?.trim();
+  const user = process.env.SMTP_USER?.trim();
+  const pass = process.env.SMTP_PASSWORD?.trim();
+  const fromEmail = process.env.EMAIL_FROM?.trim();
+
+  if (!host || !portRaw || !user || !pass || !fromEmail) return null;
+
+  const port = Number.parseInt(portRaw, 10);
+  if (!Number.isFinite(port) || port <= 0 || port > 65535) {
+    logger.error({ portRaw }, "SMTP_PORT is not a valid TCP port; skipping SMTP");
+    return null;
+  }
+
+  // 465 → implicit TLS (secure:true). 587/25 → STARTTLS upgrade (secure:false).
+  const secure = port === 465;
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+  });
+
+  cachedSmtp = {
+    transporter,
+    from: `${SPEC_FROM_NAME} <${fromEmail}>`,
+    loggedActiveProvider: false,
+  };
+  return cachedSmtp;
+}
+
+/**
  * Resolve Resend credentials in two modes:
  *
  *   1. Production / portable hosts (AWS EC2, Docker, anywhere outside
@@ -50,6 +102,10 @@ async function loadResendSettings(): Promise<{ apiKey: string; fromEmail: string
   const envApiKey = process.env.RESEND_API_KEY?.trim();
   const envFromEmail = process.env.EMAIL_FROM?.trim();
   if (envApiKey && envFromEmail) {
+    logger.info(
+      { provider: "resend", source: "env" },
+      "Email provider active: Resend (env vars)",
+    );
     cachedSettings = { apiKey: envApiKey, fromEmail: envFromEmail };
     return cachedSettings;
   }
@@ -100,6 +156,10 @@ async function loadResendSettings(): Promise<{ apiKey: string; fromEmail: string
     throw new Error("Resend not connected");
   }
   const fromEmail = item?.settings?.from_email || SPEC_FROM_EMAIL;
+  logger.info(
+    { provider: "resend", source: "replit-connector" },
+    "Email provider active: Resend (Replit connector)",
+  );
   cachedSettings = { apiKey, fromEmail };
   return cachedSettings;
 }
@@ -146,6 +206,41 @@ async function sendSafely(args: {
     return { ok: false, reason: `forbidden_phrase:${blocked}` };
   }
 
+  // (A) Production SMTP path — only when NODE_ENV=production AND all five
+  // SMTP_* / EMAIL_FROM vars are configured. Replit dev and Replit
+  // deployment skip this and continue to the Resend / Connector path
+  // unchanged.
+  const smtp = loadSmtpTransport();
+  if (smtp) {
+    if (!cachedSmtp!.loggedActiveProvider) {
+      logger.info(
+        { provider: "smtp", host: process.env.SMTP_HOST, port: process.env.SMTP_PORT },
+        "Email provider active: SMTP (production)",
+      );
+      cachedSmtp!.loggedActiveProvider = true;
+    }
+    try {
+      const info = await smtp.transporter.sendMail({
+        from: smtp.from,
+        to: args.to,
+        subject: args.subject,
+        text: args.text,
+      });
+      return { ok: true, id: info.messageId ?? "" };
+    } catch (err) {
+      logger.warn(
+        { err, recipient: redactRecipient(args.to) },
+        "SMTP send threw",
+      );
+      return {
+        ok: false,
+        reason: err instanceof Error ? err.message : "unknown_error",
+      };
+    }
+  }
+
+  // (B) Resend path — env-var creds (production-without-SMTP) or Replit
+  // Connector fallback (dev / Replit deployment).
   try {
     const { client, from } = await getResend();
     const r = await client.emails.send({
