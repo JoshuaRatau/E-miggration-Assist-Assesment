@@ -1,0 +1,99 @@
+STRICT INSTRUCTIONS — DO NOT MODIFY ANYTHING OUTSIDE THE REQUESTED SCOPE.
+
+Objective:
+Add S3 support for production uploads while preserving ALL existing Replit Object Storage functionality exactly as-is.
+
+Rules:
+
+* DO NOT refactor existing code.
+* DO NOT rename files.
+* DO NOT alter routes, API logic, auth, database logic, imports unrelated to S3, or any existing upload behavior.
+* DO NOT remove or modify current Replit Object Storage functionality.
+* DO NOT touch any code outside `artifacts/api-server/src/lib/objectStorage.ts`.
+* Existing Replit/dev behavior must remain 100% unchanged.
+* Only add a conditional production path that uses AWS S3 when environment variables are present.
+* If AWS env vars are absent, existing Replit logic must continue exactly as before.
+
+Step 1:
+At the TOP of `artifacts/api-server/src/lib/objectStorage.ts`, add ONLY:
+
+```ts
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+
+const useS3 =
+  process.env.AWS_ACCESS_KEY_ID &&
+  process.env.AWS_SECRET_ACCESS_KEY &&
+  process.env.S3_BUCKET;
+
+const s3 = useS3
+  ? new S3Client({
+      region: process.env.AWS_REGION || "af-south-1",
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+      },
+    })
+  : null;
+```
+
+Step 2:
+Locate ONLY the existing `uploadPublicAsset(...)` method.
+
+Replace ONLY THE BODY of that method with:
+
+```ts
+async uploadPublicAsset(
+  relativePath: string,
+  body: Buffer,
+  contentType: string,
+): Promise<void> {
+
+  // Production EC2 → S3
+  if (s3) {
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: process.env.S3_BUCKET!,
+        Key: relativePath,
+        Body: body,
+        ContentType: contentType,
+      })
+    );
+
+    return;
+  }
+
+  // Existing Replit behavior — DO NOT CHANGE
+  const searchPath = this.getPublicObjectSearchPaths()[0];
+  const fullPath = `${searchPath.replace(/\/$/, "")}/${relativePath}`;
+  const { bucketName, objectName } = parseObjectPath(fullPath);
+
+  const file = objectStorageClient
+      .bucket(bucketName)
+      .file(objectName);
+
+  await file.save(body,{
+    contentType,
+    resumable:false,
+    metadata:{
+      contentType,
+      cacheControl:"public, max-age=31536000, immutable",
+    },
+  });
+}
+```
+
+Step 3:
+Install ONLY:
+
+```bash
+pnpm add @aws-sdk/client-s3 @aws-sdk/lib-storage
+```
+
+Do not install anything else.
+
+Success criteria:
+
+* Production EC2 uploads → S3 bucket.
+* Replit deployment → unchanged Object Storage behavior.
+* Existing uploads continue working.
+* No unrelated file modifications.
