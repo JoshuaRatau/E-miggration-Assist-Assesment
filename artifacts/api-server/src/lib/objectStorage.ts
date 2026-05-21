@@ -1,7 +1,13 @@
 import { Storage, File } from "@google-cloud/storage";
 import { Readable } from "stream";
 import { randomUUID } from "crypto";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import {
   ObjectAclPolicy,
   ObjectPermission,
@@ -10,20 +16,74 @@ import {
   setObjectAclPolicy,
 } from "./objectAcl";
 
+// Strict gate: S3 only activates on production EC2 with explicit opt-in.
+// Replit dev + Replit deployment keep using Replit Object Storage even if
+// AWS_* secrets happen to be present.
 const useS3 =
-  process.env.AWS_ACCESS_KEY_ID &&
-  process.env.AWS_SECRET_ACCESS_KEY &&
-  process.env.S3_BUCKET;
+  process.env.NODE_ENV === "production" &&
+  process.env.STORAGE_PROVIDER === "s3" &&
+  !!process.env.S3_BUCKET;
+
+const S3_REGION = process.env.AWS_REGION || "af-south-1";
+const S3_BUCKET = process.env.S3_BUCKET || "";
 
 const s3 = useS3
   ? new S3Client({
-      region: process.env.AWS_REGION || "af-south-1",
+      region: S3_REGION,
       credentials: {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
       },
     })
   : null;
+
+/**
+ * Minimal file-handle returned by getObjectEntityFile / searchPublicObject
+ * in S3 mode. Implements the subset of GCS File methods that routes and
+ * downloadObject actually use (getMetadata, createReadStream, exists, name).
+ */
+class S3FileHandle {
+  constructor(
+    public readonly name: string,
+    private readonly bucket: string,
+  ) {}
+
+  async exists(): Promise<[boolean]> {
+    try {
+      await s3!.send(new HeadObjectCommand({ Bucket: this.bucket, Key: this.name }));
+      return [true];
+    } catch (err: unknown) {
+      const e = err as { name?: string; $metadata?: { httpStatusCode?: number } };
+      if (e?.name === "NotFound" || e?.name === "NoSuchKey" || e?.$metadata?.httpStatusCode === 404) {
+        return [false];
+      }
+      throw err;
+    }
+  }
+
+  async getMetadata(): Promise<[{ contentType?: string; size?: number }]> {
+    const head = await s3!.send(new HeadObjectCommand({ Bucket: this.bucket, Key: this.name }));
+    return [{ contentType: head.ContentType, size: head.ContentLength }];
+  }
+
+  createReadStream(): Readable {
+    const pass = new Readable({ read() {} });
+    s3!
+      .send(new GetObjectCommand({ Bucket: this.bucket, Key: this.name }))
+      .then((out) => {
+        const body = out.Body as Readable | undefined;
+        if (!body) {
+          pass.destroy(new ObjectNotFoundError());
+          return;
+        }
+        body.on("data", (c) => pass.push(c));
+        body.on("end", () => pass.push(null));
+        body.on("error", (err) => pass.destroy(err));
+      })
+      .catch((err) => pass.destroy(err));
+    return pass;
+  }
+}
 
 const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
 
@@ -86,7 +146,15 @@ export class ObjectStorageService {
     return dir;
   }
 
-  async searchPublicObject(filePath: string): Promise<File | null> {
+  async searchPublicObject(filePath: string): Promise<File | S3FileHandle | null> {
+    // Production EC2 → S3
+    if (s3) {
+      const handle = new S3FileHandle(filePath.replace(/^\/+/, ""), S3_BUCKET);
+      const [exists] = await handle.exists();
+      return exists ? handle : null;
+    }
+
+    // Existing Replit behavior — DO NOT CHANGE
     for (const searchPath of this.getPublicObjectSearchPaths()) {
       const fullPath = `${searchPath}/${filePath}`;
 
@@ -103,10 +171,16 @@ export class ObjectStorageService {
     return null;
   }
 
-  async downloadObject(file: File, cacheTtlSec: number = 3600): Promise<Response> {
+  async downloadObject(file: File | S3FileHandle, cacheTtlSec: number = 3600): Promise<Response> {
     const [metadata] = await file.getMetadata();
-    const aclPolicy = await getObjectAclPolicy(file);
-    const isPublic = aclPolicy?.visibility === "public";
+
+    // ACL only meaningful on the GCS path. S3 objects are gated at the
+    // Express route layer (admin auth / lead-scope), so treat as private.
+    let isPublic = false;
+    if (file instanceof File) {
+      const aclPolicy = await getObjectAclPolicy(file);
+      isPublic = aclPolicy?.visibility === "public";
+    }
 
     const nodeStream = file.createReadStream();
     const webStream = Readable.toWeb(nodeStream) as ReadableStream;
@@ -123,6 +197,16 @@ export class ObjectStorageService {
   }
 
   async getObjectEntityUploadURL(): Promise<string> {
+    const objectId = randomUUID();
+    const entityKey = `uploads/${objectId}`;
+
+    // Production EC2 → S3 (presigned PUT, 15 min)
+    if (s3) {
+      const cmd = new PutObjectCommand({ Bucket: S3_BUCKET, Key: entityKey });
+      return getSignedUrl(s3, cmd, { expiresIn: 900 });
+    }
+
+    // Existing Replit behavior — DO NOT CHANGE
     const privateObjectDir = this.getPrivateObjectDir();
     if (!privateObjectDir) {
       throw new Error(
@@ -130,10 +214,7 @@ export class ObjectStorageService {
           "tool and set PRIVATE_OBJECT_DIR env var."
       );
     }
-
-    const objectId = randomUUID();
-    const fullPath = `${privateObjectDir}/uploads/${objectId}`;
-
+    const fullPath = `${privateObjectDir}/${entityKey}`;
     const { bucketName, objectName } = parseObjectPath(fullPath);
 
     return signObjectURL({
@@ -144,7 +225,7 @@ export class ObjectStorageService {
     });
   }
 
-  async getObjectEntityFile(objectPath: string): Promise<File> {
+  async getObjectEntityFile(objectPath: string): Promise<File | S3FileHandle> {
     if (!objectPath.startsWith("/objects/")) {
       throw new ObjectNotFoundError();
     }
@@ -154,7 +235,19 @@ export class ObjectStorageService {
       throw new ObjectNotFoundError();
     }
 
+    // entityId stays identical across backends (e.g. "uploads/<uuid>"),
+    // so existing lead_documents.file_url rows resolve in both modes.
     const entityId = parts.slice(1).join("/");
+
+    // Production EC2 → S3
+    if (s3) {
+      const handle = new S3FileHandle(entityId, S3_BUCKET);
+      const [exists] = await handle.exists();
+      if (!exists) throw new ObjectNotFoundError();
+      return handle;
+    }
+
+    // Existing Replit behavior — DO NOT CHANGE
     let entityDir = this.getPrivateObjectDir();
     if (!entityDir.endsWith("/")) {
       entityDir = `${entityDir}/`;
@@ -171,6 +264,26 @@ export class ObjectStorageService {
   }
 
   normalizeObjectEntityPath(rawPath: string): string {
+    // Production EC2 → recognise S3 presigned-URL shapes and collapse
+    // them to the canonical `/objects/<entityId>` form that the DB stores.
+    if (s3) {
+      try {
+        const url = new URL(rawPath);
+        const isVirtualHost = url.hostname === `${S3_BUCKET}.s3.${S3_REGION}.amazonaws.com`;
+        const isPathStyle = url.hostname === `s3.${S3_REGION}.amazonaws.com`;
+        if (isVirtualHost || isPathStyle) {
+          let key = url.pathname.replace(/^\/+/, "");
+          if (isPathStyle && key.startsWith(`${S3_BUCKET}/`)) {
+            key = key.slice(S3_BUCKET.length + 1);
+          }
+          return `/objects/${key}`;
+        }
+      } catch {
+        /* not a URL — fall through */
+      }
+    }
+
+    // Existing Replit behavior — DO NOT CHANGE
     if (!rawPath.startsWith("https://storage.googleapis.com/")) {
       return rawPath;
     }
@@ -200,8 +313,13 @@ export class ObjectStorageService {
       return normalizedPath;
     }
 
+    // S3 mode has no per-object ACL — access is route-gated. Return early.
+    if (s3) return normalizedPath;
+
     const objectFile = await this.getObjectEntityFile(normalizedPath);
-    await setObjectAclPolicy(objectFile, aclPolicy);
+    if (objectFile instanceof File) {
+      await setObjectAclPolicy(objectFile, aclPolicy);
+    }
     return normalizedPath;
   }
 
@@ -255,9 +373,11 @@ export class ObjectStorageService {
     requestedPermission,
   }: {
     userId?: string;
-    objectFile: File;
+    objectFile: File | S3FileHandle;
     requestedPermission?: ObjectPermission;
   }): Promise<boolean> {
+    // S3 mode: gated at the Express route layer (admin auth / lead scope).
+    if (s3 || !(objectFile instanceof File)) return true;
     return canAccessObject({
       userId,
       objectFile,
