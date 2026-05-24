@@ -94,6 +94,125 @@ const TRANSIENT_NODE_ERROR_CODES = new Set([
   "EHOSTUNREACH",
 ]);
 
+/**
+ * OTP-specific send path. When `TWILIO_WHATSAPP_TEMPLATE_SID` is set, this
+ * dispatches via a pre-approved Twilio Content Template (the only way to
+ * reach a recipient who is OUTSIDE the 24h customer-care window, which is
+ * always the case for first-contact OTP messages — Twilio returns error
+ * 63016 otherwise). When the env var is unset, we fall back to the
+ * existing free-form `sendWhatsAppText` path so dev/sandbox behaviour is
+ * unchanged.
+ *
+ * The template must accept exactly one variable (`{{1}}`) — the OTP code.
+ */
+export async function sendWhatsAppOtp(args: {
+  to: string;
+  code: string;
+  fallbackMessage: string;
+}): Promise<WhatsAppSendResult> {
+  const templateSid = (process.env["TWILIO_WHATSAPP_TEMPLATE_SID"] ?? "").trim();
+
+  if (!templateSid) {
+    logger.info(
+      { whatsapp_template_mode: false },
+      "WhatsApp OTP: TWILIO_WHATSAPP_TEMPLATE_SID not set — using free-form send",
+    );
+    return sendWhatsAppText({ to: args.to, message: args.fallbackMessage });
+  }
+
+  logger.info(
+    { whatsapp_template_mode: true },
+    "WhatsApp OTP: dispatching via approved Twilio Content Template",
+  );
+
+  return sendWhatsAppViaTemplate({
+    to: args.to,
+    contentSid: templateSid,
+    contentVariables: { "1": args.code },
+  });
+}
+
+async function sendWhatsAppViaTemplate(args: {
+  to: string;
+  contentSid: string;
+  contentVariables: Record<string, string>;
+}): Promise<WhatsAppSendResult> {
+  const cfg = readConfig();
+  if (!cfg) {
+    return { ok: false, reason: "not_configured", transient: false };
+  }
+
+  let to = args.to;
+  const hadPrefix = to.startsWith("whatsapp:");
+  let bare = hadPrefix ? to.slice("whatsapp:".length) : to;
+  if (!bare.startsWith("+")) bare = "+" + bare;
+  if (!/^\+\d{10,15}$/.test(bare)) {
+    return { ok: false, reason: "invalid_recipient", transient: false };
+  }
+  to = "whatsapp:" + bare;
+
+  try {
+    const client = twilio(cfg.accountSid, cfg.authToken, {
+      timeout: REQUEST_TIMEOUT_MS,
+    });
+    const msg = await client.messages.create({
+      from: cfg.fromAddress,
+      to,
+      contentSid: args.contentSid,
+      contentVariables: JSON.stringify(args.contentVariables),
+    });
+    return { ok: true, id: msg.sid };
+  } catch (err) {
+    const e = err as TwilioSdkError;
+    const status = typeof e.status === "number" ? e.status : 0;
+    const code = typeof e.code === "number" ? e.code : undefined;
+    const rawCode = (err as { code?: unknown })?.code;
+    const nodeCode = typeof rawCode === "string" ? rawCode : undefined;
+
+    let transient: boolean;
+    if (status >= 500 || status === 429) {
+      transient = true;
+    } else if (nodeCode && TRANSIENT_NODE_ERROR_CODES.has(nodeCode)) {
+      transient = true;
+    } else if (status === 0 && code === undefined) {
+      transient = true;
+    } else {
+      transient = false;
+    }
+
+    let reason: string;
+    if (code === 20003 || status === 401 || status === 403) {
+      reason = "invalid_credentials";
+    } else if (code === 21211 || code === 21408) {
+      reason = "invalid_recipient";
+    } else if (code === 63016) {
+      reason = "outside_session_window";
+    } else if (code === 21610) {
+      reason = "recipient_unsubscribed";
+    } else if (code === 63018) {
+      reason = "rate_limited";
+    } else if (nodeCode && TRANSIENT_NODE_ERROR_CODES.has(nodeCode)) {
+      reason = `network_${nodeCode.toLowerCase()}`;
+    } else {
+      reason = e.message ?? (status > 0 ? `http_${status}` : "unknown_error");
+    }
+
+    logger.warn(
+      {
+        status,
+        twilioCode: code,
+        twilioMessage: e.message,
+        nodeCode,
+        transient,
+        whatsapp_template_mode: true,
+      },
+      "Twilio WhatsApp template send returned error",
+    );
+
+    return { ok: false, reason, transient };
+  }
+}
+
 export async function sendWhatsAppText(args: {
   to: string;
   message: string;

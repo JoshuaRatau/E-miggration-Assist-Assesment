@@ -10,6 +10,7 @@ import {
   safeEqualHex,
 } from "../lib/otp";
 import { sendMessage } from "../lib/messaging";
+import { sendWhatsAppOtp } from "../lib/whatsappClient";
 import { sendCustomEmail } from "../lib/email";
 import { normalizeWhatsapp } from "../lib/whatsapp";
 
@@ -92,10 +93,15 @@ router.post("/otp/request", async (req, res) => {
   const message = composeOtpMessage(code);
 
   if (channel === "whatsapp") {
-    const wa = await sendMessage({
-      channel: "whatsapp",
-      to: normalizedWhatsapp,
-      message,
+    // OTP is always FIRST contact → recipient is outside the 24h
+    // customer-care window → Twilio rejects free-form text with 63016.
+    // `sendWhatsAppOtp` uses the approved Content Template when
+    // TWILIO_WHATSAPP_TEMPLATE_SID is set, else falls back to free-form
+    // (correct for dev/sandbox).
+    const wa = await sendWhatsAppOtp({
+      to: normalizedWhatsapp!,
+      code,
+      fallbackMessage: message,
     });
     if (!wa.ok) {
       req.log.info(
