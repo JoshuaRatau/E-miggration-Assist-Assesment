@@ -6,7 +6,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AdminAuthProvider, RequireAdminAuth } from "@/lib/adminAuth";
 import NotFound from "@/pages/not-found";
 import { Home } from "@/pages/home";
-import Pricing from "@/pages/pricing";
 import { Assessment } from "@/pages/assessment";
 import { ThankYou } from "@/pages/thank-you";
 import { Status } from "@/pages/status";
@@ -62,7 +61,6 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/pricing" component={Pricing} />
       <Route path="/assessment" component={Assessment} />
       <Route path="/thank-you/:reference" component={ThankYou} />
       <Route path="/status" component={Status} />
