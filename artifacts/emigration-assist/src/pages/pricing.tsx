@@ -95,7 +95,7 @@ const travellerTiers: Tier[] = [
   {
     name: "Pro",
     tagline: "High-stakes or complex applications requiring assurance",
-    price: "R599 – R1,200",
+    price: "R599",
     priceSuffix: "per month",
     blurb: "Assurance for high-stakes or complex applications.",
     core: [
@@ -117,7 +117,7 @@ const travellerTiers: Tier[] = [
     badge: "Best value",
     highlight: true,
     tagline: "High-end clients adding a personal touch to each milestone",
-    price: "R1,200 – R1,500",
+    price: "R1,199",
     priceSuffix: "per month",
     blurb: "Personal touch added to every milestone.",
     core: ["Everything in Pro", "Maximum storage"],
