@@ -1,9 +1,21 @@
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { BrandHeader } from "@/components/brand-header";
 import { Check, Plane, Building2, ArrowRight } from "lucide-react";
+
+const VALID_TABS = ["travellers", "firms"] as const;
+type PricingTab = (typeof VALID_TABS)[number];
+
+function readTabFromUrl(): PricingTab {
+  if (typeof window === "undefined") return "travellers";
+  const t = new URLSearchParams(window.location.search).get("tab");
+  return (VALID_TABS as readonly string[]).includes(t ?? "")
+    ? (t as PricingTab)
+    : "travellers";
+}
 
 type Tier = {
   name: string;
@@ -326,6 +338,22 @@ function TierCard({ tier }: { tier: Tier }) {
 }
 
 export default function Pricing() {
+  const [tab, setTab] = useState<PricingTab>(readTabFromUrl);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("tab") !== tab) {
+      url.searchParams.set("tab", tab);
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [tab]);
+
+  useEffect(() => {
+    const onPop = () => setTab(readTabFromUrl());
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100">
       <BrandHeader />
@@ -342,7 +370,11 @@ export default function Pricing() {
           </p>
         </div>
 
-        <Tabs defaultValue="travellers" className="mt-10">
+        <Tabs
+          value={tab}
+          onValueChange={(v) => setTab(v as PricingTab)}
+          className="mt-10"
+        >
           <TabsList className="mx-auto grid w-full max-w-md grid-cols-2 rounded-full bg-slate-900/80 p-1 ring-1 ring-white/10">
             <TabsTrigger
               value="travellers"
