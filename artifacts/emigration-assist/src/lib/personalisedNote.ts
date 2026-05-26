@@ -59,7 +59,7 @@ export function buildPersonalisedNote(
 
   if (input.currentlyInSouthAfrica === true) {
     body.push(
-      "You indicated you are currently inside South Africa. Where time-sensitive next steps apply, our team will flag them clearly when they reach out.",
+      "You indicated you are currently inside South Africa. Where time-sensitive next steps apply, we will flag them clearly in your preliminary report.",
     );
   } else if (input.currentlyInSouthAfrica === false) {
     body.push(
@@ -111,24 +111,22 @@ export function buildPersonalisedNote(
     );
   }
 
-  let nextStep = "A consultant will be in touch using your preferred contact channel.";
+  let nextStep =
+    "Following your preliminary report, please await an invitation to register for and subscribe to the E-Migration Assist case management platform, which will assist you in meeting your specific individual immigration needs.";
   switch (input.immigrationSituation) {
     case "expired":
-      nextStep =
-        "A consultant will reach out shortly to discuss the time-sensitive aspects of your visa renewal or change of status.";
-      break;
     case "overstay":
       nextStep =
-        "A consultant will reach out shortly to discuss the time-sensitive aspects of your case, including any review or appeal options that may apply.";
+        "Your situation is time-sensitive. Following your preliminary report, please await an invitation to register for and subscribe to the E-Migration Assist case management platform, where the renewal, change-of-status, review and appeal options applicable to your case will be addressed in detail.";
       break;
     case "undesirable":
     case "prohibited":
       nextStep =
-        "A senior consultant will reach out personally — these matters are handled with extra care.";
+        "These matters are handled with extra care. Following your preliminary report, please await an invitation to register for and subscribe to the E-Migration Assist case management platform, where your case will be guided through the appropriate channels.";
       break;
     case "visa_required":
       nextStep =
-        "A consultant will be in touch to walk through the visa pathways available for your situation.";
+        "Following your preliminary report, please await an invitation to register for and subscribe to the E-Migration Assist case management platform, where the visa pathways available for your situation will be walked through in detail.";
       break;
     default:
       break;

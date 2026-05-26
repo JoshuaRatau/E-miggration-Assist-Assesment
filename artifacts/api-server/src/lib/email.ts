@@ -295,9 +295,9 @@ export function composeConfirmationBody(args: {
   return [
     greetName ? `Hello ${greetName},` : "Hello,",
     "",
-    "Thank you — your submission has been received.",
+    "Thank you — your submission has been received and your preliminary report is being prepared.",
     "",
-    "One of our consultants will be in touch with you shortly.",
+    "Following your preliminary report, please await an invitation to register for and subscribe to the E-Migration Assist case management platform, which will assist you in meeting your specific individual immigration needs.",
     "",
     `Reference: ${args.referenceNumber}`,
     "",
