@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { BrandHeader } from "@/components/brand-header";
 import { DocumentUploader } from "@/components/DocumentUploader";
+import brandLogo from "@assets/E-Migration_Assist_New_Logo-removebg-preview_1778252859401.png";
 import {
   ArrowRight,
   ArrowLeft,
@@ -55,11 +56,12 @@ type Challenge =
   | "travel_restrictions"
   | "other";
 
-type Channel = "email" | "whatsapp" | "phone";
+type Channel = "email" | "whatsapp";
 
 interface FormState {
   firstName: string;
   currentSituation: Situation | null;
+  otherSituationDetail: string;
   location: Location | null;
   overstayDuration: Duration | null;
   submittedApplication: YesNoUnsure | null;
@@ -78,6 +80,7 @@ interface FormState {
 const INITIAL: FormState = {
   firstName: "",
   currentSituation: null,
+  otherSituationDetail: "",
   location: null,
   overstayDuration: null,
   submittedApplication: null,
@@ -138,12 +141,27 @@ const REASSURING_LINES = [
   "You are not alone in navigating this process.",
 ];
 
-const TOTAL_QUESTION_STEPS = 9;
+// Visible step count shown to the visitor (name → consent inclusive).
+// Q4b (application-type follow-up) is a sub-step of Q4 — it does NOT
+// bump the displayed counter.
+const TOTAL_QUESTION_STEPS = 10;
 const STEP_INTRO = 0;
 const STEP_NAME = 1;
 const STEP_CONTACT = 10;
 const STEP_CONSENT = 11;
 const STEP_SUCCESS = 12;
+
+// Maps internal step index → 1-based displayed step number (1..10).
+function displayedStep(step: number): number {
+  if (step <= STEP_NAME) return 1;
+  if (step <= 5) return step; // Q1..Q4 → 2..5
+  if (step === 6) return 5; // Q4b sub-step
+  if (step === 7) return 6; // Q5
+  if (step === 8) return 7; // Q6
+  if (step === 9) return 8; // Q7
+  if (step === STEP_CONTACT) return 9;
+  return 10; // consent
+}
 
 export default function OverstayAssessment() {
   const [step, setStep] = useState(STEP_INTRO);
@@ -195,6 +213,10 @@ export default function OverstayAssessment() {
           whatsappOptIn: form.whatsappOptIn,
           preferredChannel: form.preferredChannel,
           wantsToUploadDocs: form.wantsToUploadDocs,
+          otherSituationDetail:
+            form.currentSituation === "other"
+              ? form.otherSituationDetail.trim() || null
+              : null,
           consentAccepted: true,
         }),
       });
@@ -220,12 +242,11 @@ export default function OverstayAssessment() {
   };
 
   const personalisedName = form.firstName.trim() || "there";
-  const progressPct =
-    step <= STEP_NAME ? 0 : Math.min(95, ((step - 1) / TOTAL_QUESTION_STEPS) * 100);
+  const progressPct = (displayedStep(step) / TOTAL_QUESTION_STEPS) * 100;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <BrandHeader />
+      <BrandHeader variant="compact" />
 
       {/* Ambient brand glow — matches landing page hero pattern */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
@@ -234,11 +255,11 @@ export default function OverstayAssessment() {
       </div>
 
       <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6 sm:py-14">
-        {step > STEP_NAME && step < STEP_SUCCESS && (
+        {step >= STEP_NAME && step < STEP_SUCCESS && (
           <div className="mb-8">
             <div className="mb-2 flex items-center justify-between text-xs uppercase tracking-[0.18em] text-muted-foreground">
               <span>
-                Step {Math.min(step - 1, TOTAL_QUESTION_STEPS)} of {TOTAL_QUESTION_STEPS}
+                Step {displayedStep(step)} of {TOTAL_QUESTION_STEPS}
               </span>
               <span className="inline-flex items-center gap-1.5 text-primary/80">
                 <Lock className="h-3 w-3" />
@@ -257,25 +278,38 @@ export default function OverstayAssessment() {
         <div className="relative rounded-2xl border border-card-border bg-card/80 p-6 backdrop-blur-md shadow-[0_20px_60px_-25px_rgba(56,189,248,0.25)] sm:p-10">
           {/* INTRO */}
           {step === STEP_INTRO && (
-            <div className="space-y-6">
-              <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary backdrop-blur-sm shadow-[0_0_24px_-8px_rgba(56,189,248,0.45)]">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(56,189,248,0.9)]" />
-                Overstay & Undesirable Assessment
-              </span>
+            <div className="space-y-7 text-center sm:text-left">
+              <img
+                src={brandLogo}
+                alt="E-Migration Assist"
+                style={{
+                  filter:
+                    "brightness(0) invert(1) drop-shadow(0 1px 2px rgba(0,0,0,0.45))",
+                }}
+                className="mx-auto h-28 w-auto sm:mx-0 sm:h-32"
+              />
 
-              <h1 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-[2.6rem] sm:leading-[1.1]">
-                You may still have{" "}
+              <h1 className="font-display text-4xl font-extrabold leading-[1.05] tracking-tight text-foreground sm:text-5xl">
+                South African Overstay &{" "}
                 <span className="bg-gradient-to-r from-primary to-cyan-400 bg-clip-text text-transparent">
-                  options available
-                </span>
-                .
+                  Undesirable Status
+                </span>{" "}
+                Preliminary Assessment
               </h1>
 
               <p className="text-base text-muted-foreground sm:text-lg">
-                If you have overstayed in South Africa or received an
-                undesirable declaration, this guided assessment may help you
-                better understand your circumstances and possible next steps.
+                Answer a few guided questions to better understand your current
+                immigration circumstances and possible next procedural
+                considerations.
               </p>
+
+              <div className="rounded-xl border border-card-border bg-background/40 p-4 text-left text-sm text-muted-foreground">
+                This guided assessment is designed to help identify and
+                organise information relating to possible overstays,
+                undesirable declarations, immigration status complications,
+                and related circumstances under South African immigration
+                processes.
+              </div>
 
               <div className="grid gap-3 sm:grid-cols-3">
                 {[
@@ -349,10 +383,45 @@ export default function OverstayAssessment() {
                 options={SITUATION_OPTIONS}
                 onSelect={(v) => {
                   update("currentSituation", v);
-                  setTimeout(next, 200);
+                  // Auto-advance for everything EXCEPT "other" — that one
+                  // needs the visitor to type a custom reason first.
+                  if (v !== "other") setTimeout(next, 200);
                 }}
               />
-              <NavRow onBack={back} hideNext />
+              {form.currentSituation === "other" && (
+                <div className="mt-4 space-y-2">
+                  <Label
+                    htmlFor="other-situation"
+                    className="text-sm text-foreground/90"
+                  >
+                    Please briefly describe your situation
+                  </Label>
+                  <Input
+                    id="other-situation"
+                    autoFocus
+                    placeholder="e.g. My permit conditions were changed unexpectedly…"
+                    value={form.otherSituationDetail}
+                    onChange={(e) =>
+                      update("otherSituationDetail", e.target.value)
+                    }
+                    maxLength={500}
+                    className="rounded-xl border-card-border bg-background/60"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    A short sentence is enough — this helps us understand your
+                    circumstances accurately.
+                  </p>
+                </div>
+              )}
+              <NavRow
+                onBack={back}
+                onNext={next}
+                hideNext={form.currentSituation !== "other"}
+                nextDisabled={
+                  form.currentSituation === "other" &&
+                  form.otherSituationDetail.trim().length < 3
+                }
+              />
             </QuestionBlock>
           )}
 
@@ -570,8 +639,8 @@ export default function OverstayAssessment() {
                   <Label className="text-foreground/90">
                     Preferred contact channel
                   </Label>
-                  <div className="mt-2 grid grid-cols-3 gap-2">
-                    {(["email", "whatsapp", "phone"] as Channel[]).map((c) => (
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {(["email", "whatsapp"] as Channel[]).map((c) => (
                       <button
                         key={c}
                         type="button"
@@ -608,10 +677,30 @@ export default function OverstayAssessment() {
                 </span>
                 .
               </h2>
+
+              {/* Personalised reassurance — confirms remedies exist based on answers */}
+              <div className="rounded-2xl border border-primary/30 bg-primary/[0.06] p-5 shadow-[0_0_40px_-20px_rgba(56,189,248,0.45)]">
+                <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-primary">
+                  <ShieldCheck className="h-4 w-4" />
+                  Based on your answers
+                </div>
+                <p className="text-sm leading-relaxed text-foreground/90">
+                  {buildRemedySummary(form, personalisedName)}
+                </p>
+                <ul className="mt-3 space-y-1.5 text-sm text-muted-foreground">
+                  {buildSituationHighlights(form).map((line, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/70" />
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
               <p className="text-sm text-muted-foreground">
-                Based on what you've shared, your situation may require a
-                structured review and guided next-step support. We'll secure
-                your information and prepare your case for review.
+                We'll secure your information and prepare your case for a
+                structured review by our team. You'll receive a reference
+                number on the next screen — keep it safe.
               </p>
               <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-card-border bg-background/40 p-4 text-sm text-foreground/90 hover-elevate">
                 <Checkbox
@@ -836,6 +925,68 @@ function QuestionBlock({
       )}
     </div>
   );
+}
+
+// Builds a 1-sentence reassurance line confirming remedies exist,
+// lightly tailored to the answers given. We never quote a specific
+// statute or outcome — language stays in "may be available" register.
+function buildRemedySummary(form: FormState, name: string): string {
+  const leadIn =
+    name && name !== "there" ? `${name}, based on what you've shared, ` : "Based on what you've shared, ";
+
+  const hasUndesirable = form.currentSituation === "undesirable_declaration";
+  const hasOverstay =
+    form.currentSituation === "overstayed_after_expiry" ||
+    form.currentSituation === "visa_expired" ||
+    form.currentSituation === "missed_departure_deadline";
+
+  if (hasUndesirable) {
+    return (
+      leadIn +
+      "there are recognised procedural remedies for undesirable declarations under South African immigration processes, and our team can help you understand which paths may apply to your circumstances."
+    );
+  }
+  if (hasOverstay) {
+    return (
+      leadIn +
+      "your circumstances fall within situations that can typically be addressed through structured immigration processes — there are remedies available and our team can help you identify the most appropriate next steps."
+    );
+  }
+  return (
+    leadIn +
+    "your circumstances fall within situations our team is equipped to review — there are procedural options that may be available to you, and we'll help you identify the most appropriate next steps."
+  );
+}
+
+// Echoes back the visitor's key answers so they can see we listened.
+function buildSituationHighlights(form: FormState): string[] {
+  const lines: string[] = [];
+  const sit = SITUATION_OPTIONS.find((s) => s.value === form.currentSituation);
+  if (sit) {
+    const detail =
+      form.currentSituation === "other" && form.otherSituationDetail.trim()
+        ? `Situation: ${form.otherSituationDetail.trim()}`
+        : `Situation: ${sit.label}`;
+    lines.push(detail);
+  }
+  if (form.location) {
+    lines.push(
+      form.location === "inside_sa"
+        ? "Currently inside South Africa"
+        : "Currently outside South Africa",
+    );
+  }
+  if (form.overstayDuration) {
+    const dur = DURATION_OPTIONS.find((d) => d.value === form.overstayDuration);
+    if (dur) lines.push(`Overstay window: ${dur.label}`);
+  }
+  if (form.assistanceType) {
+    const asst = ASSISTANCE_OPTIONS.find(
+      (a) => a.value === form.assistanceType,
+    );
+    if (asst) lines.push(`Support requested: ${asst.label}`);
+  }
+  return lines;
 }
 
 function OptionList<T extends string>({

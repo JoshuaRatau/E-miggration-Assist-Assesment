@@ -8,7 +8,10 @@ const router: IRouter = Router();
 //   EMA-<base36 timestamp uppercased>-<4 char random>
 // Demo references look like EMA-DEMO-A1.
 // We accept any uppercase EMA-XXX-XXX shape with sane bounds.
-const REFERENCE_REGEX = /^EMA-[A-Z0-9]{2,16}-[A-Z0-9]{2,8}$/;
+// Matches 3- or 4-segment references:
+//   EMA-XXXX-YYYY        (legacy assessment refs)
+//   EMA-OVR-2026-XXXXXXX (overstay intake refs)
+const REFERENCE_REGEX = /^EMA(-[A-Z0-9]{2,16}){2,3}$/;
 
 // Public-facing label values. The classifier may produce richer internal
 // labels, but the public surface is intentionally collapsed to four neutral
