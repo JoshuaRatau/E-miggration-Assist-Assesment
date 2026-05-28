@@ -246,7 +246,7 @@ export default function OverstayAssessment() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <BrandHeader variant="compact" />
+      <BrandHeader variant="compact" homeHref="/overstay-assessment" />
 
       {/* Ambient brand glow — matches landing page hero pattern */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
@@ -839,7 +839,7 @@ export default function OverstayAssessment() {
                   variant="outline"
                   className="rounded-xl border-white/15 bg-white/5 backdrop-blur-md hover-elevate"
                 >
-                  <Link href="/">
+                  <Link href="/overstay-assessment">
                     <HomeIcon className="mr-2 h-4 w-4" /> Back to home
                   </Link>
                 </Button>

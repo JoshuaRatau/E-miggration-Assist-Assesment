@@ -25,10 +25,15 @@ export function BrandHeader({
   variant = "default",
   rightSlot,
   leftSlot,
+  homeHref = "/",
 }: {
   variant?: "default" | "compact";
   rightSlot?: React.ReactNode;
   leftSlot?: React.ReactNode;
+  // Where the logo link routes to. Defaults to the marketing landing
+  // ("/"), but flows like the overstay assessment override this so the
+  // logo keeps visitors inside their funnel instead of bouncing them out.
+  homeHref?: string;
 }) {
   // Source asset is black on transparent; flip to pure white so it sits
   // cleanly on the dark navy background. `brightness(0)` collapses every
@@ -45,7 +50,7 @@ export function BrandHeader({
       data-testid="brand-header"
     >
       <div className="flex items-start gap-3 sm:gap-5 min-w-0 flex-1">
-        <Link href="/" className="flex items-center gap-3 group shrink-0">
+        <Link href={homeHref} className="flex items-center gap-3 group shrink-0">
           <img
             src={brandLogo}
             alt="E-Migration Assist · Powered by eRide Technologies"
