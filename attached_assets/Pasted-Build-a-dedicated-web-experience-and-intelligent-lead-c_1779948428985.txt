@@ -1,0 +1,210 @@
+Build a dedicated web experience and intelligent lead-capture workflow specifically for individuals who may have overstayed in South Africa or who have been declared undesirable following an overstay.
+
+This experience forms part of the E-Migration Assist ecosystem and must feel:
+• calm,
+• reassuring,
+• intelligent,
+• legally aware,
+• mobile-first,
+• modern,
+• and emotionally safe for the visitor.
+
+The purpose of this experience is:
+
+1. to help the visitor better understand their situation through guided questions,
+2. to reduce panic and uncertainty,
+3. to gather structured lead intelligence,
+4. to determine the nature of the overstay circumstance,
+5. and to route the lead directly into the Lead Intelligence Dashboard for engagement and conversion workflows.
+
+IMPORTANT:
+This is NOT merely a generic contact form.
+It must behave like a guided immigration triage and qualification experience.
+
+---
+
+## LEGAL & PRACTICAL CONTEXT
+
+The workflow and wording should align with South African immigration overstay realities under the Immigration Act and Department of Home Affairs practices.
+
+The system should recognise that overstays commonly arise from:
+• visa expiry,
+• delayed waiver outcomes,
+• rejected applications,
+• inability to depart,
+• misunderstandings regarding legal status,
+• pending applications,
+• financial hardship,
+• medical/family emergencies,
+• or administrative delays.
+
+The UX must therefore avoid:
+• aggressive legal wording,
+• threatening terminology,
+• or panic-inducing visuals.
+
+Instead:
+the interface should position itself as:
+“helping the visitor understand the next practical steps.”
+
+No legal conclusions must be automatically given.
+This is a preliminary guided intake and lead qualification process only.
+
+---
+
+## INITIAL LANDING EXPERIENCE
+
+When the user lands on the page:
+
+Display a modern hero section with:
+• reassuring headline,
+• calm professional design,
+• subtle animated background,
+• and clear call-to-action.
+
+Suggested tone:
+“You may still have options available.”
+
+Suggested supporting text:
+“If you have overstayed in South Africa or received an undesirable declaration, this guided assessment may help you better understand your circumstances and possible next steps.”
+
+The page must immediately feel:
+• trustworthy,
+• premium,
+• structured,
+• and confidential.
+
+Use the official E-Migration Assist brand styling and colour palette.
+
+---
+
+## STEP 1 — NAME CAPTURE & PERSONALISATION
+
+The first interaction should ask ONLY one question initially:
+
+“What is your first name?”
+
+Once entered:
+the interface should dynamically personalise the experience.
+
+Example:
+“Thank you, Sarah.”
+“Let’s better understand your situation.”
+
+The experience must feel conversational and human.
+
+---
+
+## STEP 2 — GUIDED IMMIGRATION TRIAGE QUESTIONS
+
+The form must progressively reveal questions one-by-one.
+
+Do NOT display all questions simultaneously.
+
+The interaction should resemble:
+• intelligent onboarding,
+• legal-tech workflow guidance,
+• or conversational assessment logic.
+
+Questions should adapt based on previous responses.
+
+---
+
+## RECOMMENDED QUESTION FLOW
+
+1. What best describes your current situation?
+
+Options:
+• My visa has expired
+• I received an undesirable declaration
+• I overstayed after my visa expiry
+• I am unsure about my current legal status
+• My application was rejected while I remained in South Africa
+• I missed my departure deadline
+• Other
+
+---
+
+2. Are you currently inside or outside South Africa?
+
+Options:
+• Inside South Africa
+• Outside South Africa
+
+---
+
+3. Approximately how long have you overstayed?
+
+Options:
+• Less than 30 days
+• 30 days to 90 days
+• More than 90 days
+• Unsure
+
+---
+
+4. Did you attempt to submit any application before your visa expired?
+
+Options:
+• Yes
+• No
+• Unsure
+
+IF YES:
+show follow-up:
+“What type of application did you submit?”
+
+---
+
+5. Have you received any written communication from the Department of Home Affairs?
+
+Options:
+• Yes
+• No
+• Unsure
+
+IF YES:
+allow upload field for:
+• undesirable declaration,
+• rejection letter,
+• passport stamp,
+• visa copy,
+• VFS communication,
+• or related document.
+
+---
+
+6. What has been your biggest challenge so far?
+
+Multi-select:
+• Understanding what to do next
+• Fear of being banned
+• Difficulty communicating with authorities
+• Financial constraints
+• Delays and uncertainty
+• Lack of legal guidance
+• Stress/anxiety regarding status
+• Travel restrictions
+• Other
+
+---
+
+7. What type of assistance are you looking for?
+
+Options:
+• Understanding my legal position
+• Overstay appeal assistance
+• Guidance on possible next steps
+• Professional immigration support
+• Future visa planning
+• General immigration guidance
+
+---
+
+## EMOTIONAL UX REQUIREMENTS
+
+Throughout the assessment:
+show reassuring micro-copy.
+
+Examples:
+• “Many immigration situatio...
