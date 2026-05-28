@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { BrandHeader } from "@/components/brand-header";
 import { DocumentUploader } from "@/components/DocumentUploader";
 import brandLogo from "@assets/E-Migration_Assist_New_Logo-removebg-preview_1778252859401.png";
+import heroSuitcase from "@assets/image_1779959647478.png";
 import {
   ArrowRight,
   ArrowLeft,
@@ -244,17 +245,24 @@ export default function OverstayAssessment() {
   const personalisedName = form.firstName.trim() || "there";
   const progressPct = (displayedStep(step) / TOTAL_QUESTION_STEPS) * 100;
 
+  // Lighter slate page surround so the dark form card reads as the
+  // primary anchor on the screen, instead of melting into the bg.
+  const isIntro = step === STEP_INTRO;
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 text-foreground">
       <BrandHeader variant="compact" homeHref="/overstay-assessment" />
 
-      {/* Ambient brand glow — matches landing page hero pattern */}
+      {/* Ambient brand glow — softened so the lighter page bg keeps focus on the card */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-32 left-1/2 h-[520px] w-[820px] -translate-x-1/2 rounded-full bg-gradient-radial from-primary/15 via-primary/[0.04] to-transparent blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 h-[380px] w-[380px] rounded-full bg-cyan-500/10 blur-3xl" />
+        <div className="absolute -top-32 left-1/2 h-[520px] w-[820px] -translate-x-1/2 rounded-full bg-gradient-radial from-primary/10 via-primary/[0.03] to-transparent blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 h-[380px] w-[380px] rounded-full bg-cyan-500/[0.06] blur-3xl" />
       </div>
 
-      <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6 sm:py-14">
+      <main
+        className={`mx-auto px-4 py-10 sm:px-6 sm:py-14 ${
+          isIntro ? "max-w-5xl" : "max-w-2xl"
+        }`}
+      >
         {step >= STEP_NAME && step < STEP_SUCCESS && (
           <div className="mb-8">
             <div className="mb-2 flex items-center justify-between text-xs uppercase tracking-[0.18em] text-muted-foreground">
@@ -275,71 +283,78 @@ export default function OverstayAssessment() {
           </div>
         )}
 
-        <div className="relative rounded-2xl border border-card-border bg-card/80 p-6 backdrop-blur-md shadow-[0_20px_60px_-25px_rgba(56,189,248,0.25)] sm:p-10">
+        <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-[#0a1628]/95 p-6 backdrop-blur-md shadow-[0_30px_80px_-20px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.03] sm:p-10">
           {/* INTRO */}
           {step === STEP_INTRO && (
-            <div className="space-y-7 text-center sm:text-left">
-              <img
-                src={brandLogo}
-                alt="E-Migration Assist"
-                style={{
-                  filter:
-                    "brightness(0) invert(1) drop-shadow(0 1px 2px rgba(0,0,0,0.45))",
-                }}
-                className="mx-auto h-28 w-auto sm:mx-0 sm:h-32"
-              />
+            <div className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-12">
+              {/* Left — narrative + CTA */}
+              <div className="space-y-6 text-center lg:text-left">
+                <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(56,189,248,0.9)]" />
+                  Structured Immigration · Powered by Technology
+                </span>
 
-              <h1 className="font-display text-4xl font-extrabold leading-[1.05] tracking-tight text-foreground sm:text-5xl">
-                South African Overstay &{" "}
-                <span className="bg-gradient-to-r from-primary to-cyan-400 bg-clip-text text-transparent">
-                  Undesirable Status
-                </span>{" "}
-                Preliminary Assessment
-              </h1>
+                <h1 className="font-display text-[2.4rem] font-extrabold leading-[1.02] tracking-tight text-foreground sm:text-5xl lg:text-[3.4rem]">
+                  Overstayed or{" "}
+                  <span className="bg-gradient-to-r from-primary to-cyan-400 bg-clip-text text-transparent">
+                    declared undesirable
+                  </span>
+                  ?
+                  <span className="mt-2 block text-foreground/90">
+                    There are paths forward.
+                  </span>
+                </h1>
 
-              <p className="text-base text-muted-foreground sm:text-lg">
-                Answer a few guided questions to better understand your current
-                immigration circumstances and possible next procedural
-                considerations.
-              </p>
+                <p className="text-base text-muted-foreground sm:text-lg">
+                  A guided 10-step assessment that helps you organise your
+                  circumstances and surface the procedural options that may be
+                  available under South African immigration processes.
+                </p>
 
-              <div className="rounded-xl border border-card-border bg-background/40 p-4 text-left text-sm text-muted-foreground">
-                This guided assessment is designed to help identify and
-                organise information relating to possible overstays,
-                undesirable declarations, immigration status complications,
-                and related circumstances under South African immigration
-                processes.
-              </div>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {[
+                    { icon: ShieldCheck, label: "Confidential" },
+                    { icon: HeartHandshake, label: "Non-judgemental" },
+                    { icon: Sparkles, label: "Personalised" },
+                  ].map(({ icon: Icon, label }) => (
+                    <div
+                      key={label}
+                      className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm"
+                    >
+                      <Icon className="h-4 w-4 text-primary" />
+                      <span className="text-foreground/90">{label}</span>
+                    </div>
+                  ))}
+                </div>
 
-              <div className="grid gap-3 sm:grid-cols-3">
-                {[
-                  { icon: ShieldCheck, label: "Confidential" },
-                  { icon: HeartHandshake, label: "Non-judgemental" },
-                  { icon: Sparkles, label: "Personalised" },
-                ].map(({ icon: Icon, label }) => (
-                  <div
-                    key={label}
-                    className="flex items-center gap-2 rounded-xl border border-card-border bg-background/40 px-3 py-2.5 text-sm text-muted-foreground"
+                <div className="flex flex-col items-center gap-3 sm:flex-row lg:items-start">
+                  <Button
+                    onClick={next}
+                    size="lg"
+                    className="w-full rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover-elevate active-elevate-2 sm:w-auto"
                   >
-                    <Icon className="h-4 w-4 text-primary" />
-                    <span className="text-foreground/90">{label}</span>
-                  </div>
-                ))}
+                    Begin guided assessment
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  Preliminary guided intake — a human advisor reviews every
+                  case. No automated legal conclusions.
+                </p>
               </div>
 
-              <Button
-                onClick={next}
-                size="lg"
-                className="w-full rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover-elevate active-elevate-2 sm:w-auto"
-              >
-                Begin guided assessment
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-
-              <p className="text-xs text-muted-foreground">
-                This is a preliminary guided intake. No legal conclusions are
-                provided automatically — a human advisor reviews every case.
-              </p>
+              {/* Right — hero image, blended into the dark card via a soft radial wash */}
+              <div className="relative mx-auto w-full max-w-md lg:max-w-none">
+                <div className="pointer-events-none absolute inset-0 -z-10 rounded-full bg-gradient-radial from-primary/25 via-primary/[0.05] to-transparent blur-2xl" />
+                <img
+                  src={heroSuitcase}
+                  alt="Structured Immigration · Powered by Technology"
+                  className="mx-auto h-auto w-full max-w-[420px] select-none drop-shadow-[0_25px_60px_rgba(0,0,0,0.5)]"
+                  style={{ mixBlendMode: "screen" }}
+                  draggable={false}
+                />
+              </div>
             </div>
           )}
 
