@@ -1,0 +1,271 @@
+ADDITIONAL LEGAL INTELLIGENCE & RULES ENGINE ENHANCEMENT
+
+---
+
+## ASSESSMENT TITLE & POSITIONING
+
+The title of the experience must immediately and clearly communicate that this assessment specifically relates to immigration overstays, undesirable declarations, prohibition-related concerns, and immigration status complications in South Africa.
+
+Recommended title:
+
+“South African Overstay & Undesirable Status Preliminary Assessment”
+
+Alternative:
+“Out-of-Status Immigration Assessment”
+
+Subtitle:
+“Answer a few guided questions to better understand your current immigration circumstances and possible next procedural considerations.”
+
+Important explanatory text directly below the title:
+
+“This guided assessment is designed to help identify and organise information relating to possible overstays, undesirable declarations, immigration status complications, and related circumstances under South African immigration processes.”
+
+“This assessment generates a preliminary informational report only and does not constitute legal advice, legal representation, or a formal immigration opinion.”
+
+“This tool is intended to assist with understanding possible next-step considerations based on the information provided.”
+
+---
+
+## LEGAL & REGULATORY INTELLIGENCE ENGINE
+
+The system must incorporate a rule-based immigration logic engine informed by South African immigration laws, regulations, directives, and operational procedures relating to:
+
+• visa overstays,
+• undesirable declarations,
+• immigration prohibition,
+• administrative offences,
+• pending applications,
+• waiver scenarios,
+• appeal eligibility,
+• overstay duration,
+• and procedural risk indicators.
+
+The rules engine should be modular and scalable for future legal updates.
+
+---
+
+## LEGAL SOURCES TO INFORM RULES ENGINE
+
+The logic engine must be informed by:
+
+1. Immigration Act 13 of 2002
+2. Immigration Amendment Act 13 of 2011
+3. Immigration Regulations, 2014
+4. Section 30(1)(h) — undesirable persons
+5. Regulation 27(3) — overstay periods and undesirable durations
+6. Section 50(1) — administrative offences
+7. DHA operational directives
+8. DHA overstay appeal procedures
+9. DHA Form 19 undesirable declaration framework
+10. Pending application concession practices where applicable
+11. Waiver and representation procedural practices
+12. Relevant DHA notices and concession extensions where applicable
+
+---
+
+## RULE-BASED SCENARIO LOGIC
+
+The system must dynamically generate preliminary insight outputs based on user responses.
+
+IMPORTANT:
+The system must NOT provide definitive legal advice or legal outcomes.
+
+Instead:
+it should generate:
+• procedural indicators,
+• risk observations,
+• possible considerations,
+• and suggested next-step themes.
+
+---
+
+## SCENARIO VARIABLES
+
+The rules engine must analyse variables including:
+
+• inside or outside South Africa
+• overstay duration
+• prior overstay history
+• undesirable declaration issued or not
+• pending application before expiry
+• pending waiver
+• pending appeal
+• rejection received
+• proof of submission available
+• medical/family emergency factors
+• inability to depart
+• administrative delay indicators
+• legal representation status
+• uploaded supporting documents
+• travel restriction concerns
+• urgency level
+• level of uncertainty/confusion
+
+---
+
+## PRELIMINARY RULE EXAMPLES
+
+RULE EXAMPLE 1
+
+IF:
+• overstay <= 30 days
+AND
+• undesirable declaration received
+
+THEN:
+display informational insight:
+
+“Based on the information provided, your situation may relate to a shorter-duration overstay scenario under South African immigration regulations.”
+
+“Certain overstay declarations may be subject to procedural representations or review processes depending on the surrounding circumstances.”
+
+---
+
+RULE EXAMPLE 2
+
+IF:
+• overstay > 30 days
+AND
+• outside South Africa
+
+THEN:
+display:
+
+“The information provided may indicate a longer-duration overstay circumstance that could affect future immigration applications or re-entry processes.”
+
+“Additional procedural review or formal immigration assistance may be required.”
+
+---
+
+RULE EXAMPLE 3
+
+IF:
+• application submitted before expiry
+AND
+• acknowledgement receipt available
+
+THEN:
+display:
+
+“The information provided suggests that an immigration application may have been submitted before visa expiry.”
+
+“In certain circumstances, supporting documentation and procedural records may become important when assessing immigration status complications.”
+
+---
+
+RULE EXAMPLE 4
+
+IF:
+• medical emergency selected
+
+THEN:
+display:
+
+“Medical or humanitarian circumstances are often important supporting considerations in immigration-related representations and procedural reviews.”
+
+---
+
+RULE EXAMPLE 5
+
+IF:
+• user indicates uncertainty regarding current status
+
+THEN:
+display:
+
+“Many individuals experience uncertainty regarding immigration status processes, especially where delays, pending outcomes, or administrative complications exist.”
+
+---
+
+## PRELIMINARY REPORT GENERATION
+
+At the end of the assessment:
+generate a visually professional Preliminary Immigration Circumstance Report.
+
+This report must:
+• summarise the information provided,
+• organise key immigration indicators,
+• identify possible procedural themes,
+• indicate potential risk factors,
+• and suggest practical next-step categories.
+
+The report should feel:
+• intelligent,
+• reassuring,
+• organised,
+• and highly professional.
+
+---
+
+## REPORT STRUCTURE
+
+The preliminary report should contain:
+
+1. Reference Number
+2. Date Generated
+3. Visitor Name
+4. Summary of Information Provided
+5. Immigration Circumstance Indicators
+6. Potential Procedural Considerations
+7. Supporting Documentation Uploaded
+8. Suggested Next-Step Themes
+9. Preliminary Risk Observations
+10. Important Disclaimer
+
+---
+
+## DISCLAIMER REQUIREMENTS
+
+Prominently display:
+
+“This report is generated from the information provided during the assessment and is intended for preliminary informational purposes only.”
+
+“It does not constitute legal advice, legal representation, or an official immigration determination.”
+
+“Immigration outcomes depend on official departmental processes, documentation, factual circumstances, and applicable law and policy.”
+
+---
+
+## E-MIGRATION ASSIST FUTURE INVITATION
+
+At the conclusion of the report:
+
+display a professional onboarding anticipation message:
+
+“You may soon receive an invitation to access the E-Migration Assist platform.”
+
+“E-Migration Assist is being designed to help individuals better organise immigration processes, track important steps, manage supporting documentation, and navigate immigration-related workflows more effectively.”
+
+Allow users to:
+• join early access,
+• request notification,
+• or register interest for platform onboarding.
+
+---
+
+## CRM & LEAD INTELLIGENCE REQUIREMENTS
+
+All rule outcomes and assessment insights must push into the Lead Intelligence Dashboard including:
+
+• overstay category
+• risk classification
+• lead score
+• possible urgency
+• uploaded documents
+• procedural complexity indicators
+• and recommended follow-up priority.
+
+---
+
+## ADVANCED FUTURE AI READINESS
+
+The architecture should later support:
+
+• AI-assisted document review
+• AI-generated immigration summaries
+• duplicate scenario recognition
+• trend analysis
+• automated lead prioritisation
+• and predictive conversion scoring.
+
+The current implementation should therefore be built modularly to support future AI expansion.
