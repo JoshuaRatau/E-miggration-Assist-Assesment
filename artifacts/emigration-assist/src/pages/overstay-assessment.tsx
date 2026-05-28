@@ -4,19 +4,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BrandHeader } from "@/components/brand-header";
 import { DocumentUploader } from "@/components/DocumentUploader";
 import {
   ArrowRight,
   ArrowLeft,
-  Shield,
-  Heart,
+  ShieldCheck,
+  HeartHandshake,
   Sparkles,
   Check,
   Copy,
   Home as HomeIcon,
+  Lock,
 } from "lucide-react";
 
 const BASE = (import.meta.env.VITE_API_URL ?? import.meta.env.BASE_URL).replace(
@@ -138,9 +138,12 @@ const REASSURING_LINES = [
   "You are not alone in navigating this process.",
 ];
 
-const TOTAL_QUESTION_STEPS = 9; // Q1..Q7 + contact + consent
+const TOTAL_QUESTION_STEPS = 9;
 const STEP_INTRO = 0;
 const STEP_NAME = 1;
+const STEP_CONTACT = 10;
+const STEP_CONSENT = 11;
+const STEP_SUCCESS = 12;
 
 export default function OverstayAssessment() {
   const [step, setStep] = useState(STEP_INTRO);
@@ -152,7 +155,6 @@ export default function OverstayAssessment() {
     referenceNumber: string;
   } | null>(null);
   const [copied, setCopied] = useState(false);
-
   const sessionStartedAt = useMemo(() => new Date(), []);
 
   const update = <K extends keyof FormState>(k: K, v: FormState[K]) =>
@@ -168,21 +170,6 @@ export default function OverstayAssessment() {
 
   const next = () => setStep((s) => s + 1);
   const back = () => setStep((s) => Math.max(STEP_INTRO, s - 1));
-
-  // After Q4 (step 5) — if user said NO/Unsure to submittedApplication, skip applicationType
-  // Step mapping:
-  //  0 intro, 1 name, 2 Q1 situation, 3 Q2 location, 4 Q3 duration,
-  //  5 Q4 submittedApplication, 6 Q4b applicationType (conditional),
-  //  7 Q5 dhaCommunication, 8 Q6 challenges, 9 Q7 assistanceType,
-  //  10 contact, 11 consent + submit, 12 success
-  const STEP_SUCCESS = 12;
-  const STEP_CONSENT = 11;
-  const STEP_CONTACT = 10;
-
-  const advanceFromQ4 = () => {
-    if (form.submittedApplication === "yes") next();
-    else setStep(7); // skip applicationType
-  };
 
   const submit = async () => {
     setSubmitting(true);
@@ -237,70 +224,85 @@ export default function OverstayAssessment() {
     step <= STEP_NAME ? 0 : Math.min(95, ((step - 1) / TOTAL_QUESTION_STEPS) * 100);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100">
+    <div className="min-h-screen bg-background text-foreground">
       <BrandHeader />
 
-      {/* Subtle ambient background */}
+      {/* Ambient brand glow — matches landing page hero pattern */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-40 left-1/2 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-teal-500/10 blur-3xl" />
-        <div className="absolute bottom-0 right-0 h-[400px] w-[400px] rounded-full bg-indigo-500/10 blur-3xl" />
+        <div className="absolute -top-32 left-1/2 h-[520px] w-[820px] -translate-x-1/2 rounded-full bg-gradient-radial from-primary/15 via-primary/[0.04] to-transparent blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 h-[380px] w-[380px] rounded-full bg-cyan-500/10 blur-3xl" />
       </div>
 
-      <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6 sm:py-16">
+      <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6 sm:py-14">
         {step > STEP_NAME && step < STEP_SUCCESS && (
           <div className="mb-8">
-            <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
-              <span>Step {Math.min(step - 1, TOTAL_QUESTION_STEPS)} of {TOTAL_QUESTION_STEPS}</span>
-              <span>Confidential & secure</span>
+            <div className="mb-2 flex items-center justify-between text-xs uppercase tracking-[0.18em] text-muted-foreground">
+              <span>
+                Step {Math.min(step - 1, TOTAL_QUESTION_STEPS)} of {TOTAL_QUESTION_STEPS}
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-primary/80">
+                <Lock className="h-3 w-3" />
+                Confidential
+              </span>
             </div>
-            <div className="h-1 w-full overflow-hidden rounded-full bg-slate-800">
+            <div className="h-1 w-full overflow-hidden rounded-full bg-card border border-card-border">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-teal-400 to-emerald-400 transition-all duration-500"
+                className="h-full rounded-full bg-gradient-to-r from-primary to-cyan-400 transition-all duration-500"
                 style={{ width: `${progressPct}%` }}
               />
             </div>
           </div>
         )}
 
-        <Card className="border-white/10 bg-slate-900/70 p-6 backdrop-blur sm:p-10">
+        <div className="relative rounded-2xl border border-card-border bg-card/80 p-6 backdrop-blur-md shadow-[0_20px_60px_-25px_rgba(56,189,248,0.25)] sm:p-10">
           {/* INTRO */}
           {step === STEP_INTRO && (
             <div className="space-y-6">
-              <Badge className="bg-teal-500/15 text-teal-300 ring-1 ring-teal-400/40">
+              <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary backdrop-blur-sm shadow-[0_0_24px_-8px_rgba(56,189,248,0.45)]">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(56,189,248,0.9)]" />
                 Overstay & Undesirable Assessment
-              </Badge>
-              <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                You may still have options available.
+              </span>
+
+              <h1 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-[2.6rem] sm:leading-[1.1]">
+                You may still have{" "}
+                <span className="bg-gradient-to-r from-primary to-cyan-400 bg-clip-text text-transparent">
+                  options available
+                </span>
+                .
               </h1>
-              <p className="text-base text-slate-300 sm:text-lg">
+
+              <p className="text-base text-muted-foreground sm:text-lg">
                 If you have overstayed in South Africa or received an
                 undesirable declaration, this guided assessment may help you
                 better understand your circumstances and possible next steps.
               </p>
+
               <div className="grid gap-3 sm:grid-cols-3">
                 {[
-                  { icon: Shield, label: "Confidential" },
-                  { icon: Heart, label: "Non-judgemental" },
+                  { icon: ShieldCheck, label: "Confidential" },
+                  { icon: HeartHandshake, label: "Non-judgemental" },
                   { icon: Sparkles, label: "Personalised" },
                 ].map(({ icon: Icon, label }) => (
                   <div
                     key={label}
-                    className="flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-sm text-slate-300"
+                    className="flex items-center gap-2 rounded-xl border border-card-border bg-background/40 px-3 py-2.5 text-sm text-muted-foreground"
                   >
-                    <Icon className="h-4 w-4 text-teal-300" />
-                    {label}
+                    <Icon className="h-4 w-4 text-primary" />
+                    <span className="text-foreground/90">{label}</span>
                   </div>
                 ))}
               </div>
+
               <Button
                 onClick={next}
                 size="lg"
-                className="w-full bg-teal-500 text-white hover:bg-teal-400 sm:w-auto"
+                className="w-full rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover-elevate active-elevate-2 sm:w-auto"
               >
                 Begin guided assessment
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
-              <p className="text-xs text-slate-500">
+
+              <p className="text-xs text-muted-foreground">
                 This is a preliminary guided intake. No legal conclusions are
                 provided automatically — a human advisor reviews every case.
               </p>
@@ -310,10 +312,10 @@ export default function OverstayAssessment() {
           {/* STEP 1 — Name */}
           {step === STEP_NAME && (
             <div className="space-y-6">
-              <h2 className="text-2xl font-semibold text-white">
+              <h2 className="font-display text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
                 What is your first name?
               </h2>
-              <p className="text-sm text-slate-400">
+              <p className="text-sm text-muted-foreground">
                 We use your name to personalise the rest of the assessment.
               </p>
               <div>
@@ -324,17 +326,13 @@ export default function OverstayAssessment() {
                   value={form.firstName}
                   onChange={(e) => update("firstName", e.target.value)}
                   placeholder="e.g. Sarah"
-                  className="h-12 border-white/10 bg-slate-950/60 text-base text-white"
+                  className="h-12 rounded-xl border-card-border bg-background/60 text-base"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && form.firstName.trim()) next();
                   }}
                 />
               </div>
-              <NavRow
-                onBack={back}
-                onNext={next}
-                nextDisabled={!form.firstName.trim()}
-              />
+              <NavRow onBack={back} onNext={next} nextDisabled={!form.firstName.trim()} />
             </div>
           )}
 
@@ -412,10 +410,7 @@ export default function OverstayAssessment() {
                 ]}
                 onSelect={(v) => {
                   update("submittedApplication", v);
-                  setTimeout(
-                    () => (v === "yes" ? setStep(6) : setStep(7)),
-                    200,
-                  );
+                  setTimeout(() => (v === "yes" ? setStep(6) : setStep(7)), 200);
                 }}
               />
               <NavRow onBack={back} hideNext />
@@ -432,7 +427,7 @@ export default function OverstayAssessment() {
                 value={form.applicationType}
                 onChange={(e) => update("applicationType", e.target.value)}
                 placeholder="e.g. Critical-skills waiver, Spousal visa renewal…"
-                className="h-12 border-white/10 bg-slate-950/60 text-base text-white"
+                className="h-12 rounded-xl border-card-border bg-background/60 text-base"
                 autoFocus
               />
               <NavRow
@@ -463,8 +458,8 @@ export default function OverstayAssessment() {
                 }}
               />
               {form.dhaCommunication === "yes" && (
-                <div className="rounded-xl border border-teal-400/20 bg-teal-500/5 p-4 text-sm text-teal-200">
-                  Great — after you complete this assessment you'll be able to
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm text-primary">
+                  Great — after this assessment you'll be able to securely
                   upload supporting documents (undesirable declaration,
                   rejection letter, passport stamp, visa copy, VFS
                   communication, etc.).
@@ -491,22 +486,26 @@ export default function OverstayAssessment() {
                   return (
                     <label
                       key={c.value}
-                      className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 text-sm transition-all ${
+                      className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 text-sm transition-all hover-elevate ${
                         checked
-                          ? "border-teal-400/60 bg-teal-500/10 text-white"
-                          : "border-white/10 bg-slate-950/40 text-slate-200 hover:border-white/20 hover:bg-slate-900/60"
+                          ? "border-primary/60 bg-primary/10 text-foreground"
+                          : "border-card-border bg-background/40 text-muted-foreground"
                       }`}
                     >
                       <Checkbox
                         checked={checked}
                         onCheckedChange={() => toggleChallenge(c.value)}
                       />
-                      <span>{c.label}</span>
+                      <span className="text-foreground/90">{c.label}</span>
                     </label>
                   );
                 })}
               </div>
-              <NavRow onBack={back} onNext={next} />
+              <NavRow
+                onBack={back}
+                onNext={next}
+                nextDisabled={form.challenges.length === 0}
+              />
             </QuestionBlock>
           )}
 
@@ -528,7 +527,7 @@ export default function OverstayAssessment() {
             </QuestionBlock>
           )}
 
-          {/* STEP CONTACT */}
+          {/* CONTACT */}
           {step === STEP_CONTACT && (
             <QuestionBlock
               question="How can we reach you privately?"
@@ -536,7 +535,7 @@ export default function OverstayAssessment() {
             >
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="email" className="text-slate-300">
+                  <Label htmlFor="email" className="text-foreground/90">
                     Email address
                   </Label>
                   <Input
@@ -545,32 +544,30 @@ export default function OverstayAssessment() {
                     value={form.email}
                     onChange={(e) => update("email", e.target.value)}
                     placeholder="you@example.com"
-                    className="mt-1 h-11 border-white/10 bg-slate-950/60 text-white"
+                    className="mt-1 h-11 rounded-xl border-card-border bg-background/60"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="phone" className="text-slate-300">
+                  <Label htmlFor="phone" className="text-foreground/90">
                     Phone / WhatsApp (optional)
                   </Label>
                   <Input
                     id="phone"
                     value={form.phone}
                     onChange={(e) => update("phone", e.target.value)}
-                    placeholder="+27 ..."
-                    className="mt-1 h-11 border-white/10 bg-slate-950/60 text-white"
+                    placeholder="+27 …"
+                    className="mt-1 h-11 rounded-xl border-card-border bg-background/60"
                   />
                 </div>
-                <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-slate-950/40 p-3 text-sm text-slate-200">
+                <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-card-border bg-background/40 p-3 text-sm text-foreground/90 hover-elevate">
                   <Checkbox
                     checked={form.whatsappOptIn}
-                    onCheckedChange={(v) =>
-                      update("whatsappOptIn", Boolean(v))
-                    }
+                    onCheckedChange={(v) => update("whatsappOptIn", Boolean(v))}
                   />
                   <span>I'm happy to be contacted on WhatsApp.</span>
                 </label>
                 <div>
-                  <Label className="text-slate-300">
+                  <Label className="text-foreground/90">
                     Preferred contact channel
                   </Label>
                   <div className="mt-2 grid grid-cols-3 gap-2">
@@ -579,10 +576,10 @@ export default function OverstayAssessment() {
                         key={c}
                         type="button"
                         onClick={() => update("preferredChannel", c)}
-                        className={`rounded-xl border p-3 text-sm capitalize transition-all ${
+                        className={`rounded-xl border p-3 text-sm capitalize transition-all hover-elevate ${
                           form.preferredChannel === c
-                            ? "border-teal-400/60 bg-teal-500/15 text-teal-200"
-                            : "border-white/10 bg-slate-950/40 text-slate-300 hover:border-white/20"
+                            ? "border-primary/60 bg-primary/15 text-primary"
+                            : "border-card-border bg-background/40 text-muted-foreground"
                         }`}
                       >
                         {c}
@@ -601,23 +598,25 @@ export default function OverstayAssessment() {
             </QuestionBlock>
           )}
 
-          {/* CONSENT + SUBMIT */}
+          {/* CONSENT */}
           {step === STEP_CONSENT && (
             <div className="space-y-6">
-              <h2 className="text-2xl font-semibold text-white">
-                One last thing, {personalisedName}.
+              <h2 className="font-display text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+                One last thing,{" "}
+                <span className="bg-gradient-to-r from-primary to-cyan-400 bg-clip-text text-transparent">
+                  {personalisedName}
+                </span>
+                .
               </h2>
-              <p className="text-sm text-slate-300">
+              <p className="text-sm text-muted-foreground">
                 Based on what you've shared, your situation may require a
                 structured review and guided next-step support. We'll secure
                 your information and prepare your case for review.
               </p>
-              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-slate-950/40 p-4 text-sm text-slate-200">
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-card-border bg-background/40 p-4 text-sm text-foreground/90 hover-elevate">
                 <Checkbox
                   checked={form.consentAccepted}
-                  onCheckedChange={(v) =>
-                    update("consentAccepted", Boolean(v))
-                  }
+                  onCheckedChange={(v) => update("consentAccepted", Boolean(v))}
                   className="mt-0.5"
                 />
                 <span>
@@ -628,7 +627,7 @@ export default function OverstayAssessment() {
                 </span>
               </label>
               {submitError && (
-                <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
+                <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
                   {submitError}
                 </div>
               )}
@@ -636,20 +635,20 @@ export default function OverstayAssessment() {
                 <Button
                   variant="ghost"
                   onClick={back}
-                  className="text-slate-300 hover:text-white"
+                  className="text-muted-foreground hover-elevate"
                 >
                   <ArrowLeft className="mr-2 h-4 w-4" /> Back
                 </Button>
                 <Button
                   onClick={submit}
                   disabled={!form.consentAccepted || submitting}
-                  className="bg-teal-500 text-white hover:bg-teal-400"
+                  className="rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover-elevate active-elevate-2"
                 >
                   {submitting ? "Submitting…" : "Request Early Assistance"}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
-              {/* Honeypot — must NOT be filled by humans */}
+              {/* Honeypot */}
               <input
                 type="text"
                 name="website"
@@ -665,25 +664,25 @@ export default function OverstayAssessment() {
           {step === STEP_SUCCESS && result && (
             <div className="space-y-6">
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-teal-500/20 ring-1 ring-teal-400/40">
-                  <Check className="h-6 w-6 text-teal-300" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/15 ring-1 ring-primary/40">
+                  <Check className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-semibold text-white">
+                  <h2 className="font-display text-2xl font-semibold tracking-tight text-foreground">
                     Thank you, {personalisedName}.
                   </h2>
-                  <p className="text-sm text-slate-400">
+                  <p className="text-sm text-muted-foreground">
                     Your information has been securely captured.
                   </p>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-teal-400/30 bg-teal-500/5 p-5">
-                <p className="text-xs uppercase tracking-wide text-teal-300">
+              <div className="rounded-2xl border border-primary/30 bg-primary/5 p-5">
+                <p className="text-xs uppercase tracking-[0.18em] text-primary/80">
                   Your reference number
                 </p>
                 <div className="mt-2 flex items-center justify-between gap-3">
-                  <code className="text-xl font-semibold text-white">
+                  <code className="font-display text-xl font-semibold text-foreground">
                     {result.referenceNumber}
                   </code>
                   <Button
@@ -698,26 +697,22 @@ export default function OverstayAssessment() {
                         })
                         .catch(() => {});
                     }}
-                    className="text-teal-200 hover:text-white"
+                    className="text-primary hover-elevate"
                   >
                     {copied ? (
-                      <>
-                        <Check className="mr-1 h-3 w-3" /> Copied
-                      </>
+                      <><Check className="mr-1 h-3 w-3" /> Copied</>
                     ) : (
-                      <>
-                        <Copy className="mr-1 h-3 w-3" /> Copy
-                      </>
+                      <><Copy className="mr-1 h-3 w-3" /> Copy</>
                     )}
                   </Button>
                 </div>
-                <p className="mt-3 text-xs text-slate-400">
+                <p className="mt-3 text-xs text-muted-foreground">
                   Keep this reference. We may use it when inviting you to
                   continue onboarding into the E-Migration Assist platform.
                 </p>
               </div>
 
-              <p className="text-sm text-slate-300">
+              <p className="text-sm text-muted-foreground">
                 Based on the information provided, your situation may require a
                 structured review and guided next-step support. You may soon be
                 invited to register or subscribe to the E-Migration Assist case
@@ -725,13 +720,13 @@ export default function OverstayAssessment() {
               </p>
 
               {form.wantsToUploadDocs && (
-                <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-5">
-                  <h3 className="mb-1 text-base font-semibold text-white">
+                <div className="rounded-2xl border border-card-border bg-background/40 p-5">
+                  <h3 className="mb-1 font-display text-base font-semibold text-foreground">
                     Upload supporting documents (optional)
                   </h3>
-                  <p className="mb-4 text-xs text-slate-400">
+                  <p className="mb-4 text-xs text-muted-foreground">
                     Undesirable declaration, rejection letter, passport stamp,
-                    visa copy, VFS communication or related documents.
+                    visa copy, VFS communication, or related documents.
                   </p>
                   <DocumentUploader
                     leadId={result.leadId}
@@ -741,13 +736,20 @@ export default function OverstayAssessment() {
               )}
 
               <div className="flex flex-col gap-3 sm:flex-row">
-                <Button asChild className="bg-teal-500 text-white hover:bg-teal-400">
+                <Button
+                  asChild
+                  className="rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover-elevate active-elevate-2"
+                >
                   <Link href={`/status?ref=${result.referenceNumber}`}>
                     Check my status
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
-                <Button asChild variant="ghost" className="text-slate-300 hover:text-white">
+                <Button
+                  asChild
+                  variant="outline"
+                  className="rounded-xl border-white/15 bg-white/5 backdrop-blur-md hover-elevate"
+                >
                   <Link href="/">
                     <HomeIcon className="mr-2 h-4 w-4" /> Back to home
                   </Link>
@@ -755,7 +757,7 @@ export default function OverstayAssessment() {
               </div>
             </div>
           )}
-        </Card>
+        </div>
       </main>
     </div>
   );
@@ -778,7 +780,7 @@ function NavRow({
         <Button
           variant="ghost"
           onClick={onBack}
-          className="text-slate-400 hover:text-white"
+          className="text-muted-foreground hover-elevate"
         >
           <ArrowLeft className="mr-2 h-4 w-4" /> Back
         </Button>
@@ -789,7 +791,7 @@ function NavRow({
         <Button
           onClick={onNext}
           disabled={nextDisabled}
-          className="bg-teal-500 text-white hover:bg-teal-400"
+          className="rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover-elevate active-elevate-2"
         >
           Continue
           <ArrowRight className="ml-2 h-4 w-4" />
@@ -817,16 +819,18 @@ function QuestionBlock({
   return (
     <div className="space-y-5 duration-500 animate-in fade-in slide-in-from-bottom-2">
       {greeting && (
-        <p className="text-base font-medium text-teal-300">{greeting}</p>
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary/80">
+          {greeting}
+        </p>
       )}
-      {subtitle && <p className="text-sm text-slate-400">{subtitle}</p>}
-      <h2 className="text-xl font-semibold text-white sm:text-2xl">
+      {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+      <h2 className="font-display text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
         {question}
       </h2>
-      {hint && <p className="text-xs text-slate-400">{hint}</p>}
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
       {children}
       {reassurance && (
-        <p className="border-l-2 border-teal-400/40 pl-3 text-xs italic text-slate-400">
+        <p className="border-l-2 border-primary/40 pl-3 text-xs italic text-muted-foreground">
           {reassurance}
         </p>
       )}
@@ -852,16 +856,16 @@ function OptionList<T extends string>({
             key={o.value}
             type="button"
             onClick={() => onSelect(o.value)}
-            className={`flex w-full items-center justify-between rounded-xl border p-4 text-left text-sm transition-all ${
+            className={`flex w-full items-center justify-between rounded-xl border p-4 text-left text-sm transition-all hover-elevate active-elevate-2 ${
               selected
-                ? "border-teal-400/70 bg-teal-500/15 text-white"
-                : "border-white/10 bg-slate-950/40 text-slate-200 hover:border-white/30 hover:bg-slate-900/60"
+                ? "border-primary/60 bg-primary/15 text-foreground"
+                : "border-card-border bg-background/40 text-foreground/90"
             }`}
           >
             <span>{o.label}</span>
             <ArrowRight
               className={`h-4 w-4 transition ${
-                selected ? "text-teal-300" : "text-slate-500"
+                selected ? "text-primary" : "text-muted-foreground"
               }`}
             />
           </button>
