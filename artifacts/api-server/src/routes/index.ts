@@ -23,6 +23,7 @@ import unsubscribeRouter from "./unsubscribe";
 import whatsappWebhookRouter from "./whatsappWebhook";
 import billingWebhookRouter from "./billingWebhook";
 import otpRouter from "./otp";
+import { overstayIntakeRouter } from "./overstayIntake";
 
 const router: IRouter = Router();
 
@@ -50,5 +51,6 @@ router.use(unsubscribeRouter);
 router.use(whatsappWebhookRouter);
 router.use(billingWebhookRouter);
 router.use(otpRouter);
+router.use(overstayIntakeRouter);
 
 export default router;

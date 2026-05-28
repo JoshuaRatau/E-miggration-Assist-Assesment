@@ -46,6 +46,7 @@ const router: IRouter = Router();
 // "other" rather than rejected so a stale embed doesn't 400 out.
 const ALLOWED_SOURCES = new Set([
   "web_form",
+  "overstay_intake",
   "referral",
   "linkedin",
   "facebook",
