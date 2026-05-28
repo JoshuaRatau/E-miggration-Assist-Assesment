@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { BrandHeader } from "@/components/brand-header";
 import { DocumentUploader } from "@/components/DocumentUploader";
 import brandLogo from "@assets/E-Migration_Assist_New_Logo-removebg-preview_1778252859401.png";
-import heroSuitcase from "@assets/image_1779959647478.png";
+import heroSuitcase from "@assets/overstay_hero_no_bg.png";
 import {
   ArrowRight,
   ArrowLeft,
@@ -249,7 +249,7 @@ export default function OverstayAssessment() {
   // primary anchor on the screen, instead of melting into the bg.
   const isIntro = step === STEP_INTRO;
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 text-foreground">
+    <div className="min-h-screen bg-gradient-to-b from-slate-300 via-slate-400 to-slate-500 text-foreground">
       <BrandHeader variant="compact" homeHref="/overstay-assessment" />
 
       {/* Ambient brand glow — softened so the lighter page bg keeps focus on the card */}
@@ -344,16 +344,21 @@ export default function OverstayAssessment() {
                 </p>
               </div>
 
-              {/* Right — hero image, blended into the dark card via a soft radial wash */}
+              {/* Right — transparent hero image floats on the card, no rectangle */}
               <div className="relative mx-auto w-full max-w-md lg:max-w-none">
                 <div className="pointer-events-none absolute inset-0 -z-10 rounded-full bg-gradient-radial from-primary/25 via-primary/[0.05] to-transparent blur-2xl" />
                 <img
                   src={heroSuitcase}
-                  alt="Structured Immigration · Powered by Technology"
-                  className="mx-auto h-auto w-full max-w-[420px] select-none drop-shadow-[0_25px_60px_rgba(0,0,0,0.5)]"
-                  style={{ mixBlendMode: "screen" }}
+                  alt="South African immigration assistance"
+                  className="mx-auto h-auto w-full max-w-[420px] select-none drop-shadow-[0_25px_60px_rgba(0,0,0,0.55)]"
                   draggable={false}
                 />
+                <p className="mt-5 text-center font-display text-lg font-semibold tracking-tight text-foreground sm:text-xl">
+                  Structured Immigration.{" "}
+                  <span className="bg-gradient-to-r from-primary to-cyan-400 bg-clip-text text-transparent">
+                    Powered by Technology.
+                  </span>
+                </p>
               </div>
             </div>
           )}
