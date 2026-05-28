@@ -942,25 +942,9 @@ export function Assessment() {
                             </span>
                           </span>
                         </label>
-                        <label
-                          className={`flex items-center space-x-3 p-3 rounded border cursor-pointer ${
-                            !whatsappValue
-                              ? "opacity-50 cursor-not-allowed"
-                              : "hover:bg-accent/50"
-                          }`}
-                        >
-                          <RadioGroupItem
-                            value="whatsapp"
-                            disabled={!whatsappValue}
-                            data-testid="radio-otp-whatsapp"
-                          />
-                          <Phone className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm">
-                            {whatsappValue
-                              ? `WhatsApp me at ${whatsappValue}`
-                              : "WhatsApp (add a number on the previous step to use this option)"}
-                          </span>
-                        </label>
+                        {/* WhatsApp OTP option hidden pending Twilio template
+                            approval. Backend logic + state remain intact —
+                            restore this <label> block to re-enable. */}
                       </RadioGroup>
                       <Button
                         type="button"
