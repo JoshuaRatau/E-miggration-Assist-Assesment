@@ -259,7 +259,7 @@ export default function OverstayAssessment() {
       </div>
 
       <main
-        className={`mx-auto px-4 py-10 sm:px-6 sm:py-14 ${
+        className={`mx-auto px-4 pt-2 pb-10 sm:px-6 sm:pt-4 sm:pb-14 ${
           isIntro ? "max-w-5xl" : "max-w-2xl"
         }`}
       >
@@ -300,9 +300,6 @@ export default function OverstayAssessment() {
                     declared undesirable
                   </span>
                   ?
-                  <span className="mt-2 block text-foreground/90">
-                    There are paths forward.
-                  </span>
                 </h1>
 
                 <p className="text-base text-muted-foreground sm:text-lg">
