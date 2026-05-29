@@ -3,6 +3,7 @@ import { Switch, Route, Router as WouterRouter, useLocation, useRoute } from "wo
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { SupportWidget } from "@/components/support-widget";
 import { AdminAuthProvider, RequireAdminAuth } from "@/lib/adminAuth";
 import NotFound from "@/pages/not-found";
 import { Home } from "@/pages/home";
@@ -200,6 +201,7 @@ function App() {
             <Router />
           </AdminAuthProvider>
         </WouterRouter>
+        <SupportWidget />
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
