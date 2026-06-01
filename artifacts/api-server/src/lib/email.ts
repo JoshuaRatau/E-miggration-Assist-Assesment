@@ -193,9 +193,19 @@ async function sendSafely(args: {
   to: string;
   subject: string;
   text: string;
+  replyTo?: string;
+  /**
+   * Internal ops notifications (e.g. support-widget queries) carry
+   * user-authored free text that may legitimately contain words on the
+   * client-facing forbidden-phrase list (e.g. "rejected"). Skipping the
+   * screen for these prevents a user's wording from silently dropping an
+   * internal alert. NEVER set this for client-facing mail.
+   */
+  skipPhraseScreen?: boolean;
 }): Promise<SendResult> {
-  const blocked =
-    findForbiddenPhrase(args.subject) ?? findForbiddenPhrase(args.text);
+  const blocked = args.skipPhraseScreen
+    ? null
+    : (findForbiddenPhrase(args.subject) ?? findForbiddenPhrase(args.text));
   if (blocked) {
     // NOTE: subject is operator-supplied for manual sends, so it CAN contain
     // PII (e.g. a name). Log only the matched phrase, not the subject.
@@ -225,6 +235,7 @@ async function sendSafely(args: {
         to: args.to,
         subject: args.subject,
         text: args.text,
+        ...(args.replyTo ? { replyTo: args.replyTo } : {}),
       });
       return { ok: true, id: info.messageId ?? "" };
     } catch (err) {
@@ -248,6 +259,7 @@ async function sendSafely(args: {
       to: args.to,
       subject: args.subject,
       text: args.text,
+      ...(args.replyTo ? { replyTo: args.replyTo } : {}),
     });
     if (r.error) {
       logger.warn(
@@ -352,4 +364,33 @@ export async function sendCustomEmail(args: {
   text: string;
 }): Promise<SendResult> {
   return sendSafely(args);
+}
+
+/**
+ * Internal operational notification (NOT client-facing). Used for things
+ * like support-widget queries that must reach the team inbox. Skips the
+ * forbidden-phrase screen because the body carries user-authored free text,
+ * and optionally sets a Reply-To so the team can answer the submitter
+ * directly.
+ */
+export async function sendInternalNotificationEmail(args: {
+  to: string;
+  subject: string;
+  text: string;
+  replyTo?: string;
+}): Promise<SendResult> {
+  // Defensive: only forward a Reply-To that looks like a single, plain email
+  // address. Guards against a future call site passing unvalidated input that
+  // could carry header-injection payloads.
+  const safeReplyTo =
+    args.replyTo && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(args.replyTo.trim())
+      ? args.replyTo.trim()
+      : undefined;
+  return sendSafely({
+    to: args.to,
+    subject: args.subject,
+    text: args.text,
+    skipPhraseScreen: true,
+    ...(safeReplyTo ? { replyTo: safeReplyTo } : {}),
+  });
 }

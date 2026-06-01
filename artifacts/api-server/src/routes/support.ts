@@ -2,6 +2,19 @@ import { type IRouter, Router } from "express";
 import { z } from "zod";
 import { db, supportRequestsTable } from "@workspace/db";
 import { createRateBucket } from "../lib/rateLimit";
+import { sendInternalNotificationEmail } from "../lib/email";
+
+// Inbox that receives support-widget queries. Configurable via env so the
+// destination can change without a code edit; defaults to the team inbox.
+const SUPPORT_NOTIFY_EMAIL =
+  process.env.SUPPORT_NOTIFY_EMAIL?.trim() || "info@emigration-assist.com";
+
+const CATEGORY_LABELS: Record<string, string> = {
+  support_query: "Support query",
+  technical_issue: "Technical issue",
+  payment_account: "Payment / account",
+  general_question: "General question",
+};
 
 const router: IRouter = Router();
 
@@ -71,6 +84,44 @@ router.post("/support", async (req, res) => {
       { supportRequestId: inserted.id, category: data.category },
       "Support request recorded",
     );
+
+    // Notify the team inbox. Fire-and-forget: a delivery failure must never
+    // turn a successfully-recorded request into a 500 for the user.
+    const categoryLabel = CATEGORY_LABELS[data.category] ?? data.category;
+    const body = [
+      "New support request from the E-Migration Assist widget.",
+      "",
+      `Category: ${categoryLabel}`,
+      `Name: ${data.name?.trim() || "(not provided)"}`,
+      `Email: ${email ?? "(not provided)"}`,
+      `Page: ${data.pagePath?.trim() || "(unknown)"}`,
+      `Reference: ${inserted.id}`,
+      "",
+      "Message:",
+      data.message,
+    ].join("\n");
+
+    void sendInternalNotificationEmail({
+      to: SUPPORT_NOTIFY_EMAIL,
+      subject: `[Support] ${categoryLabel}`,
+      text: body,
+      ...(email ? { replyTo: email } : {}),
+    })
+      .then((result) => {
+        if (!result.ok) {
+          req.log.error(
+            { supportRequestId: inserted.id, reason: result.reason },
+            "Support notification email failed to send",
+          );
+        }
+      })
+      .catch((err) => {
+        req.log.error(
+          { err, supportRequestId: inserted.id },
+          "Support notification email threw",
+        );
+      });
+
     return res.status(201).json({ ok: true, id: inserted.id });
   } catch (err) {
     req.log.error({ err }, "Failed to insert support request");
