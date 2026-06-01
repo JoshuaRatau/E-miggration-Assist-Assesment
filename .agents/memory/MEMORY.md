@@ -1,1 +1,1 @@
-- [Resend sender domain](resend-sender-domain.md) — platform email "from" is info@emigration-assist.com; verify that domain in Resend or sends bounce (live connector uses a typo'd domain).
+- [Resend sender domain](resend-sender-domain.md) — platform email "from" is noreply@emigration-assist.com; verify that domain in Resend or sends bounce (live connector uses a typo'd domain).

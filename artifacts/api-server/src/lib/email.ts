@@ -27,7 +27,7 @@ export function findForbiddenPhrase(text: string): string | null {
 // OTPs, confirmations, internal notifications). Override with the EMAIL_FROM
 // env var if the address ever changes. NOTE: the Resend account must have the
 // sending domain (emigration-assist.com) verified or sends will be rejected.
-const SPEC_FROM_EMAIL = "info@emigration-assist.com";
+const SPEC_FROM_EMAIL = "noreply@emigration-assist.com";
 const SPEC_FROM_NAME = "E-Migration Assist";
 
 let cachedSettings: { apiKey: string; fromEmail: string } | null = null;

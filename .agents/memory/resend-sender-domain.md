@@ -8,7 +8,7 @@ description: Why platform email "from" address can silently bounce, and how the 
 All platform email (campaigns, OTP, confirmations, notifications) sends FROM a single
 canonical address resolved in `artifacts/api-server/src/lib/email.ts`:
 `process.env.EMAIL_FROM?.trim() || SPEC_FROM_EMAIL` where `SPEC_FROM_EMAIL =
-"info@emigration-assist.com"`. The Resend **connector's** `from_email` is deliberately
+"noreply@emigration-assist.com"`. The Resend **connector's** `from_email` is deliberately
 NOT used anymore.
 
 **Why this matters / gotcha:** the live Resend connector was configured with
