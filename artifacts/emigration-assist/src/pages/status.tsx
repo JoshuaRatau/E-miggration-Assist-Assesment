@@ -27,6 +27,17 @@ export function Status() {
   const [searchRef, setSearchRef] = useState("");
   const [activeRef, setActiveRef] = useState("");
 
+  // Pre-fill + auto-look-up from a ?reference= query param (used when a
+  // duplicate assessment submission redirects the user here).
+  useEffect(() => {
+    const param = new URLSearchParams(window.location.search).get("reference");
+    if (param) {
+      const trimmed = param.trim().toUpperCase();
+      setSearchRef(trimmed);
+      setActiveRef(trimmed);
+    }
+  }, []);
+
   const { data, isLoading, isError, error } = useGetPublicStatus(activeRef, {
     query: {
       enabled: !!activeRef,

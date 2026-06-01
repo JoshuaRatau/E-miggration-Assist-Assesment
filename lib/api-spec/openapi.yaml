@@ -47,12 +47,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Lead"
-        "200":
-          description: Existing lead updated (duplicate email or whatsapp detected)
+        "409":
+          description: >-
+            Already registered — an existing lead matches this email or
+            canonical WhatsApp number (case-insensitive email match). No new
+            lead is created; the existing reference is returned so the caller
+            can look up their status.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Lead"
+                type: object
+                required: [error, message]
+                properties:
+                  error:
+                    type: string
+                    enum: [already_registered]
+                  message:
+                    type: string
+                  referenceNumber:
+                    type: string
     get:
       operationId: listLeads
       tags: [leads]

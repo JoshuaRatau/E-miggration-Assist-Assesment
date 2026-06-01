@@ -342,9 +342,15 @@ router.post("/leads", async (req, res) => {
   );
   const now = new Date();
 
-  // Duplicate detection: same email OR same canonical whatsapp → update existing
+  // Uniqueness rule: an email or canonical WhatsApp number may only be
+  // registered once. A repeat submission is blocked (409) and the caller
+  // is handed back the existing reference so they can look up their status
+  // instead of creating a second record.
   const dupConditions = [];
-  if (data.email) dupConditions.push(eq(prelaunchLeadsTable.email, data.email));
+  if (data.email)
+    dupConditions.push(
+      sql`lower(${prelaunchLeadsTable.email}) = lower(${data.email})`,
+    );
   if (normalizedWhatsapp)
     dupConditions.push(eq(prelaunchLeadsTable.whatsapp, normalizedWhatsapp));
 
@@ -360,64 +366,16 @@ router.post("/leads", async (req, res) => {
   }
 
   if (existing) {
-    const [updated] = await db
-      .update(prelaunchLeadsTable)
-      .set({
-        fullName: data.fullName,
-        email: data.email,
-        whatsapp: normalizedWhatsapp ?? existing.whatsapp,
-        nationality: data.nationality,
-        countryOfResidence: data.countryOfResidence ?? existing.countryOfResidence,
-        currentlyInSouthAfrica:
-          data.currentlyInSouthAfrica ?? existing.currentlyInSouthAfrica,
-        passportStatus: data.passportStatus ?? existing.passportStatus,
-        visaHistory: data.visaHistory ?? existing.visaHistory,
-        immigrationSituation: data.immigrationSituation,
-        visaExpiryDate:
-          toDateString(data.visaExpiryDate) ?? existing.visaExpiryDate,
-        exitDate: toDateString(data.exitDate) ?? existing.exitDate,
-        borderDocumentIssued:
-          data.borderDocumentIssued ?? existing.borderDocumentIssued,
-        overstayReason: data.overstayReason ?? existing.overstayReason,
-        hasSupportingDocuments:
-          data.hasSupportingDocuments ?? existing.hasSupportingDocuments,
-        previousOverstay: data.previousOverstay ?? existing.previousOverstay,
-        preferredContactMethod:
-          data.preferredContactMethod ?? existing.preferredContactMethod,
-        consentAccepted: data.consentAccepted,
-        consentTimestamp: now,
-        internalClassification: result.category,
-        leadScore: result.score,
-        leadCategory: result.label,
-        // Preserve existing leadPriority/leadStatus/adminNotes — admin may
-        // have customised these on the existing record.  Auto-priority only
-        // seeds NEW inserts; never overwrite operator overrides.
-        updatedAt: now,
-      })
-      .where(eq(prelaunchLeadsTable.id, existing.id))
-      .returning();
-
-    if (!updated) {
-      return res.status(500).json({ error: "Failed to update existing lead" });
-    }
-
     req.log.info(
-      { leadId: updated.id, referenceNumber: updated.referenceNumber },
-      "Duplicate detected — updated existing lead",
+      { leadId: existing.id, referenceNumber: existing.referenceNumber },
+      "Duplicate submission blocked — already registered",
     );
-
-    // V2: only dispatch if the client opted in to finalize on this call.
-    // For the assessment flow (finalize=false) the send is deferred to
-    // POST /leads/:id/finalize after the user has answered the documents
-    // question (and optionally uploaded files).
-    if (finalize) {
-      // Resubmissions get acknowledged too. The 1-minute cooldown absorbs
-      // accidental double-clicks; anything beyond that is a real retry and
-      // the client deserves a fresh confirmation.
-      dispatchConfirmation(updated, 1);
-    }
-
-    return res.status(200).json(serializeLead(updated));
+    return res.status(409).json({
+      error: "already_registered",
+      message:
+        "This email or contact number is already registered with us. We already have your details on file.",
+      referenceNumber: existing.referenceNumber,
+    });
   }
 
   const referenceNumber = generateReferenceNumber();

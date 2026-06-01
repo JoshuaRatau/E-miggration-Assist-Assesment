@@ -28,6 +28,8 @@ export * from "./campaignStatus";
 export * from "./categoryCount";
 export * from "./createCampaignInput";
 export * from "./createCampaignInputChannel";
+export * from "./createLead409";
+export * from "./createLead409Error";
 export * from "./createLeadInput";
 export * from "./document";
 export * from "./emigrationBillingEvent";

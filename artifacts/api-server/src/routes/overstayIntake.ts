@@ -1,5 +1,6 @@
 import { type IRouter, Router } from "express";
 import { z } from "zod";
+import { or, eq, desc, sql } from "drizzle-orm";
 import { db, prelaunchLeadsTable } from "@workspace/db";
 import { createRateBucket } from "../lib/rateLimit";
 import { normalizeWhatsapp } from "../lib/whatsapp";
@@ -185,6 +186,39 @@ router.post("/overstay-intake", async (req, res) => {
     : data.whatsappOptIn && data.phone
       ? normalizeWhatsapp(data.phone)
       : null;
+
+  // Uniqueness rule: an email or canonical WhatsApp number may only be
+  // registered once. A repeat submission is blocked (409) and handed back
+  // the existing reference instead of creating a duplicate lead.
+  const dupConditions = [
+    sql`lower(${prelaunchLeadsTable.email}) = lower(${data.email})`,
+  ];
+  if (normalizedWa)
+    dupConditions.push(eq(prelaunchLeadsTable.whatsapp, normalizedWa));
+
+  const dupRows = await db
+    .select({
+      id: prelaunchLeadsTable.id,
+      referenceNumber: prelaunchLeadsTable.referenceNumber,
+    })
+    .from(prelaunchLeadsTable)
+    .where(or(...dupConditions))
+    .orderBy(desc(prelaunchLeadsTable.createdAt))
+    .limit(1);
+
+  const existing = dupRows[0];
+  if (existing) {
+    req.log.info(
+      { leadId: existing.id, referenceNumber: existing.referenceNumber },
+      "Duplicate overstay submission blocked — already registered",
+    );
+    return res.status(409).json({
+      error: "already_registered",
+      message:
+        "This email or contact number is already registered with us. We already have your details on file.",
+      referenceNumber: existing.referenceNumber,
+    });
+  }
 
   const { score, tags, priority } = computeOverstayScore(data);
   const now = new Date();

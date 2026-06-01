@@ -1,0 +1,1 @@
+- [Drizzle push SSL workaround](drizzle-push-ssl.md) — `pnpm db:push` fails locally with an SSL error; apply schema via executeSql in code_execution instead.

@@ -26,6 +26,7 @@ import type {
   CampaignSendCompleted,
   CampaignSendResult,
   CreateCampaignInput,
+  CreateLead409,
   CreateLeadInput,
   Document,
   EmigrationBillingEvent,
@@ -146,7 +147,7 @@ export const createLead = async (
 };
 
 export const getCreateLeadMutationOptions = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<CreateLead409>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -187,13 +188,13 @@ export type CreateLeadMutationResult = NonNullable<
   Awaited<ReturnType<typeof createLead>>
 >;
 export type CreateLeadMutationBody = BodyType<CreateLeadInput>;
-export type CreateLeadMutationError = ErrorType<unknown>;
+export type CreateLeadMutationError = ErrorType<CreateLead409>;
 
 /**
  * @summary Submit a completed immigration assessment
  */
 export const useCreateLead = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<CreateLead409>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<

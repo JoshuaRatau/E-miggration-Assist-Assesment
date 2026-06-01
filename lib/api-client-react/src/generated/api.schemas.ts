@@ -569,6 +569,19 @@ export interface CampaignSendCompleted {
   tally: CampaignSendCompletedTally;
 }
 
+export type CreateLead409Error =
+  (typeof CreateLead409Error)[keyof typeof CreateLead409Error];
+
+export const CreateLead409Error = {
+  already_registered: "already_registered",
+} as const;
+
+export type CreateLead409 = {
+  error: CreateLead409Error;
+  message: string;
+  referenceNumber?: string;
+};
+
 export type ListLeadsParams = {
   /**
    * @minimum 1

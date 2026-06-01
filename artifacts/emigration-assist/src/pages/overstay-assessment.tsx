@@ -223,6 +223,15 @@ export default function OverstayAssessment() {
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
+        if (res.status === 409 || j.error === "already_registered") {
+          const ref = j.referenceNumber as string | undefined;
+          setSubmitError(
+            (j.message ??
+              "This email or contact number is already registered with us.") +
+              (ref ? ` Your reference is ${ref}.` : ""),
+          );
+          return;
+        }
         throw new Error(j.error ?? `Submission failed (${res.status})`);
       }
       const data = (await res.json()) as {

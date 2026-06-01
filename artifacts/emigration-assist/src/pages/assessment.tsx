@@ -362,8 +362,28 @@ export function Assessment() {
           window.scrollTo(0, 0);
         },
         onError: (err: any) => {
+          const data = err?.response?.data;
+          if (
+            err?.response?.status === 409 ||
+            data?.error === "already_registered"
+          ) {
+            const ref = data?.referenceNumber;
+            toast({
+              title: "You're already registered",
+              description: data?.message
+                ? ref
+                  ? `${data.message} Your reference is ${ref}.`
+                  : data.message
+                : "This email or contact number is already registered with us.",
+              variant: "destructive",
+            });
+            if (ref) {
+              setLocation(`/status?reference=${encodeURIComponent(ref)}`);
+            }
+            return;
+          }
           const msg =
-            err?.response?.data?.error ??
+            data?.error ??
             "There was an issue saving your information. Please try again.";
           toast({
             title: "Submission could not be completed",
