@@ -37,7 +37,7 @@ const Body = z.object({
   category: z.enum(CATEGORY),
   message: z.string().trim().min(1).max(4000),
   name: z.string().trim().max(120).optional().nullable(),
-  email: z.string().trim().email().max(200).optional().nullable().or(z.literal("")),
+  email: z.string().trim().email().max(200),
   pagePath: z.string().trim().max(300).optional().nullable(),
   website: z.string().optional(), // honeypot
 });
@@ -64,7 +64,7 @@ router.post("/support", async (req, res) => {
       .json({ error: "Invalid input", details: parsed.error.issues });
   }
   const data = parsed.data;
-  const email = data.email && data.email.length > 0 ? data.email : null;
+  const email = data.email;
 
   try {
     const [inserted] = await db

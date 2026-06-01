@@ -61,6 +61,10 @@ export function SupportWidget() {
     e.preventDefault();
     if (submitting) return;
     setError(null);
+    if (email.trim().length === 0) {
+      setError("Please enter your email so we can reply.");
+      return;
+    }
     if (message.trim().length === 0) {
       setError("Please enter a short message so we can help.");
       return;
@@ -74,7 +78,7 @@ export function SupportWidget() {
           category,
           message: message.trim(),
           name: name.trim() || null,
-          email: email.trim() || null,
+          email: email.trim(),
           pagePath:
             typeof window !== "undefined" ? window.location.pathname : null,
           website,
@@ -222,13 +226,14 @@ export function SupportWidget() {
                       htmlFor="support-email"
                       className="mb-1.5 block text-xs font-medium text-slate-300"
                     >
-                      Email <span className="text-slate-500">(optional)</span>
+                      Email
                     </label>
                     <input
                       id="support-email"
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      required
                       data-testid="input-support-email"
                       className="w-full rounded-lg border border-white/15 bg-[#0d1d36] px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-[hsl(187_38%_52%)] focus:outline-none focus:ring-1 focus:ring-[hsl(187_38%_52%)]"
                       placeholder="you@example.com"
