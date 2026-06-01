@@ -20,6 +20,11 @@ export const supportRequestsTable = pgTable("support_requests", {
   // Where the request was submitted from (pathname) — aids triage.
   pagePath: text("page_path"),
   status: text("status").notNull().default("new"),
+  // Reference assigned by the Eride Support Hub once this request is mirrored
+  // there as a ticket (e.g. "EMA-SUP-2026-000012"). Null until the forward
+  // succeeds; aids reconciliation between the local row and the hub ticket.
+  hubTicketReference: text("hub_ticket_reference"),
+  hubSyncedAt: timestamp("hub_synced_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

@@ -1,8 +1,10 @@
 import { type IRouter, Router } from "express";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 import { db, supportRequestsTable } from "@workspace/db";
 import { createRateBucket } from "../lib/rateLimit";
 import { sendInternalNotificationEmail } from "../lib/email";
+import { forwardSupportTicketToHub } from "../lib/supportHub";
 
 // Inbox that receives support-widget queries. Configurable via env so the
 // destination can change without a code edit; defaults to the team inbox.
@@ -119,6 +121,47 @@ router.post("/support", async (req, res) => {
         req.log.error(
           { err, supportRequestId: inserted.id },
           "Support notification email threw",
+        );
+      });
+
+    // Mirror the request into the Eride Support Hub so it surfaces as a ticket
+    // in the cross-product triage wallboard. Fire-and-forget for the same
+    // reason as the email; on success we persist the hub reference back onto
+    // the local row for reconciliation.
+    void forwardSupportTicketToHub({
+      category: data.category,
+      message: data.message,
+      name: data.name ?? null,
+      email,
+      pagePath: data.pagePath ?? null,
+    })
+      .then(async (result) => {
+        if (!result.ok) {
+          req.log.warn(
+            { supportRequestId: inserted.id, reason: result.reason },
+            "Support request not mirrored to Eride Support Hub",
+          );
+          return;
+        }
+        await db
+          .update(supportRequestsTable)
+          .set({
+            hubTicketReference: result.ticketReference,
+            hubSyncedAt: new Date(),
+          })
+          .where(eq(supportRequestsTable.id, inserted.id));
+        req.log.info(
+          {
+            supportRequestId: inserted.id,
+            hubTicketReference: result.ticketReference,
+          },
+          "Support request mirrored to Eride Support Hub",
+        );
+      })
+      .catch((err) => {
+        req.log.error(
+          { err, supportRequestId: inserted.id },
+          "Support hub forward threw",
         );
       });
 

@@ -1,2 +1,3 @@
 - [Drizzle push SSL workaround](drizzle-push-ssl.md) — `pnpm db:push` fails locally with an SSL error; apply schema via executeSql in code_execution instead.
 - [Email forbidden-phrase screen](email-phrase-screen.md) — the shared email sender silently DROPS client-facing mail containing certain phrases; internal alerts must use the skip-screen path.
+- [Eride Support Hub contract](eride-support-hub-contract.md) — reverse-engineered external ticket-ingest API; use productId UUID not code, and there is NO "other" category ("other" is a reporterType).
