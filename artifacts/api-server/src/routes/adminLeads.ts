@@ -2,6 +2,9 @@ import { Router, type IRouter } from "express";
 import {
   db,
   prelaunchLeadsTable,
+  prelaunchDocumentsTable,
+  leadEngagementsTable,
+  caseMessagesTable,
   analyticsEventsTable,
   leadCasesTable as leadCasesQueryRef,
   leadEventsTable,
@@ -58,6 +61,7 @@ function serializeLead(
     leadScoreComputedAt: row.leadScoreComputedAt
       ? row.leadScoreComputedAt.toISOString()
       : null,
+    archivedAt: row.archivedAt ? row.archivedAt.toISOString() : null,
     hasWhatsapp: typeof row.whatsapp === "string" && row.whatsapp.length > 0,
     // Conversion-funnel hint mirrored from leads.ts so PATCH responses stay
     // consistent with GET — see deriveNextStep().
@@ -384,6 +388,160 @@ router.patch("/admin/leads/:id", async (req, res) => {
     );
 
   return res.json(serializeLead(updated, caseId));
+});
+
+/**
+ * POST /api/admin/leads/:id/archive
+ *
+ * Soft-archive a lead: stamps `archived_at` so the lead drops out of the
+ * default funnel/list while preserving the row and all related data. The
+ * operation is idempotent — re-archiving an already-archived lead succeeds
+ * without writing a second audit row.
+ */
+router.post("/admin/leads/:id/archive", async (req, res) => {
+  if (!(await requireAdminToken(req, res))) return;
+
+  const { id } = req.params;
+  const [before] = await db
+    .select({ archivedAt: prelaunchLeadsTable.archivedAt })
+    .from(prelaunchLeadsTable)
+    .where(eq(prelaunchLeadsTable.id, id))
+    .limit(1);
+  if (!before) return res.status(404).json({ error: "Lead not found" });
+
+  const [updated] = await db
+    .update(prelaunchLeadsTable)
+    .set({ archivedAt: before.archivedAt ?? new Date(), updatedAt: new Date() })
+    .where(eq(prelaunchLeadsTable.id, id))
+    .returning();
+
+  if (before.archivedAt === null) {
+    void writeAudit({
+      req,
+      action: "lead_archived",
+      leadId: id,
+      before: { archivedAt: null },
+      after: { archivedAt: updated.archivedAt?.toISOString() ?? null },
+    });
+  }
+
+  return res.json(serializeLead(updated));
+});
+
+/**
+ * POST /api/admin/leads/:id/unarchive
+ *
+ * Restore a soft-archived lead back into the active funnel by clearing
+ * `archived_at`. Idempotent — restoring an already-active lead is a no-op
+ * success.
+ */
+router.post("/admin/leads/:id/unarchive", async (req, res) => {
+  if (!(await requireAdminToken(req, res))) return;
+
+  const { id } = req.params;
+  const [before] = await db
+    .select({ archivedAt: prelaunchLeadsTable.archivedAt })
+    .from(prelaunchLeadsTable)
+    .where(eq(prelaunchLeadsTable.id, id))
+    .limit(1);
+  if (!before) return res.status(404).json({ error: "Lead not found" });
+
+  const [updated] = await db
+    .update(prelaunchLeadsTable)
+    .set({ archivedAt: null, updatedAt: new Date() })
+    .where(eq(prelaunchLeadsTable.id, id))
+    .returning();
+
+  if (before.archivedAt !== null) {
+    void writeAudit({
+      req,
+      action: "lead_unarchived",
+      leadId: id,
+      before: { archivedAt: before.archivedAt.toISOString() },
+      after: { archivedAt: null },
+    });
+  }
+
+  return res.json(serializeLead(updated));
+});
+
+/**
+ * DELETE /api/admin/leads/:id
+ *
+ * Permanently delete a lead and its dependent rows (documents, engagements,
+ * inbound case messages, score events) in a single transaction. This is
+ * destructive and irreversible — the UI gates it behind an explicit
+ * confirmation and recommends Archive instead.
+ *
+ * Hard invariant: a lead that has been CONVERTED to a case cannot be
+ * hard-deleted (409). Cases are operational records; the operator must
+ * archive the lead instead so the case linkage stays intact. `lead_audit`
+ * rows are intentionally NOT deleted — the append-only forensic trail
+ * outlives the lead (leadId is a soft reference, so orphaned rows are fine).
+ */
+router.delete("/admin/leads/:id", async (req, res) => {
+  if (!(await requireAdminToken(req, res))) return;
+
+  const { id } = req.params;
+
+  // The lead-exists and no-linked-case checks must happen INSIDE the same
+  // transaction as the delete, with a row lock on the lead, otherwise a
+  // concurrent "convert to case" PATCH could insert a `lead_cases` row in
+  // the window between an outside check and the delete — orphaning the case
+  // and violating the hard invariant. `SELECT ... FOR UPDATE` on the lead
+  // serialises against the conversion PATCH (which locks the same row when
+  // it flips status → converted), so the case re-check below is authoritative.
+  const result = await db.transaction(async (tx) => {
+    const [lead] = await tx
+      .select()
+      .from(prelaunchLeadsTable)
+      .where(eq(prelaunchLeadsTable.id, id))
+      .for("update")
+      .limit(1);
+    if (!lead) return { kind: "not_found" as const };
+
+    const [linkedCase] = await tx
+      .select({ id: leadCasesQueryRef.id })
+      .from(leadCasesQueryRef)
+      .where(eq(leadCasesQueryRef.leadId, id))
+      .limit(1);
+    if (linkedCase) return { kind: "conflict" as const };
+
+    await tx
+      .delete(prelaunchDocumentsTable)
+      .where(eq(prelaunchDocumentsTable.leadId, id));
+    await tx
+      .delete(leadEngagementsTable)
+      .where(eq(leadEngagementsTable.leadId, id));
+    await tx.delete(caseMessagesTable).where(eq(caseMessagesTable.leadId, id));
+    await tx.delete(leadEventsTable).where(eq(leadEventsTable.leadId, id));
+    await tx.delete(prelaunchLeadsTable).where(eq(prelaunchLeadsTable.id, id));
+    return { kind: "deleted" as const, lead };
+  });
+
+  if (result.kind === "not_found")
+    return res.status(404).json({ error: "Lead not found" });
+  if (result.kind === "conflict") {
+    return res.status(409).json({
+      error:
+        "This lead has been converted to a case and cannot be permanently " +
+        "deleted. Archive it instead to keep the case record intact.",
+    });
+  }
+
+  void writeAudit({
+    req,
+    action: "lead_deleted",
+    leadId: id,
+    before: {
+      referenceNumber: result.lead.referenceNumber,
+      leadStatus: result.lead.leadStatus,
+      email: result.lead.email,
+    },
+    after: null,
+  });
+
+  return res.json({ ok: true, id });
 });
 
 /**

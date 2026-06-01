@@ -58,6 +58,16 @@ import { LEAD_SOURCES, leadSourceMeta, normalizeLeadSource } from "@/lib/leadSou
 import { deriveLeadScore } from "@/lib/leadScore";
 import { Button } from "@/components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -254,6 +264,16 @@ export function Admin() {
   const [whatsappFilter, setWhatsappFilter] = useState("ANY");
   const [sourceFilter, setSourceFilter] = useState("ANY");
   const [sort, setSort] = useState<"newest" | "priority" | "score">("newest");
+  // Soft-archive view. When true the leads list shows ONLY archived leads
+  // (server filters via ?archived=true); when false it shows the active
+  // funnel. `deleteTarget` drives a single page-level confirm dialog (same
+  // no-per-row-portal pattern as sendUpdateTarget / timelineTarget).
+  const [archivedView, setArchivedView] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    referenceNumber: string | null;
+  } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // B2C / B2B segment selector. Splits the dashboard between leads
   // captured via the public self-assessment ("individual") and leads
@@ -285,8 +305,9 @@ export function Admin() {
     if (priority !== "ALL") p.priority = priority;
     if (status !== "ALL") p.status = status;
     if (leadTypeSegment !== "ALL") p.leadType = leadTypeSegment;
+    if (archivedView) p.archived = "true";
     return p;
-  }, [priority, status, leadTypeSegment]);
+  }, [priority, status, leadTypeSegment, archivedView]);
 
   // We can't use the Orval-generated `useListLeads` here because it does not
   // expose a way to inject the `x-admin-token` header that GET /api/leads now
@@ -568,6 +589,77 @@ export function Admin() {
         variant: "destructive",
       });
       return null;
+    }
+  };
+
+  // Archive / restore a lead. Soft, reversible — no confirm dialog needed.
+  // The row leaves the current view (active⇄archived) on success, so we drop
+  // it optimistically then reconcile the list + headline cards.
+  const setArchive = async (id: string, archive: boolean) => {
+    const token = getAdminToken();
+    if (!token) return;
+    try {
+      const res = await fetch(
+        `${adminLeadUrl(id)}/${archive ? "archive" : "unarchive"}`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "x-admin-token": token },
+        },
+      );
+      if (!res.ok) {
+        if (res.status === 401) clearAdminToken();
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? `Server returned ${res.status}`);
+      }
+      qc.setQueryData<Lead[]>(listQueryKey, (old) =>
+        old?.filter((l) => l.id !== id),
+      );
+      qc.invalidateQueries({ queryKey: listQueryKey });
+      qc.invalidateQueries({ queryKey: ["admin", "segmentStats"] });
+      toast({ title: archive ? "Lead archived" : "Lead restored" });
+    } catch (err) {
+      toast({
+        title: archive ? "Archive failed" : "Restore failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Permanently delete a lead. Destructive + irreversible — gated behind the
+  // page-level AlertDialog (deleteTarget). The server refuses (409) if the
+  // lead has been converted to a case; that message surfaces in the toast.
+  const deleteLead = async (id: string) => {
+    const token = getAdminToken();
+    if (!token) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(adminLeadUrl(id), {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "x-admin-token": token },
+      });
+      if (!res.ok) {
+        if (res.status === 401) clearAdminToken();
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? `Server returned ${res.status}`);
+      }
+      qc.setQueryData<Lead[]>(listQueryKey, (old) =>
+        old?.filter((l) => l.id !== id),
+      );
+      qc.invalidateQueries({ queryKey: listQueryKey });
+      qc.invalidateQueries({ queryKey: ["admin", "segmentStats"] });
+      toast({ title: "Lead deleted" });
+      setDeleteTarget(null);
+    } catch (err) {
+      toast({
+        title: "Delete failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -902,6 +994,41 @@ export function Admin() {
                   }`}
                 >
                   Pipeline
+                </button>
+              </div>
+              <div
+                className="inline-flex rounded-md border bg-background p-0.5"
+                role="tablist"
+                aria-label="Lead archive view"
+                data-testid="leads-archive-toggle"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={!archivedView}
+                  onClick={() => setArchivedView(false)}
+                  data-testid="leads-view-active"
+                  className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                    !archivedView
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Active
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={archivedView}
+                  onClick={() => setArchivedView(true)}
+                  data-testid="leads-view-archived"
+                  className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                    archivedView
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Archived
                 </button>
               </div>
               </div>
@@ -1360,6 +1487,42 @@ export function Admin() {
                               >
                                 Timeline
                               </Button>
+                              {archivedView ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title="Restore this lead to the active funnel"
+                                  onClick={() => void setArchive(lead.id, false)}
+                                  data-testid={`button-restore-${lead.referenceNumber}`}
+                                >
+                                  Restore
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title="Archive this lead — hidden from the funnel but recoverable"
+                                  onClick={() => void setArchive(lead.id, true)}
+                                  data-testid={`button-archive-${lead.referenceNumber}`}
+                                >
+                                  Archive
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive hover:text-destructive"
+                                title="Permanently delete this lead"
+                                onClick={() =>
+                                  setDeleteTarget({
+                                    id: lead.id,
+                                    referenceNumber: lead.referenceNumber ?? null,
+                                  })
+                                }
+                                data-testid={`button-delete-${lead.referenceNumber}`}
+                              >
+                                Delete
+                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -1387,6 +1550,43 @@ export function Admin() {
         leadId={timelineTarget?.id ?? null}
         referenceNumber={timelineTarget?.referenceNumber ?? null}
       />
+
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(o) => {
+          if (!o && !deleting) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent data-testid="dialog-delete-lead">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this lead permanently?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.referenceNumber
+                ? `Lead ${deleteTarget.referenceNumber} and its documents, messages and activity will be permanently removed. This cannot be undone — choose Archive instead if you may need it later.`
+                : "This lead and its documents, messages and activity will be permanently removed. This cannot be undone."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={deleting}
+              data-testid="button-delete-cancel"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => {
+                e.preventDefault();
+                if (deleteTarget) void deleteLead(deleteTarget.id);
+              }}
+              data-testid="button-delete-confirm"
+            >
+              {deleting ? "Deleting…" : "Delete permanently"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminLayout>
   );
 }

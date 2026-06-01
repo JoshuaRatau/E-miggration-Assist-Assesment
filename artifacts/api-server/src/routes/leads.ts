@@ -7,7 +7,7 @@ import {
   leadCasesTable,
 } from "@workspace/db";
 import { CreateLeadBody, ListLeadsQueryParams } from "@workspace/api-zod";
-import { and, desc, eq, gt, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNotNull, isNull, or, sql } from "drizzle-orm";
 import {
   classifyCase,
   deriveAutoPriority,
@@ -152,6 +152,7 @@ function serializeLeadAdminList(
       ? row.nextFollowUpAt.toISOString()
       : null,
     tags: row.tags,
+    archivedAt: row.archivedAt ? row.archivedAt.toISOString() : null,
     hasWhatsapp: typeof row.whatsapp === "string" && row.whatsapp.length > 0,
     createdAt: row.createdAt.toISOString(),
     // Conversion-funnel hint derived from leadStatus.  See `deriveNextStep`.
@@ -577,7 +578,18 @@ router.get("/leads", async (req, res) => {
   // directly here. Anything else is rejected at the parse step above.
   const leadTypeFilter = leadType ?? null;
 
+  // Soft-archive visibility. By default the funnel hides archived leads;
+  // pass `?archived=true` to list ONLY archived leads (the dashboard's
+  // "Archived" view). Read directly off req.query so we don't have to churn
+  // the codegenned ListLeadsQueryParams schema for a UI-only toggle.
+  const showArchived = req.query.archived === "true";
+
   const filters = [];
+  filters.push(
+    showArchived
+      ? isNotNull(prelaunchLeadsTable.archivedAt)
+      : isNull(prelaunchLeadsTable.archivedAt),
+  );
   if (priority) filters.push(eq(prelaunchLeadsTable.leadPriority, priority));
   if (status) filters.push(eq(prelaunchLeadsTable.leadStatus, status));
   if (nationality)

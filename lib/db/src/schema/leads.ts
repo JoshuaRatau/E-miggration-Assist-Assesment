@@ -142,6 +142,12 @@ export const prelaunchLeadsTable = pgTable("prelaunch_leads", {
   serviceFocus: text("service_focus"),
   estimatedClientVolume: integer("estimated_client_volume"),
 
+  // Soft-archive. NULL = active (shown in the funnel by default); a non-null
+  // timestamp removes the lead from the default leads list while preserving
+  // the row + all related data so it can be restored. Hard deletion is a
+  // separate, permanent operation (DELETE /api/admin/leads/:id).
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

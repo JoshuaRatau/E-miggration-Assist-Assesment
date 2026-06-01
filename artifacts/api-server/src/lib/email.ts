@@ -23,7 +23,11 @@ export function findForbiddenPhrase(text: string): string | null {
   return null;
 }
 
-const SPEC_FROM_EMAIL = "no-reply@eridetech.africa";
+// Canonical sender for ALL platform communications (campaigns, test sends,
+// OTPs, confirmations, internal notifications). Override with the EMAIL_FROM
+// env var if the address ever changes. NOTE: the Resend account must have the
+// sending domain (emigration-assist.com) verified or sends will be rejected.
+const SPEC_FROM_EMAIL = "info@emigration-assist.com";
 const SPEC_FROM_NAME = "E-Migration Assist";
 
 let cachedSettings: { apiKey: string; fromEmail: string } | null = null;
@@ -155,7 +159,11 @@ async function loadResendSettings(): Promise<{ apiKey: string; fromEmail: string
   if (!apiKey) {
     throw new Error("Resend not connected");
   }
-  const fromEmail = item?.settings?.from_email || SPEC_FROM_EMAIL;
+  // Prefer the explicit EMAIL_FROM override, then our canonical platform
+  // sender. We intentionally do NOT use the connector's `from_email` here —
+  // it points at a legacy domain and would override the address every
+  // platform communication is required to send from.
+  const fromEmail = process.env.EMAIL_FROM?.trim() || SPEC_FROM_EMAIL;
   logger.info(
     { provider: "resend", source: "replit-connector" },
     "Email provider active: Resend (Replit connector)",
