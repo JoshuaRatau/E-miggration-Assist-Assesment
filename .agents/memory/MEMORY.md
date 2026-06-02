@@ -1,1 +1,2 @@
 - [Resend sender domain](resend-sender-domain.md) — platform email "from" is noreply@emigration-assist.com; verify that domain in Resend or sends bounce (live connector uses a typo'd domain).
+- [WhatsApp OTP template](whatsapp-otp-template.md) — OTP template SID is config-only (`TWILIO_WHATSAPP_TEMPLATE_SID`), not hardcoded; swapping templates is a config change; env-var/secret same-key collision gotcha.

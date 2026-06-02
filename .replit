@@ -42,3 +42,8 @@ externalPort = 3003
 [[ports]]
 localPort = 22187
 externalPort = 80
+
+[userenv]
+
+[userenv.shared]
+TWILIO_WHATSAPP_TEMPLATE_SID = "HX6ba65d89397a629d701450a27c40afed"
