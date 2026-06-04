@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Disclaimer } from "@/components/disclaimer";
 import { BrandHeader } from "@/components/brand-header";
 import { buildPersonalisedNote } from "@/lib/personalisedNote";
+import { trackPixelOncePersistent } from "@/lib/metaPixel";
 
 export function ThankYou() {
   const params = useParams();
@@ -32,6 +33,18 @@ export function ThankYou() {
       queryKey: getGetLeadByReferenceQueryKey(reference),
     },
   });
+
+  // Meta Pixel: the assessment application was submitted & confirmed. Only
+  // fire once the reference resolves to a real lead (avoids counting direct /
+  // invalid thank-you URL hits). Deduped per reference so a refresh / revisit
+  // doesn't double-count. No PII is sent.
+  useEffect(() => {
+    if (!reference || !lead) return;
+    trackPixelOncePersistent(`submitapp_${reference}`, "SubmitApplication", {
+      content_name: "Assessment Application",
+      content_category: "assessment",
+    });
+  }, [reference, lead]);
 
   // The public lookup intentionally strips PII fields, but it does include
   // immigrationSituation (already public) and a few classification hints.

@@ -1,0 +1,44 @@
+**Replit Prompt**
+
+Hello Replit Agent, please implement Meta Pixel standard events for my e-Migration Assist website.
+
+Use this guide as the basis:
+
+Meta Pixel base code must be added globally, and only relevant standard events must be tracked for an immigration / visa assistance platform.
+
+Please implement only these relevant events:
+
+* `PageView` — automatically on all page loads.
+* `ViewContent` — important pages like home, services, visa information, pricing, packages, and assessment pages.
+* `Lead` — when a contact form, enquiry form, pre-assessment form, or free assessment form is submitted successfully.
+* `CompleteRegistration` — after successful account registration.
+* `SubmitApplication` — after successful visa / immigration / assessment application submission.
+* `Schedule` — after successful consultation booking.
+* `Contact` — when users click WhatsApp, email, phone, or submit a contact action.
+* `InitiateCheckout` — when users start payment for a package, service, or consultation.
+* `AddPaymentInfo` — when users add or confirm payment details.
+* `Purchase` — only after successful payment confirmation or thank-you page. Use actual value and currency where available. Use `ZAR` as the default currency.
+* `Subscribe` — only if the system currently has paid subscription or recurring billing functionality.
+
+Do not implement irrelevant events such as:
+
+* `AddToCart`
+* `AddToWishlist`
+* `Donate`
+* `CustomizeProduct`
+* `FindLocation`
+* `Search`, unless the site already has a meaningful search feature.
+
+Important instructions:
+
+* Do not change any existing UI, styling, layout, routes, design, or unrelated functionality.
+* Only add the Meta Pixel base code and event-tracking logic.
+* Use an environment variable for the Pixel ID, for example `VITE_META_PIXEL_ID`, `NEXT_PUBLIC_META_PIXEL_ID`, or the correct variable based on this project stack.
+* Create a reusable helper function for tracking events.
+* Add safety checks so the website does not crash if Meta Pixel is blocked or unavailable.
+* Prevent duplicate event firing.
+* Do not send personal or sensitive data to Meta, including ID numbers, passport numbers, email addresses, phone numbers, names, addresses, case details, or uploaded document information.
+* For payment events, only send safe parameters such as value, currency, content_name, and content_category.
+* After implementation, list the files changed and briefly explain where each event is triggered.
+
+Please inspect the existing project structure first, then implement the changes carefully without modifying unrelated code.

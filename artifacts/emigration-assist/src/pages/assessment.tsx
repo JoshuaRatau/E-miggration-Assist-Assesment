@@ -30,6 +30,7 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { BrandHeader } from "@/components/brand-header";
 import { trackEvent } from "@/lib/analytics";
+import { trackPixel } from "@/lib/metaPixel";
 import { DocumentUploader } from "@/components/DocumentUploader";
 import { CountryCombobox } from "@/components/country-combobox";
 import { WhatsAppInput } from "@/components/whatsapp-input";
@@ -405,11 +406,22 @@ export function Assessment() {
     try {
       if (!finalized) {
         try {
-          await fetch(`${BASE_URL}/api/leads/${createdLead.id}/finalize`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-          });
+          const res = await fetch(
+            `${BASE_URL}/api/leads/${createdLead.id}/finalize`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+            },
+          );
           setFinalized(true);
+          // Meta Pixel: only count a Lead on a genuine success response
+          // (fetch resolves on 4xx/5xx too). No PII — descriptive params only.
+          if (res.ok) {
+            trackPixel("Lead", {
+              content_name: "Assessment Submission",
+              content_category: "assessment",
+            });
+          }
         } catch (err) {
           // Confirmation send is non-blocking — never let a network blip
           // strand the user on the upload screen.

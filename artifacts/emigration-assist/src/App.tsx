@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation, useRoute } from "wouter";
+import { trackPixel } from "@/lib/metaPixel";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -59,6 +60,45 @@ function LegacyCampaignsRedirect() {
 }
 
 const queryClient = new QueryClient();
+
+/** Public content pages that warrant a `ViewContent` event (path → safe params). */
+const CONTENT_PAGES: Record<string, { name: string; category: string }> = {
+  "/": { name: "Home", category: "home" },
+  "/pricing": { name: "Pricing", category: "pricing" },
+  "/prices": { name: "Pricing", category: "pricing" },
+  "/assessment": { name: "Visa Assessment", category: "assessment" },
+  "/overstay-assessment": { name: "Overstay Assessment", category: "assessment" },
+  "/overstay": { name: "Overstay Assessment", category: "assessment" },
+};
+
+// Module-scoped so it survives component unmount/remount (e.g. React
+// StrictMode dev remounts), preventing duplicate PageView/ViewContent for the
+// same path. Tracks only the most-recent path, so re-navigating to a page
+// still fires correctly.
+let lastTrackedPixelPath: string | null = null;
+
+/**
+ * Fires Meta Pixel `PageView` on SPA navigations (the initial load is already
+ * tracked by the base snippet in index.html) and `ViewContent` on key public
+ * content pages.
+ */
+function PixelPageTracker() {
+  const [location] = useLocation();
+  useEffect(() => {
+    if (lastTrackedPixelPath === location) return;
+    const isFirstLoad = lastTrackedPixelPath === null;
+    lastTrackedPixelPath = location;
+    if (!isFirstLoad) trackPixel("PageView");
+    const content = CONTENT_PAGES[location];
+    if (content) {
+      trackPixel("ViewContent", {
+        content_name: content.name,
+        content_category: content.category,
+      });
+    }
+  }, [location]);
+  return null;
+}
 
 function Router() {
   return (
@@ -197,6 +237,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+          <PixelPageTracker />
           <AdminAuthProvider>
             <Router />
           </AdminAuthProvider>

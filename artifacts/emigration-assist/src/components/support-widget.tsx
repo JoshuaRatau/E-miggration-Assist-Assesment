@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { HeadphonesIcon, X, Send, CheckCircle2, Loader2 } from "lucide-react";
 import { apiUrl } from "@/lib/apiBase";
+import { trackPixel } from "@/lib/metaPixel";
 
 type Category =
   | "support_query"
@@ -91,6 +92,12 @@ export function SupportWidget() {
         throw new Error(body?.error ?? "Something went wrong.");
       }
       setDone(true);
+      // Meta Pixel: user reached out via the support/contact widget.
+      // No PII — descriptive params only.
+      trackPixel("Contact", {
+        content_name: "Support Widget",
+        content_category: "support",
+      });
     } catch (err) {
       setError(
         err instanceof Error
