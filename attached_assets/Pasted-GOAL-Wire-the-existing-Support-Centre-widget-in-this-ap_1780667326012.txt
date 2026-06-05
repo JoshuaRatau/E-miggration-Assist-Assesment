@@ -1,0 +1,62 @@
+GOAL
+Wire the existing "Support Centre" widget in this app so that every submitted
+request is logged as a ticket in our external Eride Support dashboard via its
+public API. Do not build a new ticketing system — just POST submissions to the
+external API below. No API keys or secrets are required (it's a public
+submission endpoint with open CORS).
+
+EXTERNAL API
+Base URL: https://eride-support-hub.replit.app/api
+
+1) Get the product id (do this at submit time, no hard-coding):
+   GET {base}/support/products
+   -> returns an array; pick the object whose productCode === "EMA"
+      (productName "E-Migration Assist"). Use its "id".
+
+2) Create the ticket:
+   POST {base}/support/tickets
+   Content-Type: application/json
+   Body (all fields below are required unless noted):
+   {
+     "productId":  "<id from step 1>",
+     "reporterName": "<the Name field, or 'E-Migration Assist user' if blank>",
+     "reporterEmail": "<the Email field>",          // required
+     "reporterType": "applicant",                   // constant
+     "category": "<mapped from the dropdown, see below>",
+     "issueSummary": "<first 140 chars of the message>",
+     "whatWereYouTryingToDo": "Submitted a request via the E-Migration Assist Support Centre.",
+     "whatWentWrong": "<the full message text>",
+     "consent": true,                               // must be true
+     "deviceInfo": { "ua": navigator.userAgent, "language": navigator.language, "hrefPath": location.pathname }  // optional
+   }
+
+   A successful response is HTTP 201 with:
+   { "success": true, "ticketReference": "EMA-SUP-2026-000001", ... }
+   Show the ticketReference back to the user in the success message.
+
+CATEGORY MAPPING (from the "How can we help?" dropdown text -> category enum)
+  contains "bug"/"technical"/"not working"/"error"/"broken" -> "technical_bug"
+  contains "login"/"sign in"/"account"/"password"           -> "account_login_issue"
+  contains "otp"/"verif"                                     -> "otp_verification_issue"
+  contains "upload"/"document"                               -> "document_upload_issue"
+  contains "payment"/"billing"/"refund"                      -> "payment_issue"
+  contains "feature"/"request"/"suggestion"                  -> "feature_request"
+  contains "complaint"                                       -> "complaint"
+  anything else (e.g. "Support query", "Question")          -> "general_support"
+
+VALIDATION RULES TO RESPECT
+- Email is required (the API requires either email or a WhatsApp number; we use email).
+- issueSummary: 1–140 chars. whatWentWrong: min 1 char. whatWereYouTryingToDo: min 5 chars.
+- consent must be exactly true.
+
+IMPLEMENTATION
+- Keep the existing widget UI exactly as it is.
+- On "Send request": validate that email and message are filled, build the
+  payload above, POST it, then show "Thanks! Your request was logged as
+  {ticketReference}. We usually reply by email." On failure, show a friendly
+  error and console.error the details.
+- Handle the network call with async/await and a loading state on the button.
+
+TEST WHEN DONE
+- Submit a test request from the widget.
+- Confirm you get back an HTTP 201 with a ticketReference like EMA-SUP-2026-XXXXXX.

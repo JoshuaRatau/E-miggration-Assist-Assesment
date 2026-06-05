@@ -125,24 +125,21 @@ router.post("/support", async (req, res) => {
       });
 
     // Mirror the request into the Eride Support Hub so it surfaces as a ticket
-    // in the cross-product triage wallboard. Fire-and-forget for the same
-    // reason as the email; on success we persist the hub reference back onto
-    // the local row for reconciliation.
-    void forwardSupportTicketToHub({
-      category: data.category,
-      message: data.message,
-      name: data.name ?? null,
-      email,
-      pagePath: data.pagePath ?? null,
-    })
-      .then(async (result) => {
-        if (!result.ok) {
-          req.log.warn(
-            { supportRequestId: inserted.id, reason: result.reason },
-            "Support request not mirrored to Eride Support Hub",
-          );
-          return;
-        }
+    // in the cross-product triage wallboard. Awaited (not fire-and-forget) so
+    // the hub's canonical reference can be returned to the user and persisted.
+    // A hub failure is non-fatal: the local row + team email already captured
+    // the request, so we still return 201, just without a reference.
+    let ticketReference: string | null = null;
+    try {
+      const result = await forwardSupportTicketToHub({
+        category: data.category,
+        message: data.message,
+        name: data.name ?? null,
+        email,
+        pagePath: data.pagePath ?? null,
+      });
+      if (result.ok) {
+        ticketReference = result.ticketReference;
         await db
           .update(supportRequestsTable)
           .set({
@@ -151,21 +148,23 @@ router.post("/support", async (req, res) => {
           })
           .where(eq(supportRequestsTable.id, inserted.id));
         req.log.info(
-          {
-            supportRequestId: inserted.id,
-            hubTicketReference: result.ticketReference,
-          },
+          { supportRequestId: inserted.id, hubTicketReference: ticketReference },
           "Support request mirrored to Eride Support Hub",
         );
-      })
-      .catch((err) => {
-        req.log.error(
-          { err, supportRequestId: inserted.id },
-          "Support hub forward threw",
+      } else {
+        req.log.warn(
+          { supportRequestId: inserted.id, reason: result.reason },
+          "Support request not mirrored to Eride Support Hub",
         );
-      });
+      }
+    } catch (err) {
+      req.log.error(
+        { err, supportRequestId: inserted.id },
+        "Support hub forward threw",
+      );
+    }
 
-    return res.status(201).json({ ok: true, id: inserted.id });
+    return res.status(201).json({ ok: true, id: inserted.id, ticketReference });
   } catch (err) {
     req.log.error({ err }, "Failed to insert support request");
     return res.status(500).json({ error: "Failed to record request" });

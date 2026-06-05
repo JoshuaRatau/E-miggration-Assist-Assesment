@@ -28,6 +28,7 @@ export function SupportWidget() {
   const [website, setWebsite] = useState(""); // honeypot
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [ticketReference, setTicketReference] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
@@ -56,6 +57,7 @@ export function SupportWidget() {
     setWebsite("");
     setError(null);
     setDone(false);
+    setTicketReference(null);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -85,12 +87,13 @@ export function SupportWidget() {
           website,
         }),
       });
+      const body = (await res.json().catch(() => null)) as
+        | { error?: string; ticketReference?: string | null }
+        | null;
       if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as
-          | { error?: string }
-          | null;
         throw new Error(body?.error ?? "Something went wrong.");
       }
+      setTicketReference(body?.ticketReference ?? null);
       setDone(true);
       // Meta Pixel: user reached out via the support/contact widget.
       // No PII — descriptive params only.
@@ -169,10 +172,20 @@ export function SupportWidget() {
               >
                 <CheckCircle2 className="h-12 w-12 text-[hsl(187_38%_52%)]" />
                 <p className="text-base font-semibold">Thank you!</p>
-                <p className="text-sm text-slate-300">
-                  Your request has been received. Our team will get back to you
-                  as soon as possible.
-                </p>
+                {ticketReference ? (
+                  <p className="text-sm text-slate-300">
+                    Your request was logged as{" "}
+                    <span className="font-semibold text-[hsl(187_38%_52%)]">
+                      {ticketReference}
+                    </span>
+                    . We usually reply by email.
+                  </p>
+                ) : (
+                  <p className="text-sm text-slate-300">
+                    Your request has been received. Our team will get back to you
+                    as soon as possible.
+                  </p>
+                )}
                 <button
                   type="button"
                   onClick={resetForm}
