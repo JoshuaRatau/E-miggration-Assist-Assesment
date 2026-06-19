@@ -10,17 +10,32 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Meta Pixel Code -->
+    <!--
+      Production hosts only. The pixel is intentionally skipped on the Replit
+      dev/preview environment and localhost so internal testing traffic is not
+      counted. It loads normally on the live site (custom domain / Vercel).
+    -->
     <script>
-      !function(f,b,e,v,n,t,s)
-      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-      n.queue=[];t=b.createElement(e);t.async=!0;
-      t.src=v;s=b.getElementsByTagName(e)[0];
-      s.parentNode.insertBefore(t,s)}(window, document,'script',
-      'https://connect.facebook.net/en_US/fbevents.js');
-      fbq('init', '1499568751968348');
-      fbq('track', 'PageView');
+      (function () {
+        var h = window.location.hostname;
+        var isNonProd =
+          h === "localhost" ||
+          h === "127.0.0.1" ||
+          h.endsWith(".replit.dev") ||
+          h.endsWith(".replit.app") ||
+          h.endsWith(".repl.co");
+        if (isNonProd) return;
+        !function(f,b,e,v,n,t,s)
+        {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+        n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+        if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+        n.queue=[];t=b.createElement(e);t.async=!0;
+        t.src=v;s=b.getElementsByTagName(e)[0];
+        s.parentNode.insertBefore(t,s)}(window, document,'script',
+        'https://connect.facebook.net/en_US/fbevents.js');
+        fbq('init', '1499568751968348');
+        fbq('track', 'PageView');
+      })();
     </script>
     <noscript><img height="1" width="1" style="display:none"
       src="https://www.facebook.com/tr?id=1499568751968348&ev=PageView&noscript=1"
