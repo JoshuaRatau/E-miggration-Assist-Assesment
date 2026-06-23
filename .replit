@@ -49,4 +49,5 @@ externalPort = 80
 TWILIO_WHATSAPP_TEMPLATE_SID = "HX6ba65d89397a629d701450a27c40afed"
 
 [userenv.development]
-EMAIL_FROM = "onboarding@resend.dev"
+EMAIL_FROM = "noreply@emigration-assist.com"
+RESEND_API_KEY = "re_4Ez643oH_N4xXRcZX4kC3dGVA5iegW6mC"
