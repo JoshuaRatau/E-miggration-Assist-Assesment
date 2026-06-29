@@ -131,38 +131,6 @@ export function TopbarClock() {
   );
 }
 
-/**
- * Phase 5H — body heading block.
- *
- * Slimmed down: the personalised greeting + clock that previously
- * lived here have been promoted into the AdminLayout topbar (left of
- * the page area for the greeting, right-of-page for the clock). What
- * remains is just the dashboard title + supporting subtitle.
- *
- * Kept as its own component (rather than inlined into admin.tsx) so a
- * future "all admin pages get a personalised heading" change has one
- * obvious extension point.
- */
-export function DashboardGreeting() {
-  return (
-    <div
-      data-testid="dashboard-heading-block"
-      className="min-w-0 space-y-3"
-    >
-      <h1
-        className="text-3xl sm:text-4xl font-display font-bold leading-tight tracking-tight text-white"
-        data-testid="dashboard-heading"
-      >
-        Lead Intelligence Dashboard
-      </h1>
-      <p className="text-white/70 text-base max-w-2xl">
-        Monitor, analyse and manage individual and professional lead
-        activity in real time.
-      </p>
-    </div>
-  );
-}
-
 // Long-form date formatter retained for any future surface (e.g. report
 // PDFs) that wants the verbose "Friday, 8 May 2026" rendering.
 export { dateFmt as longDateFmt };
