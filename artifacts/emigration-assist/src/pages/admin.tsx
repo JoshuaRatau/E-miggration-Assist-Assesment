@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { type Lead } from "@workspace/api-client-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
+import { format, formatDistanceToNowStrict } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { getAdminToken, clearAdminToken } from "@/lib/adminToken";
 import { trackEvent } from "@/lib/analytics";
@@ -38,14 +38,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdminLayout } from "@/components/admin-layout";
-import { LeadMixCharts } from "@/components/lead-mix-charts";
-import { SourcePerformanceCard } from "@/components/source-performance-card";
 import { LeadTimelineDialog } from "@/components/lead-timeline-dialog";
 import { LeadPipelineBoard } from "@/components/lead-pipeline-board";
-import { LeadVelocityChip } from "@/components/lead-velocity-chip";
 import { LeadScoreBadge } from "@/components/lead-score-badge";
 import { SavedViewsBar } from "@/components/saved-views-bar";
-import { PreferredCommunicationCell } from "@/components/preferred-communication-cell";
 import { HelpTooltip } from "@/components/help-tooltip";
 import { enquiryCategoryLabel } from "@/lib/typeOfEnquiry";
 import { derivePreferredCommunication } from "@/lib/preferredCommunication";
@@ -69,6 +65,11 @@ import { SegmentToggle } from "@/components/admin-dashboard/segment-toggle";
 import { CriticalAlertBanner } from "@/components/admin-dashboard/critical-alert-banner";
 import { CommandSearchBar } from "@/components/admin-dashboard/command-search-bar";
 import { LeadDrawer } from "@/components/admin-dashboard/lead-drawer";
+import {
+  FilterChips,
+  type TimeRange,
+  type OwnerFilter,
+} from "@/components/admin-dashboard/filter-chips";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -176,25 +177,6 @@ function priorityRank(p: string | null | undefined): number {
   return p && p in PRIORITY_RANK ? PRIORITY_RANK[p]! : 99;
 }
 
-// Next-step hint per status.  Server also derives this in `deriveNextStep`
-// (see classification.ts) — the client recomputes locally so the column
-// updates instantly on inline status edits without waiting for a refetch.
-const NEXT_STEP_BY_STATUS: Record<string, string> = {
-  new: "Review lead",
-  reviewing: "Contact lead",
-  contacted: "Follow up",
-  engaged: "Qualify lead",
-  qualified: "Send proposal",
-  proposal_sent: "Prepare case conversion",
-  ready_for_case: "Initiate case handover",
-  converted: "Move to case system",
-};
-
-function nextStepFor(status: string | null | undefined): string | null {
-  if (!status) return null;
-  return NEXT_STEP_BY_STATUS[status] ?? null;
-}
-
 // Subtle row highlight for actionable statuses.  "new" leads need triage,
 // "reviewing" leads are mid-triage and need to be contacted next — both
 // represent inbox work the operator should clear.  We use a very light
@@ -205,6 +187,84 @@ function rowHighlightClass(status: string | null | undefined): string {
     return "bg-blue-50/60 hover:bg-blue-100/60";
   }
   return "";
+}
+
+// Segment pill label + colour for the "Segment & Scenario" column.
+function segmentLabel(
+  s: "individual" | "overstay" | "business",
+): string {
+  return s === "business"
+    ? "Business"
+    : s === "overstay"
+      ? "Overstay"
+      : "Individual";
+}
+
+function segmentPillClass(
+  s: "individual" | "overstay" | "business",
+): string {
+  if (s === "overstay") return "bg-amber-100 text-amber-800";
+  if (s === "business") return "bg-indigo-100 text-indigo-800";
+  return "bg-blue-100 text-blue-800";
+}
+
+// SLA pill for the leads table — decodes the lead's follow-up status into the
+// colour states documented by the filter-chip SLA legend. Overdue uses
+// `isOverdueSla` (which already excludes terminal statuses) so the cell and
+// the "Overdue SLA" KPI never disagree.
+function SlaPill({ lead }: { lead: Lead }) {
+  const raw = lead.nextFollowUpAt ? new Date(lead.nextFollowUpAt) : null;
+  if (!raw || Number.isNaN(raw.getTime())) {
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
+        data-testid={`sla-${lead.referenceNumber}`}
+        data-sla="none"
+      >
+        <span className="h-2 w-2 rounded-full bg-muted-foreground/40" />
+        Not set
+      </span>
+    );
+  }
+  const now = new Date();
+  const overdue = isOverdueSla(lead, now);
+  const endOfToday = new Date(now);
+  endOfToday.setHours(23, 59, 59, 999);
+  const isToday = !overdue && raw.getTime() <= endOfToday.getTime();
+  const isPast = raw.getTime() < now.getTime();
+  let dot = "bg-emerald-500";
+  let label = "On track";
+  let state = "on_track";
+  if (overdue) {
+    dot = "bg-amber-500";
+    label = "Overdue";
+    state = "overdue";
+  } else if (isToday) {
+    dot = "bg-blue-500";
+    label = "Due today";
+    state = "due_today";
+  } else if (isPast) {
+    // Past-due but non-overdue means a terminal lead — follow-up no longer
+    // actionable, render neutrally rather than a misleading "On track".
+    dot = "bg-muted-foreground/40";
+    label = "Closed";
+    state = "closed";
+  }
+  return (
+    <span
+      className="inline-flex flex-col gap-0.5 text-xs"
+      data-testid={`sla-${lead.referenceNumber}`}
+      data-sla={state}
+    >
+      <span className="inline-flex items-center gap-1.5 font-medium">
+        <span className={`h-2 w-2 rounded-full ${dot}`} />
+        {label}
+      </span>
+      <span className="text-[10px] text-muted-foreground">
+        {format(raw, "MMM d")}
+      </span>
+    </span>
+  );
 }
 
 // Conversion Engine V1 — outbound contact message template.
@@ -313,6 +373,12 @@ export function Admin() {
     "none" | "hot" | "overdue" | "converted"
   >("none");
   const [search, setSearch] = useState("");
+
+  // Phase 2 filter-chip state (client-side narrowing over fetched leads).
+  const [timeRange, setTimeRange] = useState<TimeRange>("all");
+  const [scoreMin80, setScoreMin80] = useState(false);
+  const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>("all");
+  const [countryFilter, setCountryFilter] = useState<string>("ANY");
 
   // Right-side lead drawer (placeholder content in Phase 1).
   const [drawerLead, setDrawerLead] = useState<Lead | null>(null);
@@ -438,6 +504,33 @@ export function Admin() {
       // badge does, keeping the filter and the cell perfectly aligned.
       out = out.filter((l) => normalizeLeadSource(l.source) === sourceFilter);
     }
+    if (timeRange !== "all") {
+      const now = Date.now();
+      const cutoff =
+        timeRange === "today"
+          ? new Date(new Date().setHours(0, 0, 0, 0)).getTime()
+          : timeRange === "7d"
+            ? now - 7 * 24 * 60 * 60 * 1000
+            : now - 30 * 24 * 60 * 60 * 1000;
+      out = out.filter((l) => {
+        const created = new Date(l.createdAt).getTime();
+        return !Number.isNaN(created) && created >= cutoff;
+      });
+    }
+    if (scoreMin80) {
+      const now = new Date();
+      out = out.filter((l) => deriveLeadScore(l, now).score >= 80);
+    }
+    if (ownerFilter !== "all") {
+      out = out.filter((l) =>
+        ownerFilter === "assigned" ? !!l.assignedTo : !l.assignedTo,
+      );
+    }
+    if (countryFilter !== "ANY") {
+      out = out.filter(
+        (l) => (l.countryOfResidence ?? l.nationality) === countryFilter,
+      );
+    }
     if (quickFilter === "hot") {
       const now = new Date();
       out = out.filter((l) => isHotLead(l, now));
@@ -505,6 +598,10 @@ export function Admin() {
     whatsappFilter,
     sourceFilter,
     sort,
+    timeRange,
+    scoreMin80,
+    ownerFilter,
+    countryFilter,
   ]);
 
   const filtersAreActive =
@@ -513,6 +610,10 @@ export function Admin() {
     whatsappFilter !== "ANY" ||
     sourceFilter !== "ANY" ||
     quickFilter !== "none" ||
+    timeRange !== "all" ||
+    scoreMin80 ||
+    ownerFilter !== "all" ||
+    countryFilter !== "ANY" ||
     search.trim().length > 0;
 
   // List vs Pipeline view toggle. Persisted in localStorage so an
@@ -739,6 +840,21 @@ export function Admin() {
     [metricsLeads],
   );
 
+  // Chip option lists derived from the full population so the dropdowns stay
+  // stable as the operator narrows the table.
+  const countryOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const l of metricsLeads ?? []) {
+      const c = l.countryOfResidence ?? l.nationality;
+      if (c) set.add(c);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [metricsLeads]);
+  const sourceOptions = useMemo(
+    () => LEAD_SOURCES.map((s) => ({ value: s, label: leadSourceMeta(s).label })),
+    [],
+  );
+
   return (
     <AdminLayout title="Dashboard">
       <div className="flex gap-6 pt-4">
@@ -772,10 +888,6 @@ export function Admin() {
             activeQuick={quickFilter}
             onQuick={setQuickFilter}
           />
-
-          <LeadMixCharts />
-
-        <SourcePerformanceCard />
 
         <Card>
           <CardHeader>
@@ -917,6 +1029,21 @@ export function Admin() {
             </div>
           </CardContent>
         </Card>
+
+        <FilterChips
+          timeRange={timeRange}
+          onTimeRange={setTimeRange}
+          scoreMin80={scoreMin80}
+          onScoreMin80={setScoreMin80}
+          owner={ownerFilter}
+          onOwner={setOwnerFilter}
+          source={sourceFilter}
+          onSource={setSourceFilter}
+          sourceOptions={sourceOptions}
+          country={countryFilter}
+          onCountry={setCountryFilter}
+          countryOptions={countryOptions}
+        />
 
         <Card>
           <CardHeader>
@@ -1068,50 +1195,50 @@ export function Admin() {
                     <TableRow>
                       <TableHead>
                         <HelpTooltip
-                          label="Name"
-                          description="The lead's full name (individual) or organisation name (B2B), with reference number and lead source."
+                          label="Lead"
+                          description="The lead's full name (individual) or organisation name (B2B), with reference number."
                         />
                       </TableHead>
                       <TableHead>
                         <HelpTooltip
-                          label="Type of Enquiry"
-                          description="The immigration or operational service category associated with this lead — derived from the assessment answers and lead type."
-                        />
-                      </TableHead>
-                      <TableHead className="text-center">
-                        <HelpTooltip
-                          label="Preferred Communication"
-                          description="The lead's preferred communication channel used for engagement and outreach. Hover the pill to reveal the actual contact detail."
+                          label="Segment & Scenario"
+                          description="Which operator segment the lead rolls up to (Individual, Overstay or Business) and its immigration / service scenario."
                         />
                       </TableHead>
                       <TableHead>
                         <HelpTooltip
-                          label="Status"
-                          description="Where this lead currently sits in the pipeline funnel. Operators may move leads forward or backward; only Converted is gated to Ready For Case."
+                          label="Score & Tier"
+                          description="Composite lead score (0–100) with letter grade, plus the intended commercial tier when captured."
                         />
                       </TableHead>
                       <TableHead>
                         <HelpTooltip
-                          label="Priority"
-                          description="Operator-set urgency: Critical, High, Medium or Low. Drives row highlighting and sort order."
+                          label="SLA"
+                          description="Follow-up status: overdue (amber), due today (blue), on track (green) or not set."
                         />
                       </TableHead>
                       <TableHead>
                         <HelpTooltip
-                          label="Next Step"
-                          description="The next operational action recommended for this lead, derived from its current status."
+                          label="Owner"
+                          description="The admin the lead is assigned to. Unassigned leads have no owner yet."
                         />
                       </TableHead>
                       <TableHead>
                         <HelpTooltip
-                          label="Created"
-                          description="When the lead first entered the system, with a velocity chip showing time since creation."
+                          label="Age"
+                          description="How long since the lead first entered the system, with the captured date."
+                        />
+                      </TableHead>
+                      <TableHead>
+                        <HelpTooltip
+                          label="Source"
+                          description="Where the lead originated (assessment, import, manual entry, campaign…)."
                         />
                       </TableHead>
                       <TableHead className="text-right">
                         <HelpTooltip
                           label="Actions"
-                          description="Quick actions: Contact (opens WhatsApp or email pre-filled), View (lead detail), Send Update (composer), Timeline (audit trail)."
+                          description="Status & priority editors plus quick actions: Contact, View, Send Update, Timeline, Archive and Delete."
                         />
                       </TableHead>
                     </TableRow>
@@ -1122,9 +1249,6 @@ export function Admin() {
                         (lead as { hasWhatsapp?: boolean }).hasWhatsapp ??
                         (typeof lead.whatsapp === "string" &&
                           lead.whatsapp.length > 0);
-                      // Always recompute locally so the column reflects the
-                      // current optimistic status without a server round-trip.
-                      const nextStep = nextStepFor(lead.leadStatus);
                       const contactMessage = buildContactMessage(
                         lead.fullName,
                         lead.referenceNumber,
@@ -1144,10 +1268,6 @@ export function Admin() {
                         >
                           <TableCell>
                             <div className="font-medium flex items-center gap-2 flex-wrap">
-                              <LeadScoreBadge
-                                lead={lead}
-                                testIdSuffix={lead.referenceNumber ?? lead.id}
-                              />
                               <button
                                 type="button"
                                 onClick={() => setDrawerLead(lead)}
@@ -1168,7 +1288,33 @@ export function Admin() {
                                   B2B
                                 </span>
                               )}
-                              {lead.intendedTier && (
+                            </div>
+                            <div className="font-mono text-[10px] text-muted-foreground">
+                              {lead.referenceNumber}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-1 items-start">
+                              <span
+                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${segmentPillClass(
+                                  segmentOfLead(lead),
+                                )}`}
+                                data-testid={`segment-${lead.referenceNumber}`}
+                              >
+                                {segmentLabel(segmentOfLead(lead))}
+                              </span>
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                {enquiryCategoryLabel(lead)}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <LeadScoreBadge
+                                lead={lead}
+                                testIdSuffix={lead.referenceNumber ?? lead.id}
+                              />
+                              {lead.intendedTier ? (
                                 <span
                                   className={`inline-flex items-center rounded border px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wide ${tierBadgeClass(lead.intendedTier)}`}
                                   data-testid={`badge-tier-${lead.referenceNumber}`}
@@ -1176,128 +1322,121 @@ export function Admin() {
                                 >
                                   {tierLabel(lead.intendedTier)}
                                 </span>
+                              ) : (
+                                <span className="text-[10px] text-muted-foreground">
+                                  No tier
+                                </span>
                               )}
                             </div>
-                            <div className="font-mono text-[10px] text-muted-foreground">
-                              {lead.referenceNumber}
-                            </div>
-                            <div className="mt-1">
-                              <LeadSourceBadge
-                                source={lead.source}
-                                campaign={lead.sourceCampaign}
-                              />
-                            </div>
                           </TableCell>
                           <TableCell>
-                            <span className="text-xs whitespace-nowrap">
-                              {enquiryCategoryLabel(lead)}
+                            <SlaPill lead={lead} />
+                          </TableCell>
+                          <TableCell>
+                            <span
+                              className="text-xs"
+                              data-testid={`owner-${lead.referenceNumber}`}
+                            >
+                              {lead.assignedTo ? (
+                                "Assigned"
+                              ) : (
+                                <span className="text-muted-foreground">
+                                  Unassigned
+                                </span>
+                              )}
                             </span>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <PreferredCommunicationCell lead={lead} />
-                          </TableCell>
-                          <TableCell>
-                            <Select
-                              value={lead.leadStatus}
-                              onValueChange={(v) =>
-                                patchLead(lead.id, { status: v })
-                              }
-                            >
-                              <SelectTrigger
-                                className="h-8 w-[10rem] text-xs"
-                                data-testid={`select-status-${lead.referenceNumber}`}
-                              >
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {STATUS_VALUES.map((s) => {
-                                  // Funnel-regression guard: disable any
-                                  // option that would move this lead
-                                  // BACKWARD.  The current status itself
-                                  // stays enabled so the dropdown can
-                                  // render its selected value normally.
-                                  const allowed = canAdvanceStatus(
-                                    lead.leadStatus,
-                                    s,
-                                  );
-                                  return (
-                                    <SelectItem
-                                      key={s}
-                                      value={s}
-                                      disabled={!allowed}
-                                      title={
-                                        allowed
-                                          ? undefined
-                                          : "Forward-only funnel — cannot regress"
-                                      }
-                                      data-testid={`status-option-${lead.referenceNumber}-${s}`}
-                                    >
-                                      {statusLabel(s)}
-                                    </SelectItem>
-                                  );
-                                })}
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell>
-                            <Select
-                              value={lead.leadPriority ?? "medium"}
-                              onValueChange={(v) =>
-                                patchLead(lead.id, { priority: v })
-                              }
-                            >
-                              <SelectTrigger
-                                className={`h-8 w-[7rem] text-xs ${priorityBadgeClass(lead.leadPriority)}`}
-                                data-testid={`select-priority-${lead.referenceNumber}`}
-                              >
-                                <SelectValue>
-                                  {priorityLabel(lead.leadPriority)}
-                                </SelectValue>
-                              </SelectTrigger>
-                              <SelectContent>
-                                {PRIORITY_VALUES.map((p) => (
-                                  <SelectItem
-                                    key={p}
-                                    value={p}
-                                    className="capitalize"
-                                  >
-                                    {p}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell>
-                            {nextStep ? (
-                              <Badge
-                                variant="outline"
-                                className="font-normal text-xs whitespace-nowrap"
-                                data-testid={`next-step-${lead.referenceNumber}`}
-                              >
-                                {nextStep}
-                              </Badge>
-                            ) : (
-                              <span className="text-muted-foreground text-xs">
-                                —
-                              </span>
-                            )}
                           </TableCell>
                           <TableCell className="text-muted-foreground whitespace-nowrap text-xs">
                             <div className="flex flex-col gap-1 items-start">
-                              <span>
-                                {format(
+                              <span data-testid={`age-${lead.referenceNumber}`}>
+                                {formatDistanceToNowStrict(
                                   new Date(lead.createdAt),
-                                  "MMM d, HH:mm",
+                                  { addSuffix: true },
                                 )}
                               </span>
-                              <LeadVelocityChip
-                                lead={lead}
-                                testIdSuffix={lead.referenceNumber ?? lead.id}
-                              />
+                              <span className="text-[10px]">
+                                {format(new Date(lead.createdAt), "MMM d, yyyy")}
+                              </span>
                             </div>
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center justify-end gap-1">
+                            <LeadSourceBadge
+                              source={lead.source}
+                              campaign={lead.sourceCampaign}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col items-end gap-2">
+                              <div className="flex items-center gap-2">
+                                <Select
+                                  value={lead.leadStatus}
+                                  onValueChange={(v) =>
+                                    patchLead(lead.id, { status: v })
+                                  }
+                                >
+                                  <SelectTrigger
+                                    className="h-8 w-[9.5rem] text-xs"
+                                    data-testid={`select-status-${lead.referenceNumber}`}
+                                  >
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {STATUS_VALUES.map((s) => {
+                                      // Funnel-regression guard: disable any
+                                      // option that would move this lead
+                                      // BACKWARD.  The current status itself
+                                      // stays enabled so the dropdown can
+                                      // render its selected value normally.
+                                      const allowed = canAdvanceStatus(
+                                        lead.leadStatus,
+                                        s,
+                                      );
+                                      return (
+                                        <SelectItem
+                                          key={s}
+                                          value={s}
+                                          disabled={!allowed}
+                                          title={
+                                            allowed
+                                              ? undefined
+                                              : "Forward-only funnel — cannot regress"
+                                          }
+                                          data-testid={`status-option-${lead.referenceNumber}-${s}`}
+                                        >
+                                          {statusLabel(s)}
+                                        </SelectItem>
+                                      );
+                                    })}
+                                  </SelectContent>
+                                </Select>
+                                <Select
+                                  value={lead.leadPriority ?? "medium"}
+                                  onValueChange={(v) =>
+                                    patchLead(lead.id, { priority: v })
+                                  }
+                                >
+                                  <SelectTrigger
+                                    className={`h-8 w-[7rem] text-xs ${priorityBadgeClass(lead.leadPriority)}`}
+                                    data-testid={`select-priority-${lead.referenceNumber}`}
+                                  >
+                                    <SelectValue>
+                                      {priorityLabel(lead.leadPriority)}
+                                    </SelectValue>
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {PRIORITY_VALUES.map((p) => (
+                                      <SelectItem
+                                        key={p}
+                                        value={p}
+                                        className="capitalize"
+                                      >
+                                        {p}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="flex items-center justify-end gap-1 flex-wrap">
                               {contact ? (
                                 <Button
                                   variant="default"
@@ -1518,6 +1657,7 @@ export function Admin() {
                               >
                                 Delete
                               </Button>
+                              </div>
                             </div>
                           </TableCell>
                         </TableRow>
