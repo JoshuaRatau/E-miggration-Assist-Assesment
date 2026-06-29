@@ -1,0 +1,108 @@
+Please update the current EMA Lead Intelligence Dashboard to match admin_mockup_v2.pdf, but do this safely in phases. Do not change unrelated working functionality.
+
+First read:
+- admin_mockup_v2.pdf
+- funnel_three_segments_v2.pdf
+
+Current issue:
+The live dashboard still shows the old Lead Intelligence Dashboard layout with the 2/3 segment stats style. It must be rebuilt toward the proposed Admin Portal v2 mockup.
+
+Use the locked brand palette:
+- Royal blue: #2764F0
+- Deep navy: #0B1F4D
+Keep the existing EMA branding consistent.
+
+PHASE 1 — Dashboard shell and layout only
+1. Replace the current dashboard layout with the Admin Portal v2 shell:
+   - Left sidebar
+   - Top search bar / command palette placeholder
+   - KPI strip
+   - Segment toggle
+   - Main leads table
+   - Right-side drawer placeholder
+2. Add 4 segment tabs:
+   - All
+   - Individual
+   - Overstay
+   - Business
+3. Add KPI cards:
+   - Overdue SLA
+   - Hot
+   - New Today
+   - In Progress
+4. Add the critical alert banner UI only:
+   - Show when a critical overstay lead exists and is unassigned.
+   - For now, use existing data where possible and safe fallbacks where fields are missing.
+5. Do not add Telegram, schema migration, or backend alert logic in this phase.
+
+PHASE 2 — Leads table improvements
+Update the leads list into a single v2 table with:
+- Lead name + reference number
+- Segment tag
+- Scenario / severity summary
+- Score ring or score badge
+- Tier pill
+- SLA traffic-light status
+- Owner
+- Age / last update
+- Source
+
+Use existing fields where available. If a field does not exist yet, add frontend-safe fallback values only. Do not break current lead loading.
+
+PHASE 3 — Segment-aware drawer UI
+When clicking a lead row, open a right-side drawer.
+Drawer tabs:
+- Summary
+- Assessment
+- Documents
+- Timeline
+- Notes
+
+The drawer first section must change by segment:
+- Individual: visa snapshot
+- Overstay: urgency triage + outcome + SLA
+- Business: pain answers + firm profile
+
+For missing Business/Overstay fields, render “Not captured yet” instead of failing.
+
+PHASE 4 — Filters and command search
+Add stackable filter chips:
+- Time
+- Score
+- Owner
+- Source
+- Country
+- Segment
+
+Add a Ctrl/Cmd+K search modal placeholder that searches existing loaded leads by:
+- name
+- email
+- reference
+- phone
+- scenario
+- country
+
+PHASE 5 — Backend/data preparation only after UI is stable
+Only after Phases 1–4 are working:
+- Review current lead schema.
+- Propose required migration fields for segment, severity, score, tier, SLA, owner, source, pain answers, Telegram status.
+- Do not run destructive migrations.
+- Add migrations only if needed and backwards-compatible.
+
+Important rules:
+- Do not change authentication.
+- Do not change OTP logic in this dashboard task.
+- Do not touch unrelated funnel pages.
+- Do not remove existing working lead data.
+- Keep all existing API routes working.
+- Use TypeScript-safe code.
+- Run the project checks/build after each phase.
+- Commit each phase separately with a clear short message.
+
+Acceptance criteria for Phase 1:
+- The dashboard visually matches the Admin Portal v2 mockup structure.
+- Segment toggle shows All / Individual / Overstay / Business.
+- KPI strip is visible.
+- Critical alert banner UI exists.
+- Existing leads still load.
+- No unrelated pages are broken.

@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import {
-  useGetStatsSummary,
-  type Lead,
-} from "@workspace/api-client-react";
+import { type Lead } from "@workspace/api-client-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -41,7 +38,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdminLayout } from "@/components/admin-layout";
-import { DashboardGreeting } from "@/components/dashboard-greeting";
 import { LeadMixCharts } from "@/components/lead-mix-charts";
 import { SourcePerformanceCard } from "@/components/source-performance-card";
 import { LeadTimelineDialog } from "@/components/lead-timeline-dialog";
@@ -56,6 +52,23 @@ import { derivePreferredCommunication } from "@/lib/preferredCommunication";
 import { LeadSourceBadge } from "@/components/lead-source-badge";
 import { LEAD_SOURCES, leadSourceMeta, normalizeLeadSource } from "@/lib/leadSource";
 import { deriveLeadScore } from "@/lib/leadScore";
+import {
+  type LeadSegment,
+  serverLeadTypeFor,
+  isOverstayLead,
+  segmentOfLead,
+  isOverdueSla,
+  isHotLead,
+  computeKpis,
+  computeSegmentCounts,
+  criticalOverstayLeads,
+} from "@/lib/leadSegment";
+import { DashboardSidebar } from "@/components/admin-dashboard/dashboard-sidebar";
+import { KpiStrip } from "@/components/admin-dashboard/kpi-strip";
+import { SegmentToggle } from "@/components/admin-dashboard/segment-toggle";
+import { CriticalAlertBanner } from "@/components/admin-dashboard/critical-alert-banner";
+import { CommandSearchBar } from "@/components/admin-dashboard/command-search-bar";
+import { LeadDrawer } from "@/components/admin-dashboard/lead-drawer";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -275,27 +288,34 @@ export function Admin() {
   } | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // B2C / B2B segment selector. Splits the dashboard between leads
-  // captured via the public self-assessment ("individual") and leads
-  // imported / created as professional firms ("professional"). Persisted
-  // in localStorage so an operator who works exclusively on B2B doesn't
-  // re-toggle every session. Defaults to "ALL" so first load shows
-  // everything (back-compat with pre-segmentation behaviour).
-  const [leadTypeSegment, setLeadTypeSegment] = useState<
-    "ALL" | "individual" | "professional"
-  >(() => {
-    if (typeof window === "undefined") return "ALL";
-    const saved = window.localStorage.getItem("ema:admin:leadTypeSegment");
-    return saved === "individual" || saved === "professional" ? saved : "ALL";
+  // 4-way operator segment (Lead Intelligence v2). Persisted so an operator
+  // returns to their last view. "overstay" is a client-side narrowing of
+  // individuals; serverLeadTypeFor maps it back to the server's leadType.
+  const [segment, setSegment] = useState<LeadSegment>(() => {
+    if (typeof window === "undefined") return "all";
+    const saved = window.localStorage.getItem("ema:admin:segment");
+    return saved === "individual" ||
+      saved === "overstay" ||
+      saved === "business"
+      ? (saved as LeadSegment)
+      : "all";
   });
   useEffect(() => {
     if (typeof window !== "undefined") {
-      window.localStorage.setItem(
-        "ema:admin:leadTypeSegment",
-        leadTypeSegment,
-      );
+      window.localStorage.setItem("ema:admin:segment", segment);
     }
-  }, [leadTypeSegment]);
+  }, [segment]);
+  const serverLeadType = serverLeadTypeFor(segment);
+
+  // Sidebar / KPI quick filters + top search bar — all client-side over the
+  // already-fetched leads.
+  const [quickFilter, setQuickFilter] = useState<
+    "none" | "hot" | "overdue" | "converted"
+  >("none");
+  const [search, setSearch] = useState("");
+
+  // Right-side lead drawer (placeholder content in Phase 1).
+  const [drawerLead, setDrawerLead] = useState<Lead | null>(null);
 
   // Server-side filters that we forward to GET /api/leads.  WhatsApp is
   // applied client-side because the server contract has no filter for it
@@ -304,10 +324,10 @@ export function Admin() {
     const p: Record<string, string | number> = { limit: 200 };
     if (priority !== "ALL") p.priority = priority;
     if (status !== "ALL") p.status = status;
-    if (leadTypeSegment !== "ALL") p.leadType = leadTypeSegment;
+    if (serverLeadType !== "ALL") p.leadType = serverLeadType;
     if (archivedView) p.archived = "true";
     return p;
-  }, [priority, status, leadTypeSegment, archivedView]);
+  }, [priority, status, serverLeadType, archivedView]);
 
   // We can't use the Orval-generated `useListLeads` here because it does not
   // expose a way to inject the `x-admin-token` header that GET /api/leads now
@@ -357,24 +377,18 @@ export function Admin() {
     },
   });
 
-  // Dedicated query for the segment-aware stat cards. Crucially this
-  // does NOT carry the user's status/priority/whatsapp filters — those
-  // are intended to narrow the *table* below, not the headline metrics.
-  // (The architect caught this: without the separate query, picking
-  // "Status: New" in the filter row would zero out the Contacted /
-  // Qualified cards.) Limit is generous enough to cover any realistic
-  // single-segment volume in V1; the import wizard caps inputs at 5000.
-  const segmentStatsKey = useMemo(
-    () => ["admin", "segmentStats", leadTypeSegment] as const,
-    [leadTypeSegment],
+  // Dashboard-wide metrics dataset — ALL leads for the current archive view,
+  // free of segment/status/priority filters so the KPI strip, segment counts
+  // and critical-overstay banner stay stable as the operator narrows the
+  // table. Limit matches the import wizard's 5000 cap.
+  const metricsKey = useMemo(
+    () =>
+      ["admin", "metricsLeads", archivedView ? "archived" : "active"] as const,
+    [archivedView],
   );
-  const { data: segmentLeadsRaw } = useQuery<Lead[], Error>({
-    queryKey: segmentStatsKey,
+  const { data: metricsLeads } = useQuery<Lead[], Error>({
+    queryKey: metricsKey,
     queryFn: async () => {
-      // Match the page's existing admin-fetch pattern (x-admin-token
-      // header + 401 → clearAdminToken) so cards behave identically to
-      // the leads list query under both cookie-session and
-      // legacy-token-only auth paths.
       const token = getAdminToken();
       if (!token) throw new Error("Admin token required");
       const url = new URL(
@@ -382,8 +396,7 @@ export function Admin() {
         window.location.origin,
       );
       url.searchParams.set("limit", "5000");
-      if (leadTypeSegment !== "ALL")
-        url.searchParams.set("leadType", leadTypeSegment);
+      if (archivedView) url.searchParams.set("archived", "true");
       const res = await fetch(url.toString(), {
         credentials: "include",
         headers: { "x-admin-token": token },
@@ -403,6 +416,11 @@ export function Admin() {
   const visibleLeads = useMemo(() => {
     if (!leads) return leads;
     let out = leads;
+    // Overstay is a client-side narrowing of the server's individual rows;
+    // Individual excludes overstay so the two tabs stay mutually exclusive.
+    if (segment === "overstay") out = out.filter((l) => isOverstayLead(l));
+    else if (segment === "individual")
+      out = out.filter((l) => !isOverstayLead(l));
     if (whatsappFilter !== "ANY") {
       // Filter by *derived* preferred channel rather than raw whatsapp
       // presence so the filter result and the column cell can never
@@ -419,6 +437,27 @@ export function Admin() {
       // so legacy / off-list rows funnel into "Other" the same way the
       // badge does, keeping the filter and the cell perfectly aligned.
       out = out.filter((l) => normalizeLeadSource(l.source) === sourceFilter);
+    }
+    if (quickFilter === "hot") {
+      const now = new Date();
+      out = out.filter((l) => isHotLead(l, now));
+    } else if (quickFilter === "overdue") {
+      const now = new Date();
+      out = out.filter((l) => isOverdueSla(l, now));
+    } else if (quickFilter === "converted") {
+      out = out.filter((l) => l.leadStatus === "converted");
+    }
+    const q = search.trim().toLowerCase();
+    if (q) {
+      out = out.filter((l) =>
+        [
+          l.fullName,
+          l.organizationName,
+          l.representativeName,
+          l.email,
+          l.referenceNumber,
+        ].some((f) => (f ?? "").toLowerCase().includes(q)),
+      );
     }
     if (sort === "priority") {
       out = [...out].sort((a, b) => {
@@ -458,15 +497,24 @@ export function Admin() {
     }
     // sort === "newest" is already the server's default order.
     return out;
-  }, [leads, whatsappFilter, sourceFilter, sort]);
+  }, [
+    leads,
+    segment,
+    quickFilter,
+    search,
+    whatsappFilter,
+    sourceFilter,
+    sort,
+  ]);
 
   const filtersAreActive =
     priority !== "ALL" ||
     status !== "ALL" ||
     whatsappFilter !== "ANY" ||
-    sourceFilter !== "ANY";
+    sourceFilter !== "ANY" ||
+    quickFilter !== "none" ||
+    search.trim().length > 0;
 
-  const { data: stats } = useGetStatsSummary();
   // List vs Pipeline view toggle. Persisted in localStorage so an
   // operator who prefers the kanban doesn't have to re-toggle every
   // session. Defaults to "list" (the historical view) so first-time
@@ -573,7 +621,7 @@ export function Admin() {
       qc.invalidateQueries({ queryKey: listQueryKey });
       // Also refresh the segment-stats query so the headline cards
       // reflect inline status/priority changes without a page reload.
-      qc.invalidateQueries({ queryKey: ["admin", "segmentStats"] });
+      qc.invalidateQueries({ queryKey: ["admin", "metricsLeads"] });
       return updated;
     } catch (err) {
       // Per-row rollback — only the row we tried to mutate is restored. Any
@@ -616,7 +664,7 @@ export function Admin() {
         old?.filter((l) => l.id !== id),
       );
       qc.invalidateQueries({ queryKey: listQueryKey });
-      qc.invalidateQueries({ queryKey: ["admin", "segmentStats"] });
+      qc.invalidateQueries({ queryKey: ["admin", "metricsLeads"] });
       toast({ title: archive ? "Lead archived" : "Lead restored" });
     } catch (err) {
       toast({
@@ -649,7 +697,7 @@ export function Admin() {
         old?.filter((l) => l.id !== id),
       );
       qc.invalidateQueries({ queryKey: listQueryKey });
-      qc.invalidateQueries({ queryKey: ["admin", "segmentStats"] });
+      qc.invalidateQueries({ queryKey: ["admin", "metricsLeads"] });
       toast({ title: "Lead deleted" });
       setDeleteTarget(null);
     } catch (err) {
@@ -668,139 +716,64 @@ export function Admin() {
   // handler were retired here; the per-row CSV-related UI on the leads
   // table is unaffected.
 
-  // Stat-card counts come from the dedicated `segmentLeadsRaw` query,
-  // which is segment-scoped but free of status/priority filters — so the
-  // headline numbers stay stable when an operator narrows the table.
-  // First-paint fallback: while the segment query is loading we use
-  // /stats/summary for the ALL segment (matches old behaviour) and
-  // suppress to "—" for B2C/B2B (avoid showing global numbers under a
-  // segment-specific label, per the architect's flag).
-  const segmentLoaded = !!segmentLeadsRaw;
-  const segmentTotal: number | string = segmentLoaded
-    ? segmentLeadsRaw!.length
-    : leadTypeSegment === "ALL" && stats
-      ? stats.totalAssessments ?? "—"
-      : "—";
-  const statusCount = (key: string): number | string => {
-    if (segmentLoaded)
-      return segmentLeadsRaw!.filter((l) => l.leadStatus === key).length;
-    if (leadTypeSegment === "ALL" && stats?.byStatus)
-      return stats.byStatus.find((c) => c.category === key)?.count ?? 0;
-    return "—";
-  };
-  const segmentBadge =
-    leadTypeSegment === "professional"
-      ? "B2B only"
-      : leadTypeSegment === "individual"
-        ? "B2C only"
-        : "All segments";
+  // Dashboard metrics derived from the filter-free `metricsLeads` dataset.
+  // KPIs respect the active segment; segment counts + the critical-overstay
+  // banner are computed across the full population so they never change as the
+  // operator narrows the table.
+  const metricsForSegment = useMemo(() => {
+    const base = metricsLeads ?? [];
+    return segment === "all"
+      ? base
+      : base.filter((l) => segmentOfLead(l) === segment);
+  }, [metricsLeads, segment]);
+  const kpis = useMemo(
+    () => computeKpis(metricsForSegment),
+    [metricsForSegment],
+  );
+  const segmentCounts = useMemo(
+    () => computeSegmentCounts(metricsLeads ?? []),
+    [metricsLeads],
+  );
+  const criticalOverstay = useMemo(
+    () => criticalOverstayLeads(metricsLeads ?? []),
+    [metricsLeads],
+  );
 
   return (
     <AdminLayout title="Dashboard">
-      {/* Chrome v3 (Phase 5G): the brand gradient now lives on
-          AdminLayout, no per-page bodyClassName override needed.
-          The retired Export Leads / Import Leads buttons live in the
-          Admin dropdown (Operations → Exports / Imports). */}
-      <div className="space-y-12 pt-4">
-        <DashboardGreeting />
+      <div className="flex gap-6 pt-4">
+        <DashboardSidebar
+          segment={segment}
+          onSegment={setSegment}
+          quickFilter={quickFilter}
+          onQuickFilter={setQuickFilter}
+          counts={segmentCounts}
+          kpis={kpis}
+        />
+        <div className="min-w-0 flex-1 space-y-6">
+          <CommandSearchBar value={search} onChange={setSearch} />
 
-        {/* Global B2C / B2B segment selector — promoted from inside the
-            Leads card so the entire dashboard (stat cards + leads list +
-            pipeline view) all reflect the same segment. The lead-mix
-            charts intentionally stay segment-agnostic since they exist
-            specifically to compare both sides. */}
-        <div
-          className="flex flex-wrap items-center gap-3"
-          data-testid="dashboard-segment-bar"
-        >
-          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Segment
-          </span>
-          <div
-            className="inline-flex rounded-md border bg-background p-0.5"
-            role="tablist"
-            aria-label="Lead type segment"
-            data-testid="leads-segment-toggle"
-          >
-            {(
-              [
-                { v: "ALL", label: "All" },
-                { v: "individual", label: "Individuals (B2C)" },
-                { v: "professional", label: "Professionals (B2B)" },
-              ] as const
-            ).map((opt) => (
-              <button
-                key={opt.v}
-                type="button"
-                role="tab"
-                aria-selected={leadTypeSegment === opt.v}
-                onClick={() => setLeadTypeSegment(opt.v)}
-                data-testid={`leads-segment-${opt.v}`}
-                className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-                  leadTypeSegment === opt.v
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-          <span
-            className="text-xs text-muted-foreground"
-            data-testid="dashboard-segment-badge"
-          >
-            All stats and the leads list below are filtered to: {segmentBadge}.
-          </span>
-        </div>
+          <CriticalAlertBanner
+            leads={criticalOverstay}
+            onAction={(lead) => {
+              setSegment("overstay");
+              setDrawerLead(lead);
+            }}
+          />
 
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>
-                Total Leads · {segmentBadge}
-              </CardDescription>
-              <CardTitle className="text-3xl" data-testid="stat-total-leads">
-                {segmentTotal}
-              </CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>New Leads</CardDescription>
-              <CardTitle
-                className="text-3xl text-blue-600"
-                data-testid="stat-status-new"
-              >
-                {statusCount("new")}
-              </CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Contacted</CardDescription>
-              <CardTitle
-                className="text-3xl text-amber-600"
-                data-testid="stat-status-contacted"
-              >
-                {statusCount("contacted")}
-              </CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Qualified</CardDescription>
-              <CardTitle
-                className="text-3xl text-green-600"
-                data-testid="stat-status-qualified"
-              >
-                {statusCount("qualified")}
-              </CardTitle>
-            </CardHeader>
-          </Card>
-        </div>
+          <SegmentToggle
+            segment={segment}
+            onChange={setSegment}
+            counts={segmentCounts}
+          />
 
-        <LeadMixCharts />
+          <KpiStrip
+            kpis={kpis}
+            activeQuick={quickFilter}
+            onQuick={setQuickFilter}
+          />
+
+          <LeadMixCharts />
 
         <SourcePerformanceCard />
 
@@ -815,7 +788,14 @@ export function Admin() {
             <div className="mb-3">
               <SavedViewsBar
                 currentFilters={{
-                  segment: leadTypeSegment,
+                  // SavedViews persist a 3-way segment; map the v2 4-way down
+                  // (overstay collapses into individual for saved presets).
+                  segment:
+                    segment === "business"
+                      ? "professional"
+                      : segment === "all"
+                        ? "ALL"
+                        : "individual",
                   status,
                   priority,
                   whatsapp: whatsappFilter as "ANY" | "HAS" | "NONE",
@@ -823,7 +803,13 @@ export function Admin() {
                   sort,
                 }}
                 onApply={(f) => {
-                  setLeadTypeSegment(f.segment);
+                  setSegment(
+                    f.segment === "professional"
+                      ? "business"
+                      : f.segment === "individual"
+                        ? "individual"
+                        : "all",
+                  );
                   setStatus(f.status);
                   setPriority(f.priority);
                   setWhatsappFilter(f.whatsapp);
@@ -937,20 +923,24 @@ export function Admin() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <CardTitle>
-                  {leadTypeSegment === "professional"
-                    ? "Professional Leads (B2B)"
-                    : leadTypeSegment === "individual"
-                      ? "Individual Leads (B2C)"
-                      : "Leads"}
+                  {segment === "business"
+                    ? "Business Leads"
+                    : segment === "overstay"
+                      ? "Overstay Leads"
+                      : segment === "individual"
+                        ? "Individual Leads"
+                        : "Leads"}
                 </CardTitle>
                 <CardDescription>
-                  {leadTypeSegment === "professional"
+                  {segment === "business"
                     ? "Firms, consultancies, and partners — created via CSV/XLSX import or manual entry. Self-assessment submissions never land here."
-                    : leadTypeSegment === "individual"
-                      ? "Public assessment submissions only — captured automatically when someone completes the 7/8-step assessment flow."
-                      : view === "list"
-                        ? "Inline editor — change status or priority directly in the table. Updates apply optimistically and persist via an admin-only endpoint."
-                        : "Drag a card between columns to advance it through the funnel. Forward-only — backwards moves are blocked client-side and again server-side (HTTP 409)."}
+                    : segment === "overstay"
+                      ? "Individuals whose situation rolls up to overstay risk — time-sensitive, prioritise contact."
+                      : segment === "individual"
+                        ? "Public assessment submissions only — captured automatically when someone completes the 7/8-step assessment flow."
+                        : view === "list"
+                          ? "Inline editor — change status or priority directly in the table. Updates apply optimistically and persist via an admin-only endpoint."
+                          : "Drag a card between columns to advance it through the funnel. Forward-only — backwards moves are blocked client-side and again server-side (HTTP 409)."}
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -1158,13 +1148,18 @@ export function Admin() {
                                 lead={lead}
                                 testIdSuffix={lead.referenceNumber ?? lead.id}
                               />
-                              <span>
+                              <button
+                                type="button"
+                                onClick={() => setDrawerLead(lead)}
+                                className="text-left hover:text-[#2764F0] hover:underline"
+                                data-testid={`button-open-drawer-${lead.referenceNumber}`}
+                              >
                                 {lead.fullName ??
                                   lead.organizationName ??
                                   lead.representativeName ??
                                   lead.email ??
                                   lead.referenceNumber}
-                              </span>
+                              </button>
                               {lead.leadType === "professional" && (
                                 <span
                                   className="inline-flex items-center rounded border border-blue-300 bg-blue-50 px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wide text-blue-700"
@@ -1534,7 +1529,10 @@ export function Admin() {
             )}
           </CardContent>
         </Card>
+        </div>
       </div>
+
+      <LeadDrawer lead={drawerLead} onClose={() => setDrawerLead(null)} />
 
       <SendUpdateDialog
         target={sendUpdateTarget}
