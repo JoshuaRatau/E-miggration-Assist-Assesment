@@ -672,7 +672,7 @@ export function Admin() {
   // Lead object is truthy.
   const patchLead = async (
     id: string,
-    patch: { status?: string; priority?: string },
+    patch: { status?: string; priority?: string; notes?: string | null },
   ): Promise<Lead | null> => {
     const token = getAdminToken();
     if (!token) return null;
@@ -689,6 +689,9 @@ export function Admin() {
               ...(patch.status !== undefined ? { leadStatus: patch.status } : {}),
               ...(patch.priority !== undefined
                 ? { leadPriority: patch.priority }
+                : {}),
+              ...(patch.notes !== undefined
+                ? { adminNotes: patch.notes }
                 : {}),
             }
           : l,
@@ -1741,12 +1744,6 @@ export function Admin() {
               typeof lead.whatsapp === "string" && lead.whatsapp.length > 0
                 ? lead.whatsapp
                 : null,
-          })
-        }
-        onTimeline={(lead) =>
-          setTimelineTarget({
-            id: lead.id,
-            referenceNumber: lead.referenceNumber ?? null,
           })
         }
         onArchive={(lead, archive) => {

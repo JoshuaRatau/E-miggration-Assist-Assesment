@@ -2,3 +2,4 @@
 - [WhatsApp OTP template](whatsapp-otp-template.md) — OTP template SID is config-only (`TWILIO_WHATSAPP_TEMPLATE_SID`), not hardcoded; swapping templates is a config change; env-var/secret same-key collision gotcha.
 - [Meta Pixel events](meta-pixel-events.md) — only PageView/ViewContent/Lead/SubmitApplication/Contact fire (payment/subscribe/schedule/registration excluded); base ID hardcoded in index.html; no PII sent.
 - [Admin dashboard segment model](dashboard-segment-model.md) — 4-way segment derived client-side (overstay is a sub-filter of individuals; server only knows leadType); Saved Views collapse overstay→individual.
+- [adminNotes not in slim list](admin-notes-slim-list.md) — GET /api/leads omits adminNotes; inline/drawer notes editors must fetch full lead via /api/leads/by-id/:id (key ["admin","lead",id]).
