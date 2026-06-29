@@ -66,6 +66,11 @@ export default defineConfig({
     strictPort: true,
     host: "0.0.0.0",
     allowedHosts: true,
+    // Dev-only: stop the Replit preview proxy/browser from serving a stale
+    // bundle after edits. This `server` block never runs in the Vercel build.
+    headers: {
+      "Cache-Control": "no-store, no-cache, must-revalidate",
+    },
     fs: {
       strict: true,
     },
