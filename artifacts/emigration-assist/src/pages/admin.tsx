@@ -776,6 +776,55 @@ export function Admin() {
     }
   };
 
+  // Shared lead quick-action handlers. The leads-table rows keep their own
+  // inline handlers (untouched); these mirror that exact behaviour so the
+  // Lead Drawer can apply identical contact / convert flows without any new
+  // backend calls.
+  const handleContactLead = (lead: Lead) => {
+    const contactMessage = buildContactMessage(
+      lead.fullName,
+      lead.referenceNumber,
+    );
+    const contact = contactHref(
+      lead.email,
+      typeof lead.whatsapp === "string" ? lead.whatsapp : null,
+      contactMessage,
+    );
+    if (!contact) return;
+    window.open(contact.href, "_blank", "noopener,noreferrer");
+    trackEvent("lead_contact_clicked", {
+      referenceNumber: lead.referenceNumber,
+      payload: { leadId: lead.id, channel: contact.channel },
+    });
+    if (isStrictlyUpstreamOf(lead.leadStatus, "contacted")) {
+      void patchLead(lead.id, { status: "contacted" }).then((ok) => {
+        if (ok) toast({ title: "Marked as contacted" });
+      });
+    } else {
+      toast({
+        title: "Status unchanged",
+        description:
+          "Lead is already at or past “contacted” — no funnel regression applied.",
+      });
+    }
+  };
+
+  const handleConvertLead = (lead: Lead) => {
+    void patchLead(lead.id, { status: "converted" }).then((updated) => {
+      if (!updated) return;
+      if (updated.caseId) {
+        toast({ title: "Case created" });
+        setLocation(`/admin/case/${updated.caseId}`);
+      } else {
+        toast({
+          title: "Converted",
+          description: "Lead marked converted but no case id was returned.",
+          variant: "destructive",
+        });
+      }
+    });
+  };
+
   // Permanently delete a lead. Destructive + irreversible — gated behind the
   // page-level AlertDialog (deleteTarget). The server refuses (409) if the
   // lead has been converted to a case; that message surfaces in the toast.
@@ -1572,15 +1621,15 @@ export function Admin() {
                                     </Button>
                                   </Link>
                                 )}
-                              <Link href={`/admin/lead/${lead.id}`}>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  data-testid={`link-lead-${lead.referenceNumber}`}
-                                >
-                                  View
-                                </Button>
-                              </Link>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                data-testid={`link-lead-${lead.referenceNumber}`}
+                                title="Open the lead drawer for a quick view"
+                                onClick={() => setDrawerLead(lead)}
+                              >
+                                View
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1672,7 +1721,45 @@ export function Admin() {
         </div>
       </div>
 
-      <LeadDrawer lead={drawerLead} onClose={() => setDrawerLead(null)} />
+      <LeadDrawer
+        lead={
+          drawerLead
+            ? (leads?.find((l) => l.id === drawerLead.id) ?? drawerLead)
+            : null
+        }
+        onClose={() => setDrawerLead(null)}
+        archivedView={archivedView}
+        onPatch={(id, patch) => patchLead(id, patch)}
+        onContact={handleContactLead}
+        onConvert={handleConvertLead}
+        onSendUpdate={(lead) =>
+          setSendUpdateTarget({
+            id: lead.id,
+            referenceNumber: lead.referenceNumber,
+            email: lead.email ?? null,
+            whatsapp:
+              typeof lead.whatsapp === "string" && lead.whatsapp.length > 0
+                ? lead.whatsapp
+                : null,
+          })
+        }
+        onTimeline={(lead) =>
+          setTimelineTarget({
+            id: lead.id,
+            referenceNumber: lead.referenceNumber ?? null,
+          })
+        }
+        onArchive={(lead, archive) => {
+          void setArchive(lead.id, archive);
+          setDrawerLead(null);
+        }}
+        onDelete={(lead) =>
+          setDeleteTarget({
+            id: lead.id,
+            referenceNumber: lead.referenceNumber ?? null,
+          })
+        }
+      />
 
       <SendUpdateDialog
         target={sendUpdateTarget}

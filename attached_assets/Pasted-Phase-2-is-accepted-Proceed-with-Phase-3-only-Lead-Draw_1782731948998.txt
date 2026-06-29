@@ -1,0 +1,82 @@
+Phase 2 is accepted.
+
+Proceed with Phase 3 only: Lead Drawer build-out.
+
+Context:
+
+* Phase 1 is complete and accepted.
+* Phase 2 is complete and accepted.
+* The admin dashboard table now matches the operational leads inbox structure.
+* Do not change the completed table work unless required for drawer integration.
+* Do not remove or alter existing actions.
+* Do not touch anomaly logic, document-pack logic, P5/P6/P7/P8 work, or any unrelated workflows.
+
+Goal:
+Build out the lead drawer experience from the admin leads table.
+
+Requirements:
+
+1. Clicking a lead row or the View action should open a right-side drawer.
+2. Drawer should show the selected lead details using existing lead data only.
+3. Preserve current actions:
+
+   * contact
+   * convert/open case
+   * status edit
+   * priority edit
+   * send update
+   * timeline
+   * archive/restore
+   * delete
+4. Drawer should include clear sections:
+
+   * Lead summary
+   * Contact details
+   * Segment and scenario
+   * Score and tier
+   * SLA / follow-up status
+   * Source / country / submitted age
+   * Notes or timeline area if already supported
+5. If some data is missing, show a clean empty state such as “Not provided” rather than fake data.
+6. Do not create new backend APIs unless the existing data is genuinely insufficient.
+7. Keep styling consistent with the new Phase 2 table and existing admin design.
+8. Drawer must close via:
+
+   * close icon
+   * escape key
+   * backdrop click
+9. Keep mobile responsive behaviour.
+10. Add regression coverage/selftest for:
+
+* drawer opens from row click
+* drawer opens from View action
+* drawer shows correct selected lead
+* missing fields render safely
+* close behaviour works
+* existing table actions still render
+
+11. Run:
+
+* npm run check
+* npm run build
+* relevant admin/dashboard selftest or e2e
+* architect review
+
+Acceptance criteria:
+
+* Lead drawer opens correctly.
+* Drawer content matches selected lead.
+* No fake data.
+* Existing table actions still work.
+* Phase 2 table remains intact.
+* No unrelated changes.
+
+Stop after Phase 3 and report:
+
+* files changed
+* drawer behaviour
+* data fields shown
+* tests run
+* architect review result
+* any deviations
+  STOP HERE.
