@@ -208,7 +208,7 @@ export function Home() {
 
   return (
     <div
-      className="min-h-screen bg-gradient-to-b from-slate-300 via-slate-400 to-slate-500 text-foreground flex flex-col items-center px-4 sm:px-6 lg:px-12 py-6 lg:py-10"
+      className="min-h-screen bg-gradient-to-b from-slate-400 via-slate-500 to-slate-600 text-foreground flex flex-col items-center px-4 sm:px-6 lg:px-12 py-6 lg:py-10"
       style={{
         "--background": "214 32% 82%",
         "--foreground": "215 40% 17%",
