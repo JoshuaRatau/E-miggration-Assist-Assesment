@@ -1150,9 +1150,9 @@ export default function BusinessAssessment() {
                   variant="outline"
                   className="rounded-xl border-slate-200 bg-white/60 backdrop-blur-md hover-elevate"
                 >
-                  <Link href="/">
+                  <a href="/">
                     <HomeIcon className="mr-2 h-4 w-4" /> Back to home
-                  </Link>
+                  </a>
                 </Button>
               </div>
             </div>
