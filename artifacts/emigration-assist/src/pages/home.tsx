@@ -62,9 +62,9 @@ function useCountUp(target: number) {
 function StatTile({ value, label }: { value: number; label: string }) {
   const display = useCountUp(value);
   return (
-    <div className="flex flex-col items-center bg-accent/40 hover:bg-accent/60 transition-colors px-6 py-4 rounded-xl border border-border/40 min-w-[140px]">
-      <span className="text-3xl font-bold text-primary tabular-nums">{display}</span>
-      <span className="text-sm text-muted-foreground mt-1 text-center">{label}</span>
+    <div className="flex flex-col items-center bg-white/5 hover:bg-white/10 transition-colors px-6 py-4 rounded-xl border border-white/10 min-w-[140px]">
+      <span className="text-3xl font-bold text-cyan-300 tabular-nums">{display}</span>
+      <span className="text-sm text-slate-200 mt-1 text-center">{label}</span>
     </div>
   );
 }
@@ -208,7 +208,7 @@ export function Home() {
 
   return (
     <div
-      className="min-h-screen bg-gradient-to-b from-slate-400 via-slate-500 to-slate-600 text-foreground flex flex-col items-center px-4 sm:px-6 lg:px-12 py-6 lg:py-10"
+      className="min-h-screen bg-gradient-to-b from-slate-500 via-slate-600 to-slate-700 text-foreground flex flex-col items-center px-4 sm:px-6 lg:px-12 py-6 lg:py-10"
       style={{
         "--background": "214 32% 82%",
         "--foreground": "215 40% 17%",
@@ -256,16 +256,16 @@ export function Home() {
               page width. */}
           <div className="relative text-center max-w-3xl mx-auto space-y-5">
             <h1
-              className="text-[2rem] leading-[1.1] sm:text-5xl lg:text-[3.2rem] xl:text-[3.5rem] font-display font-bold tracking-tight text-foreground"
+              className="text-[2rem] leading-[1.1] sm:text-5xl lg:text-[3.2rem] xl:text-[3.5rem] font-display font-bold tracking-tight text-slate-50"
               data-testid="hero-headline"
             >
               South Africa's next-generation{" "}
-              <span className="bg-gradient-to-r from-primary to-cyan-600 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-primary to-cyan-400 bg-clip-text text-transparent">
                 immigration platform
               </span>{" "}
               is arriving.
             </h1>
-            <p className="text-base sm:text-lg lg:text-xl text-muted-foreground leading-relaxed">
+            <p className="text-base sm:text-lg lg:text-xl text-slate-200 leading-relaxed">
               A new immigration technology ecosystem — structured workflows,
               document intelligence, and AI-assisted guidance for travellers,
               firms, and concierge clients.
@@ -319,7 +319,7 @@ export function Home() {
                 I already have a reference
               </Button>
             </Link>
-            <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-slate-300">
               <span className="inline-flex items-center gap-1.5">
                 <Lock className="h-3.5 w-3.5" />
                 Confidential
@@ -342,13 +342,13 @@ export function Home() {
         <Reveal>
           <section className="space-y-10">
             <div className="text-center max-w-3xl mx-auto space-y-3">
-              <p className="text-xs uppercase tracking-[0.22em] text-primary/80">
+              <p className="text-xs uppercase tracking-[0.22em] text-cyan-300">
                 What is E-Migration Assist?
               </p>
-              <h2 className="text-3xl sm:text-4xl font-display font-semibold tracking-tight">
+              <h2 className="text-3xl sm:text-4xl font-display font-semibold tracking-tight text-slate-50">
                 A modern technology ecosystem for South African immigration.
               </h2>
-              <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
+              <p className="text-base sm:text-lg text-slate-200 leading-relaxed">
                 Not just a form. E-Migration Assist combines a rules engine,
                 document intelligence, and AI-assisted workflows to bring
                 operational clarity to a process that has historically been
@@ -390,13 +390,13 @@ export function Home() {
         <Reveal>
           <section className="space-y-10">
             <div className="text-center max-w-3xl mx-auto space-y-3">
-              <p className="text-xs uppercase tracking-[0.22em] text-primary/80">
+              <p className="text-xs uppercase tracking-[0.22em] text-cyan-300">
                 How it works
               </p>
-              <h2 className="text-3xl sm:text-4xl font-display font-semibold tracking-tight">
+              <h2 className="text-3xl sm:text-4xl font-display font-semibold tracking-tight text-slate-50">
                 From early-access assessment to full platform onboarding.
               </h2>
-              <p className="text-base text-muted-foreground">
+              <p className="text-base text-slate-200">
                 Five clear steps — the first three happen now, the last two
                 unlock at launch.
               </p>
@@ -421,10 +421,10 @@ export function Home() {
                         </span>
                       </div>
                       <div className="flex-1 lg:flex-none space-y-1.5">
-                        <h3 className="font-semibold text-foreground leading-tight">
+                        <h3 className="font-semibold text-slate-50 leading-tight">
                           {step.title}
                         </h3>
-                        <p className="text-sm text-muted-foreground leading-relaxed">
+                        <p className="text-sm text-slate-200 leading-relaxed">
                           {step.body}
                         </p>
                       </div>
@@ -455,10 +455,10 @@ export function Home() {
                     <Star className="h-3 w-3" />
                     Launching free for everyone
                   </Badge>
-                  <h2 className="text-2xl sm:text-3xl font-display font-semibold tracking-tight">
+                  <h2 className="text-2xl sm:text-3xl font-display font-semibold tracking-tight text-slate-50">
                     A free plan to help you start your immigration journey.
                   </h2>
-                  <p className="text-base text-muted-foreground leading-relaxed">
+                  <p className="text-base text-slate-200 leading-relaxed">
                     When the platform launches publicly, every user gets a free
                     starter tier — enough to organise your profile, track your
                     progress, and understand your next steps without paying a
@@ -478,7 +478,7 @@ export function Home() {
                   {FREE_PLAN_BENEFITS.map((b) => (
                     <li
                       key={b}
-                      className="flex items-start gap-2.5 text-sm text-foreground/90 bg-card/50 border border-border/40 rounded-lg px-3 py-2.5"
+                      className="flex items-start gap-2.5 text-sm text-foreground/90 bg-card/80 border border-border/40 rounded-lg px-3 py-2.5"
                     >
                       <Check className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
                       <span>{b}</span>
@@ -540,10 +540,10 @@ export function Home() {
         <Reveal>
           <section className="text-center space-y-6">
             <div className="space-y-1.5">
-              <p className="text-xs uppercase tracking-[0.22em] text-primary/80">
+              <p className="text-xs uppercase tracking-[0.22em] text-cyan-300">
                 Live signal
               </p>
-              <h3 className="text-2xl font-display font-semibold tracking-tight">
+              <h3 className="text-2xl font-display font-semibold tracking-tight text-slate-50">
                 Pre-launch activity
               </h3>
             </div>
@@ -574,7 +574,7 @@ export function Home() {
             {TRUST_POINTS.map((t) => (
               <div
                 key={t.title}
-                className="rounded-2xl border border-border/50 bg-card/40 p-5 space-y-3"
+                className="rounded-2xl border border-border/50 bg-card/60 p-5 space-y-3"
               >
                 <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 text-primary">
                   <t.icon className="h-4 w-4" />
@@ -595,7 +595,7 @@ export function Home() {
           <Disclaimer />
         </div>
 
-        <footer className="text-center pt-4 pb-2 text-sm text-muted-foreground space-y-3">
+        <footer className="text-center pt-4 pb-2 text-sm text-slate-300 space-y-3">
           <p>
             Strictly confidential. Information is not shared with government
             agencies without explicit consent.
