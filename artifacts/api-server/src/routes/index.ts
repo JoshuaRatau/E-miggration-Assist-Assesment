@@ -24,6 +24,7 @@ import whatsappWebhookRouter from "./whatsappWebhook";
 import billingWebhookRouter from "./billingWebhook";
 import otpRouter from "./otp";
 import { overstayIntakeRouter } from "./overstayIntake";
+import { businessIntakeRouter } from "./businessIntake";
 import { supportRouter } from "./support";
 
 const router: IRouter = Router();
@@ -53,6 +54,7 @@ router.use(whatsappWebhookRouter);
 router.use(billingWebhookRouter);
 router.use(otpRouter);
 router.use(overstayIntakeRouter);
+router.use(businessIntakeRouter);
 router.use(supportRouter);
 
 export default router;

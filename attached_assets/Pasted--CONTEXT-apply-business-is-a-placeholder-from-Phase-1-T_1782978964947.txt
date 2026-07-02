@@ -1,0 +1,74 @@
+ 
+CONTEXT
+- /apply/business is a placeholder from Phase 1.
+- Tebatso reviewed the v1 design and asked for:
+    C3: "beyond South Africa" in the multi-juris question.
+    C4: drop the Website field.
+    C5: "for technology and/or systems purchases" on the decision-maker Q.
+    C6/C7/C8: drop Tools, Compliance, Revenue from the public funnel.
+  The 5 pain questions are the centre of gravity.
+ 
+TASK — Phase 4: Business 6-step flow
+1. Schema:
+   - ALTER TABLE leads ADD COLUMN pain_answers JSONB NULL;
+   - ALTER TABLE leads ADD COLUMN pain_tags    JSONB NULL;  -- array of strings
+   - ALTER TABLE leads ADD COLUMN firm         JSONB NULL;  -- {name, country_hq, headcount_band, years_operating}
+   - ALTER TABLE leads ADD COLUMN tier         TEXT  NULL CHECK (tier IN ('strategic','hot','warm','cool'));
+   - Generate the Prisma migration.
+ 
+2. Build the 6-step tree under /components/apply/business/:
+ 
+   Step1FirmProfile.tsx
+     - firm_name           (text, required)
+     - country_hq          (typeahead, required)
+     - headcount_band      (radio: '1-5' | '6-20' | '21-50' | '51+')
+     - years_operating     (number, required)
+     - NO website field.
+ 
+   Step2Coverage.tsx
+     - practice_areas      (multi-select: work_visas, permanent_residence,
+                            appeals, condonation, corporate_mobility, other)
+     - multi_juris_beyond_za (Yes/No)  — label MUST read:
+         "Do you operate in multiple jurisdictions beyond South Africa?"
+     - jurisdictions       (multi-select, only when above = Yes)
+ 
+   Step3DecisionMaker.tsx
+     - decision_maker_tech (Yes/No)  — label MUST read:
+         "Are you the decision-maker for technology and/or systems purchases?"
+     - role_of_decision_maker (text, only when above = No)
+ 
+   Step4PainQuestions.tsx
+     - 5 free-text fields with verbatim labels (use the exact strings from
+       funnel_three_segments_v2 §5.2). Each field has a multi-select tag
+       picker: ['backlog','documents','compliance','team','client-experience','ai-readiness']
+     - Show character count, suggest 50–400 chars each.
+ 
+   Step5Volume.tsx
+     - cases_12mo_band     (radio: '<25' | '25-99' | '100-249' | '250+')
+     - pct_cross_border    (slider 0–100)
+     - typical_duration_band (radio: '<1 month' | '1-3 months' | '3-6 months' | '>6 months')
+ 
+   Step6Contact.tsx
+     - Re-use the same component as Individual Step 4 from P2.
+ 
+3. Wire /pages/apply/business.tsx to render the 6 steps in order.
+ 
+4. On submit, classify:
+     function classifyBusiness(lead) {
+       const big = ['21-50','51+'].includes(lead.firm.headcount_band);
+       if (big && lead.multi_juris_beyond_za)          return 'strategic';
+       if ((lead.pain_tags ?? []).length >= 3)         return 'hot';
+       return 'warm';
+     }
+ 
+5. Behind feature flag FF_V2_BUSINESS (off by default).
+ 
+6. Tests:
+     - Step1 has no website input (assert absent in rendered DOM).
+     - Step2 multi-juris label matches the exact required string.
+     - Step3 decision-maker label matches the exact required string.
+     - Step4: all 5 pain questions render with verbatim labels.
+     - classifyBusiness: 3 boundary tests for strategic / hot / warm.
+     - POST writes firm, pain_answers, pain_tags, tier correctly.
+ 
+7. Open a PR titled "P4 — Business 6-step flow (C3/C4/C5/C6/C7/C8)".
