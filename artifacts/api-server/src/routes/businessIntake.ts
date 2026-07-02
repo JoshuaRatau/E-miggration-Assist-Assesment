@@ -5,6 +5,7 @@ import { db, prelaunchLeadsTable } from "@workspace/db";
 import { createRateBucket } from "../lib/rateLimit";
 import { normalizeWhatsapp } from "../lib/whatsapp";
 import { recordLeadEvent } from "../lib/recordLeadEvent";
+import { buildConfirmationDispatcher } from "../lib/confirmation";
 
 const router: IRouter = Router();
 
@@ -398,6 +399,12 @@ router.post("/business-intake", async (req, res) => {
     type: "assessment_completed",
     source: "system",
   });
+
+  // Send the submission confirmation, same as the traveller flow: the shared
+  // dispatcher honours the lead's preferred channel (email or WhatsApp),
+  // records a lead_engagements row, and is fire-and-forget. Cooldown 0 — this
+  // is a fresh insert, and duplicates are already blocked with 409 above.
+  buildConfirmationDispatcher({ log: req.log })(inserted, 0);
 
   return res.status(201).json({
     leadId: inserted.id,
