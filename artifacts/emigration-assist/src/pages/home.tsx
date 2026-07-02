@@ -207,7 +207,26 @@ export function Home() {
   const { data: stats, isLoading } = useGetStatsSummary();
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center px-4 sm:px-6 lg:px-12 py-6 lg:py-10">
+    <div
+      className="min-h-screen bg-gradient-to-b from-slate-300 via-slate-400 to-slate-500 text-foreground flex flex-col items-center px-4 sm:px-6 lg:px-12 py-6 lg:py-10"
+      style={{
+        "--background": "214 32% 82%",
+        "--foreground": "215 40% 17%",
+        "--card": "210 40% 99%",
+        "--card-foreground": "215 40% 17%",
+        "--card-border": "214 25% 80%",
+        "--border": "214 25% 78%",
+        "--popover": "210 40% 99%",
+        "--popover-foreground": "215 40% 17%",
+        "--muted": "214 28% 88%",
+        "--muted-foreground": "215 22% 30%",
+        "--secondary": "214 28% 88%",
+        "--secondary-foreground": "215 40% 17%",
+        "--accent": "214 32% 90%",
+        "--accent-foreground": "215 40% 17%",
+        "--input": "214 28% 82%",
+      } as any}
+    >
       <div className="w-full max-w-6xl mx-auto space-y-16 sm:space-y-20 lg:space-y-24">
         <BrandHeader
           rightSlot={
@@ -241,7 +260,7 @@ export function Home() {
               data-testid="hero-headline"
             >
               South Africa's next-generation{" "}
-              <span className="bg-gradient-to-r from-primary to-cyan-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-primary to-cyan-600 bg-clip-text text-transparent">
                 immigration platform
               </span>{" "}
               is arriving.
@@ -294,7 +313,7 @@ export function Home() {
               <Button
                 variant="outline"
                 size="lg"
-                className="w-full sm:w-auto h-14 px-6 text-base rounded-xl border-white/15 bg-white/5 hover:bg-white/10 backdrop-blur-md text-foreground/90 hover:text-foreground shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] transition-all"
+                className="w-full sm:w-auto h-14 px-6 text-base rounded-xl border-slate-400/50 bg-white/70 hover:bg-white/90 backdrop-blur-md text-foreground/90 hover:text-foreground shadow-[0_8px_30px_-12px_rgba(15,23,42,0.25)] transition-all"
                 data-testid="button-have-reference"
               >
                 I already have a reference
