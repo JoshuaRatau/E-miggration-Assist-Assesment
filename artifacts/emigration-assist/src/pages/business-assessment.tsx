@@ -9,7 +9,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { BrandHeader } from "@/components/brand-header";
 import { CountryCombobox } from "@/components/country-combobox";
-import { WhatsAppInput } from "@/components/whatsapp-input";
 import { findByIso, findByName } from "@/lib/countries";
 import heroSuitcase from "@assets/overstay_hero_no_bg.png";
 import {
@@ -20,6 +19,7 @@ import {
   Sparkles,
   Check,
   Copy,
+  CalendarCheck,
   Home as HomeIcon,
   Lock,
   X,
@@ -948,38 +948,6 @@ export default function BusinessAssessment() {
                     className="mt-1 h-11 rounded-xl border-card-border bg-background/60"
                   />
                 </div>
-                <div>
-                  <Label className="text-foreground/90">
-                    WhatsApp (optional)
-                  </Label>
-                  <div className="mt-1">
-                    <WhatsAppInput
-                      value={form.whatsapp}
-                      onChange={(v) => update("whatsapp", v)}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-foreground/90">
-                    Preferred contact channel
-                  </Label>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    {(["email", "whatsapp"] as Channel[]).map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => update("preferredChannel", c)}
-                        className={`rounded-xl border p-3 text-sm capitalize transition-all hover-elevate ${
-                          form.preferredChannel === c
-                            ? "border-primary/60 bg-primary/15 text-primary"
-                            : "border-card-border bg-background/40 text-muted-foreground"
-                        }`}
-                      >
-                        {c}
-                      </button>
-                    ))}
-                  </div>
-                </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <Label htmlFor="city" className="text-foreground/90">
@@ -1062,7 +1030,7 @@ export default function BusinessAssessment() {
                   disabled={!stepValid(STEP_CONTACT) || submitting}
                   className="rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover-elevate active-elevate-2"
                 >
-                  {submitting ? "Submitting…" : "Request Firm Consultation"}
+                  {submitting ? "Submitting…" : "Submit & Book Free Demo"}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
@@ -1145,6 +1113,19 @@ export default function BusinessAssessment() {
                 <Button
                   asChild
                   className="rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover-elevate active-elevate-2"
+                >
+                  <a
+                    href="https://calendly.com/emigration-assist/15min?month=2026-07"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <CalendarCheck className="mr-2 h-4 w-4" /> Book a Free Demo
+                  </a>
+                </Button>
+                <Button
+                  asChild
+                  variant="outline"
+                  className="rounded-xl border-white/15 bg-white/5 backdrop-blur-md hover-elevate"
                 >
                   <Link href={`/status?ref=${result.referenceNumber}`}>
                     Check my status
