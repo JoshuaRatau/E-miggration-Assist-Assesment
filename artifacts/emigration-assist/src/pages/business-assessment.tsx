@@ -392,7 +392,7 @@ export default function BusinessAssessment() {
   const isIntro = step === STEP_INTRO;
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-300 via-slate-400 to-slate-500 text-foreground">
-      <BrandHeader variant="compact" homeHref="/business-assessment" />
+      <BrandHeader variant="compact" homeHref="/" homeHardNav />
 
       {/* Ambient brand glow */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">

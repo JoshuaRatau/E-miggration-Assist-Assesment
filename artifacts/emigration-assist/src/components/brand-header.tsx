@@ -26,6 +26,7 @@ export function BrandHeader({
   rightSlot,
   leftSlot,
   homeHref = "/",
+  homeHardNav = false,
 }: {
   variant?: "default" | "compact";
   rightSlot?: React.ReactNode;
@@ -34,6 +35,12 @@ export function BrandHeader({
   // ("/"), but flows like the overstay assessment override this so the
   // logo keeps visitors inside their funnel instead of bouncing them out.
   homeHref?: string;
+  // When true, render the logo as a plain anchor so it performs a real
+  // browser navigation to the site root instead of a Wouter in-app link.
+  // Needed on funnels served under a base path (e.g. `/assessment/`) where
+  // an in-app <Link href="/"> would only reach the SPA landing, not the
+  // actual marketing homepage.
+  homeHardNav?: boolean;
 }) {
   // Source asset is black on transparent; flip to pure white so it sits
   // cleanly on the dark navy background. `brightness(0)` collapses every
@@ -50,15 +57,18 @@ export function BrandHeader({
       data-testid="brand-header"
     >
       <div className="flex items-start gap-3 sm:gap-5 min-w-0 flex-1">
-        <Link href={homeHref} className="flex items-center gap-3 group shrink-0">
-          <img
-            src={brandLogo}
-            alt="E-Migration Assist · Powered by eRide Technologies"
-            className="h-20 sm:h-24 w-auto transition-opacity group-hover:opacity-90"
-            style={{ filter: logoFilter }}
-            data-testid="brand-logo"
-          />
-          {variant === "default" ? (
+        {(() => {
+          const linkClassName = "flex items-center gap-3 group shrink-0";
+          const linkChildren = (
+            <>
+              <img
+                src={brandLogo}
+                alt="E-Migration Assist · Powered by eRide Technologies"
+                className="h-20 sm:h-24 w-auto transition-opacity group-hover:opacity-90"
+                style={{ filter: logoFilter }}
+                data-testid="brand-logo"
+              />
+              {variant === "default" ? (
             <span
               className="hidden sm:inline-flex items-center gap-2 mt-1 px-3 py-1 rounded-full border border-primary/30 bg-primary/10 text-[11px] sm:text-xs text-primary backdrop-blur-sm shadow-[0_0_24px_-8px_rgba(56,189,248,0.45)]"
               data-testid="brand-header-pill"
@@ -69,8 +79,19 @@ export function BrandHeader({
               />
               <span className="font-medium">Pre-launch immigration assessment</span>
             </span>
-          ) : null}
-        </Link>
+              ) : null}
+            </>
+          );
+          return homeHardNav ? (
+            <a href={homeHref} className={linkClassName}>
+              {linkChildren}
+            </a>
+          ) : (
+            <Link href={homeHref} className={linkClassName}>
+              {linkChildren}
+            </Link>
+          );
+        })()}
         {leftSlot ? (
           <div className="min-w-0 flex-1" data-testid="brand-header-left-slot">
             {leftSlot}
