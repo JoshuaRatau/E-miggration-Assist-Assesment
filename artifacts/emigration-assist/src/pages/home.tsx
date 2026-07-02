@@ -255,28 +255,48 @@ export function Home() {
 
           {/* CTAs + trust strip — the conversion focal point. */}
           <div className="relative mt-8 sm:mt-10 lg:mt-12 flex flex-col items-center gap-4 sm:gap-5">
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3 sm:gap-4 w-full sm:w-auto">
               <Link href="/assessment" className="w-full sm:w-auto">
                 <Button
                   size="lg"
                   className="w-full sm:w-auto h-14 px-7 text-base sm:text-lg rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all gap-2"
                   data-testid="button-start-assessment"
                 >
-                  Start your early-access assessment
+                  Start as a Traveller
                   <ArrowRight className="h-5 w-5" />
                 </Button>
               </Link>
-              <Link href="/status" className="w-full sm:w-auto">
+              <Link href="/assessment" className="w-full sm:w-auto">
                 <Button
-                  variant="outline"
                   size="lg"
-                  className="w-full sm:w-auto h-14 px-6 text-base rounded-xl border-white/15 bg-white/5 hover:bg-white/10 backdrop-blur-md text-foreground/90 hover:text-foreground shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] transition-all"
-                  data-testid="button-have-reference"
+                  className="w-full sm:w-auto h-14 px-7 text-base sm:text-lg rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all gap-2"
+                  data-testid="button-start-overstayed"
                 >
-                  I already have a reference
+                  Start as Overstayed or Declared Undesirable
+                  <ArrowRight className="h-5 w-5" />
+                </Button>
+              </Link>
+              <Link href="/assessment" className="w-full sm:w-auto">
+                <Button
+                  size="lg"
+                  className="w-full sm:w-auto h-14 px-7 text-base sm:text-lg rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all gap-2"
+                  data-testid="button-start-firm"
+                >
+                  Start as Firm/Professional
+                  <ArrowRight className="h-5 w-5" />
                 </Button>
               </Link>
             </div>
+            <Link href="/status" className="w-full sm:w-auto">
+              <Button
+                variant="outline"
+                size="lg"
+                className="w-full sm:w-auto h-14 px-6 text-base rounded-xl border-white/15 bg-white/5 hover:bg-white/10 backdrop-blur-md text-foreground/90 hover:text-foreground shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] transition-all"
+                data-testid="button-have-reference"
+              >
+                I already have a reference
+              </Button>
+            </Link>
             <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
                 <Lock className="h-3.5 w-3.5" />
