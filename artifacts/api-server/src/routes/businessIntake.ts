@@ -134,7 +134,14 @@ function computeBusinessScore(
   tier: BusinessTier,
 ): { score: number; tags: string[]; priority: "critical" | "high" | "medium" } {
   let score = 25; // completed the assessment
-  const tags: string[] = ["business", `business_tier_${tier}`];
+  // "firm_professional" is the explicit, filterable category marker for leads
+  // captured via the Firm/Professional questionnaire (leadType stays
+  // "professional" so the existing dashboard "business" segment keeps working).
+  const tags: string[] = [
+    "firm_professional",
+    "business",
+    `business_tier_${tier}`,
+  ];
 
   const big =
     data.headcountBand === "21-50" || data.headcountBand === "51+";
