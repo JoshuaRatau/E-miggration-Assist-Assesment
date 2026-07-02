@@ -266,7 +266,10 @@ export function Home() {
                   <ArrowRight className="h-5 w-5" />
                 </Button>
               </Link>
-              <Link href="/assessment" className="w-full sm:w-auto">
+              <a
+                href="https://immigrationassist.replit.app/overstay-assessment"
+                className="w-full sm:w-auto"
+              >
                 <Button
                   size="lg"
                   className="w-full sm:w-auto h-14 px-7 text-base sm:text-lg rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all gap-2"
@@ -275,7 +278,7 @@ export function Home() {
                   Start as Overstayed or Declared Undesirable
                   <ArrowRight className="h-5 w-5" />
                 </Button>
-              </Link>
+              </a>
               <Link href="/assessment" className="w-full sm:w-auto">
                 <Button
                   size="lg"
