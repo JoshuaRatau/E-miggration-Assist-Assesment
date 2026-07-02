@@ -425,7 +425,20 @@ export default function BusinessAssessment() {
           </div>
         )}
 
-        <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-[#0a1628]/95 p-6 backdrop-blur-md shadow-[0_30px_80px_-20px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.03] sm:p-10">
+        <div
+          style={{
+            "--foreground": "215 30% 22%",
+            "--card": "210 40% 99%",
+            "--card-foreground": "215 30% 22%",
+            "--card-border": "214 25% 84%",
+            "--border": "214 25% 84%",
+            "--background": "210 40% 98%",
+            "--muted": "210 30% 93%",
+            "--muted-foreground": "215 16% 42%",
+            "--input": "214 25% 84%",
+          } as any}
+          className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-white/80 p-6 backdrop-blur-md shadow-[0_20px_50px_-20px_rgba(15,23,42,0.25)] ring-1 ring-slate-900/[0.04] sm:p-10"
+        >
           {/* INTRO */}
           {step === STEP_INTRO && (
             <div className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-12">
@@ -438,7 +451,7 @@ export default function BusinessAssessment() {
 
                 <h1 className="font-display text-[2.4rem] font-extrabold leading-[1.02] tracking-tight text-foreground sm:text-5xl lg:text-[3.4rem]">
                   Run your practice with{" "}
-                  <span className="bg-gradient-to-r from-primary to-cyan-400 bg-clip-text text-transparent">
+                  <span className="bg-gradient-to-r from-primary to-cyan-600 bg-clip-text text-transparent">
                     structure & technology
                   </span>
                   .
@@ -458,7 +471,7 @@ export default function BusinessAssessment() {
                   ].map(({ icon: Icon, label }) => (
                     <div
                       key={label}
-                      className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm"
+                      className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white/60 px-3 py-2.5 text-sm"
                     >
                       <Icon className="h-4 w-4 text-primary" />
                       <span className="text-foreground/90">{label}</span>
@@ -494,7 +507,7 @@ export default function BusinessAssessment() {
                 />
                 <p className="mt-5 text-center font-display text-lg font-semibold tracking-tight text-foreground sm:text-xl">
                   Structured Immigration.{" "}
-                  <span className="bg-gradient-to-r from-primary to-cyan-400 bg-clip-text text-transparent">
+                  <span className="bg-gradient-to-r from-primary to-cyan-600 bg-clip-text text-transparent">
                     Powered by Technology.
                   </span>
                 </p>
@@ -1125,7 +1138,7 @@ export default function BusinessAssessment() {
                 <Button
                   asChild
                   variant="outline"
-                  className="rounded-xl border-white/15 bg-white/5 backdrop-blur-md hover-elevate"
+                  className="rounded-xl border-slate-200 bg-white/60 backdrop-blur-md hover-elevate"
                 >
                   <Link href={`/status?ref=${result.referenceNumber}`}>
                     Check my status
@@ -1135,7 +1148,7 @@ export default function BusinessAssessment() {
                 <Button
                   asChild
                   variant="outline"
-                  className="rounded-xl border-white/15 bg-white/5 backdrop-blur-md hover-elevate"
+                  className="rounded-xl border-slate-200 bg-white/60 backdrop-blur-md hover-elevate"
                 >
                   <Link href="/">
                     <HomeIcon className="mr-2 h-4 w-4" /> Back to home
