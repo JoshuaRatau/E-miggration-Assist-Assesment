@@ -1,0 +1,315 @@
+Build Prompt — Leads Funnel → EMA Referral Tunnel (Sending Side)
+
+> Hand this entire document to the agent/developer working in the **leads funnel
+> repository**. It is self-contained: the funnel repo does NOT have access to the
+> EMA codebase, so every byte-level detail needed to interoperate is specified
+> here. The **EMA receiving side is already built, merged, and live** — do not
+> rebuild it. Your job is the **sending side** of a two-system referral tunnel.
+
+---
+
+## 0. Mission
+
+You are building the **public leads funnel** side of the E-Migration Assist (EMA)
+referral tunnel. The funnel captures immigration enquiries from the public,
+obtains the applicant's consent, matches the applicant to a partner immigration
+firm, and hands the referral over to EMA. EMA (already built) then links the
+firm, runs a mandatory legal conflict check, and — only once that passes —
+converts the referral into a client + case, calling you back at each state
+change.
+
+**This is a two-system tunnel joined by a single shared HMAC secret.** The two
+systems never share a database. They interoperate ONLY through:
+
+1. A signed, expiring, one-time **redirect token** (funnel → firm's browser → EMA).
+2. A signed **server-to-server applicant push** (funnel → EMA).
+3. A signed **server-to-server status callback** (EMA → funnel).
+
+Everything is signed with `REFERRAL_TUNNEL_SECRET` (HMAC-SHA256) and **fails
+closed** when the secret is missing.
+
+**Do not treat the referral programme as complete until this funnel side is built
+and tested end-to-end against EMA.**
+
+---
+
+## 1. What EMA already does (do NOT rebuild any of this)
+
+- Accepts your applicant push and upserts the referral (idempotent by `referralId`).
+- Renders `/referral-gate?token=...`, consumes the token **once**, and forces a
+  non-registered firm through EMA account creation/login.
+- Owns firm accounts, subscription/entitlement, the conflict check, client
+  creation, and case creation — all reusing EMA's existing systems (there is no
+  parallel account or billing system on the EMA side).
+- Enforces the access ladder: a firm sees a **redacted preview** first; **full
+  applicant PII and the ability to open the case unlock ONLY after the conflict
+  check passes** — a paid subscription does NOT bypass the conflict check.
+- Calls your callback endpoint at every state change with `emaFirmId`,
+  `emaClientId`, `emaCaseId`.
+
+You must build the mirror image of this: consent, matching, preview, token
+issuance, applicant push, and the callback receiver.
+
+---
+
+## 2. Environment variables (funnel side)
+
+| Var | Purpose |
+|---|---|
+| `REFERRAL_TUNNEL_SECRET` | Shared HMAC secret — **must be byte-identical to EMA's value**. Missing ⇒ the tunnel must fail closed (do not send/redirect). |
+| `EMA_APP_URL` | Base URL of the EMA app. You redirect firms to `{EMA_APP_URL}/referral-gate?token=<token>` and push to `{EMA_APP_URL}/api/referrals/ingest`. |
+
+EMA additionally holds `FUNNEL_API_URL` (base URL for your callback endpoint) and
+`FF_PARTNER_REFERRALS` (its feature flag). You do not set those; you just expose
+the callback route EMA will call.
+
+---
+
+## 3. THE CONTRACT (byte-exact — get this wrong and every signature fails)
+
+All three message types are signed with `REFERRAL_TUNNEL_SECRET` using
+HMAC-SHA256. **Signatures are encoded as base64url** (base64 with `+`→`-`,
+`/`→`_`, and trailing `=` stripped) — NOT hex.
+
+### 3.0 Shared primitives (reproduce EMA exactly)
+
+```js
+import crypto from "crypto";
+
+// base64url encode a Buffer
+function b64url(buf) {
+  return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+// HMAC-SHA256 over a string, output base64url
+function hmac(data, secret) {
+  return b64url(crypto.createHmac("sha256", secret).update(data).digest());
+}
+
+// Deterministic JSON: recursively sort object keys so both systems produce
+// IDENTICAL bytes regardless of key insertion order. Used for the S2S bodies.
+function stableStringify(value) {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  const keys = Object.keys(value).sort();
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(",")}}`;
+}
+```
+
+> ⚠️ Two different serializations are used, on purpose:
+> - The **redirect token body** is signed over `base64url(JSON.stringify(payload))`
+>   (plain `JSON.stringify`, then base64url — see 3.1).
+> - The **S2S bodies** (ingest push, callback) are signed over
+>   `stableStringify(body)` (recursively key-sorted — see 3.2 / 3.3).
+
+### 3.1 Redirect token (funnel → firm's browser → EMA)
+
+Token string format: `"<body>.<sig>"` where
+- `body = base64url(utf8(JSON.stringify(payload)))`
+- `sig  = hmac(body, secret)`  ← the HMAC is over the base64url `body` STRING
+
+Payload — **NEVER put applicant PII in here**:
+
+```jsonc
+{
+  "referralId": "string",                       // your referral id (correlation key)
+  "assignmentId": "string?",                    // your assignment id (optional)
+  "funnelFirmId": "string?",                     // partner firm id in your system (optional)
+  "intendedAction": "accept_referral_open_ema", // MUST be exactly this literal
+  "issuedAt": 0,                                 // epoch MILLISECONDS
+  "expiresAt": 0,                                // epoch MILLISECONDS — keep short (e.g. now + 30 min)
+  "nonce": "string"                              // unique per token, e.g. crypto.randomBytes(16).toString("hex")
+}
+```
+
+EMA rejects the token if: signature mismatch, `now > expiresAt`, `intendedAction`
+is not exactly `accept_referral_open_ema`, or the token is replayed after a firm
+has already consumed it. Treat the token as **one-time-use on your side too** and
+honour `expiresAt`.
+
+Reference:
+
+```js
+function signReferralToken(payload, secret) {
+  const body = b64url(Buffer.from(JSON.stringify(payload), "utf8"));
+  return `${body}.${hmac(body, secret)}`;
+}
+// Redirect: 302 → `${EMA_APP_URL}/referral-gate?token=${encodeURIComponent(token)}`
+```
+
+### 3.2 Applicant push (funnel → EMA, server-to-server)
+
+`POST {EMA_APP_URL}/api/referrals/ingest`
+Headers: `content-type: application/json`, `x-referral-signature: <sig>`
+where `sig = hmac(stableStringify(body), secret)`.
+
+```jsonc
+{
+  "referralId": "string",                 // REQUIRED — same id you put in the token
+  "funnelAssignmentId": "string|null",    // NOTE the name: funnelAssignmentId (NOT assignmentId here)
+  "funnelFirmId": "string|null",
+  "matterType": "string|null",            // preview — non-identifying
+  "urgency": "string|null",               // preview — non-identifying
+  "region": "string|null",                // preview — GENERAL region only
+  "summary": "string|null",               // preview — MUST stay non-identifying
+  "applicant": {                          // gated PII — EMA never reveals this before conflict pass
+    "firstName": "string",
+    "lastName": "string",
+    "email": "string|null",
+    "phone": "string|null",
+    "nationality": "string|null",
+    "passportNumber": "string|null",
+    "dateOfBirth": "string|null"
+  }
+}
+```
+
+- Idempotent: EMA upserts by `referralId`; already-converted referrals are left
+  untouched. Safe to retry.
+- **Send this BEFORE or together with the redirect**, so the preview is available
+  when the firm lands on `/referral-gate`. (EMA tolerates the token arriving
+  first — it creates an empty placeholder — but the preview will be blank until
+  your push lands.)
+- `413`/`401` on bad/missing signature. Verify you can round-trip a signature
+  before wiring the UI.
+
+### 3.3 Status callback (EMA → funnel, server-to-server) — YOU expose this
+
+`POST {FUNNEL_API_URL}/api/referral-gate/callback`
+EMA sends header `x-referral-signature: <sig>` where
+`sig = hmac(stableStringify(body), secret)`. **You must verify it** and reject on
+mismatch. This call is best-effort on EMA's side (5s timeout), so make your
+handler fast and idempotent.
+
+```jsonc
+{
+  "referralId": "string",
+  "assignmentId": "string|null",   // your id, echoed back (EMA echoes what you sent as funnelAssignmentId)
+  "status": "ema_account_required | ema_account_linked | converted | failed",
+  "emaFirmId": "string|null",
+  "emaClientId": "string|null",
+  "emaCaseId": "string|null",
+  "reason": "string|null"          // e.g. "conflict_of_interest" when status = failed
+}
+```
+
+Verification reference:
+
+```js
+function verifyBodySignature(rawStableBody, signature, secret) {
+  if (!secret || !signature) return false;            // fail closed
+  const expected = hmac(rawStableBody, secret);
+  const a = Buffer.from(signature), b = Buffer.from(expected);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+// In the handler: verifyBodySignature(stableStringify(req.body), req.header("x-referral-signature"), secret)
+```
+
+> ⚠️ **Field-name gotcha:** the applicant push (3.2) field is `funnelAssignmentId`,
+> but the redirect-token payload (3.1) and the callback body (3.3) use
+> `assignmentId`. This asymmetry is intentional on the EMA side — send/read each
+> field under the exact name shown for that message.
+
+---
+
+## 4. Build plan (funnel side)
+
+Build these in order. Steps 1–3 are pure funnel; steps 5–7 are the tunnel wiring;
+steps 8–9 are governance + verification.
+
+**1. Applicant consent (POPIA — do this FIRST).**
+- Capture explicit `consentToShareWithPartnerFirms` before ANY firm referral offer.
+- Store the consent timestamp, consent-text version, source page, and available
+  request metadata.
+- **Never create or send a referral offer without recorded consent.**
+
+**2. Partner matching.**
+- Match applicant enquiries to registered / prospect firms using matter type,
+  visa type, urgency, geography, capacity, and vetting status.
+- Do NOT expose full applicant PII during matching (internal use only).
+
+**3. Redacted referral preview.**
+- Build the secure preview page in the funnel.
+- Show only: matter type, visa category, urgency, general region, and a
+  non-identifying summary.
+- Hide name, phone, email, passport, documents, and all contact details.
+
+**4. Referral offer email.**
+- Send the firm a referral invitation containing a secure preview link only.
+- The email must contain **no full applicant PII**.
+- CTA: "View secure referral preview" / "Accept and open in EMA".
+
+**5. Applicant push (§3.2).**
+- On acceptance (or at offer time), push the referral to
+  `POST {EMA_APP_URL}/api/referrals/ingest` with the `x-referral-signature`
+  header over `stableStringify(body)`.
+
+**6. Redirect into EMA (§3.1).**
+- Mint a signed, short-lived, one-time token (unique `nonce`, no PII) and redirect
+  the firm to `{EMA_APP_URL}/referral-gate?token=<token>`.
+- EMA owns login/register, conflict check, firm account linking,
+  subscription/entitlement, client creation, and case creation from here on.
+
+**7. Callback receiver (§3.3).**
+- Expose `POST /api/referral-gate/callback`, verify the `x-referral-signature`,
+  and update your own referral state from `status`.
+- Accept statuses: `ema_account_required`, `ema_account_linked`,
+  `conflict_check_required` (if EMA sends it), `converted`, `failed`.
+- Store `emaFirmId`, `emaClientId`, `emaCaseId` where provided.
+- When EMA confirms conversion (`status: "converted"`), mark the referral as
+  `converted_to_ema_case` in your record.
+
+**8. Audit + status model.**
+- Audit every stage: `offered`, `preview_viewed`, `accepted`,
+  `redirected_to_ema`, `token_consumed`, `ema_account_required`,
+  `ema_account_linked`, `conflict_check_required`, `converted`, `failed`,
+  `expired`.
+- Add admin visibility (an admin board) so the team can see where each referral
+  sits in the tunnel, including the final `converted_to_ema_case` state.
+- **No applicant PII in audit logs** — structural facts only.
+
+**9. End-to-end test.**
+- Create a test applicant enquiry with consent.
+- Create a redacted referral offer.
+- Accept as a non-registered firm.
+- Redirect into EMA; register/login the firm.
+- Complete the conflict check.
+- EMA creates client + case and sends the callback.
+- Funnel marks the referral `converted_to_ema_case`.
+- Assert **no PII** appears in the email, preview, token payload, or callback logs.
+
+---
+
+## 5. Hard rules (non-negotiable)
+
+- **Fail closed:** if `REFERRAL_TUNNEL_SECRET` is missing, do not sign, push, or
+  redirect. No secret ⇒ no tunnel.
+- **No applicant PII** in: the redirect token, preview fields, referral emails, or
+  any audit/callback log. PII travels ONLY inside the signed `applicant` object of
+  the §3.2 server-to-server push.
+- **Consent before data:** never push applicant data (§3.2) without a recorded
+  POPIA consent to share with the receiving firm. EMA stamps
+  `popiaConsentSource: partner_referral` on the client it creates, but relies on
+  you for the underlying consent.
+- **Tokens are one-time-use and short-lived** on your side too; honour `expiresAt`.
+- **`intendedAction` must be exactly `accept_referral_open_ema`** or EMA rejects
+  the token.
+
+---
+
+## 6. End-to-end acceptance criteria (the final gate)
+
+The tunnel is only complete when ALL of these pass:
+
+- Funnel can send a consented referral into EMA.
+- EMA can consume the token only once.
+- Missing/invalid HMAC fails closed (rejected, nothing leaks).
+- A non-registered firm is forced through EMA registration.
+- Full applicant details unlock only after the conflict check passes.
+- Subscription gates still apply to full EMA features (a referral-tier firm
+  cannot create unrelated cases, generate forms, export files, or invite team
+  members until it subscribes).
+- Funnel receives the conversion callback with `emaFirmId` and `emaCaseId`.
+- Funnel admin board shows the referral as `converted_to_ema_case`.
+- No applicant PII appears in the referral email, redacted preview, token payload,
+  or unsigned logs.
