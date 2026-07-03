@@ -43,7 +43,7 @@ export function ReferralPreview() {
   const referralId = params.referralId || "";
 
   useEffect(() => {
-    document.title = "Your Referral | EMA Leads Funnel";
+    document.title = "Your Referral | E-Migration Assist";
   }, []);
 
   const { data, isLoading, isError } = useQuery({

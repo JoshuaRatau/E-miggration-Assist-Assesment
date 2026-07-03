@@ -84,7 +84,7 @@ export function AdminLayout({
         >
           <img
             src={brandLogo}
-            alt="E-Migration Assist"
+            alt="EMA Leads Funnel"
             className="h-12 sm:h-16 w-auto transition-transform group-hover:scale-[1.02]"
             style={{ filter: LOGO_FILTER }}
             data-testid="admin-brand-logo"

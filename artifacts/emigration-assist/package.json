@@ -2,6 +2,7 @@
   "name": "@workspace/emigration-assist",
   "version": "0.0.0",
   "private": true,
+  "description": "EMA Leads Funnel — internal name for the lead-capture funnel that feeds the separate main E-Migration Assist platform. Public consumer-facing brand stays 'E-Migration Assist'. (Package id kept stable to avoid breaking workspace filters/imports.)",
   "type": "module",
   "scripts": {
     "dev": "vite --config vite.config.ts --host 0.0.0.0",

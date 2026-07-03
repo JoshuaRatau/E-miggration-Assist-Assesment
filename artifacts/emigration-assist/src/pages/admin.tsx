@@ -329,7 +329,7 @@ function contactHref(
 
 export function Admin() {
   useEffect(() => {
-    document.title = "Admin Overview | E-Migration Assist";
+    document.title = "Admin Overview | EMA Leads Funnel";
   }, []);
 
   const [priority, setPriority] = useState("ALL");

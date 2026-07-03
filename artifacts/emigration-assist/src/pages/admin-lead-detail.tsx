@@ -121,7 +121,7 @@ export function AdminLeadDetail() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    document.title = "Lead Detail | E-Migration Assist";
+    document.title = "Lead Detail | EMA Leads Funnel";
   }, []);
 
   useEffect(() => {

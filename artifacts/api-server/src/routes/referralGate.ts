@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { db, prelaunchLeadsTable, referralsTable } from "@workspace/db";
 import { writeReferralAudit } from "../lib/referralAudit";
 import {
@@ -160,6 +160,11 @@ const CallbackBody = z.object({
 
 router.post("/referral-gate/callback", async (req, res) => {
   const secret = getReferralSecret();
+  if (!secret) {
+    // Fail closed — never accept an unauthenticated callback when the shared
+    // secret is missing. Contract requires 503, not a 401 signature failure.
+    return res.status(503).json({ error: "tunnel_not_configured" });
+  }
   const signature = req.header("x-referral-signature");
 
   // Verify over the exact stable serialization of the parsed body.
@@ -186,6 +191,12 @@ router.post("/referral-gate/callback", async (req, res) => {
     return res.status(404).json({ error: "referral_not_found" });
   }
 
+  // `converted` is a terminal success state — never regress out of it. A
+  // duplicate or late callback after conversion is an idempotent no-op ack.
+  if (referral.status === "converted") {
+    return res.status(200).json({ ok: true, note: "already_converted" });
+  }
+
   const patch: Record<string, unknown> = { updatedAt: new Date() };
   if (body.assignmentId) patch.assignmentId = body.assignmentId;
   if (body.emaFirmId) patch.emaFirmId = body.emaFirmId;
@@ -202,10 +213,23 @@ router.post("/referral-gate/callback", async (req, res) => {
     patch.status = body.status; // ema_account_required | ema_account_linked
   }
 
-  await db
+  // Atomic guard: only apply while the row is still non-terminal, closing the
+  // TOCTOU window between the SELECT above and this UPDATE.
+  const updated = await db
     .update(referralsTable)
     .set(patch)
-    .where(eq(referralsTable.referralId, body.referralId));
+    .where(
+      and(
+        eq(referralsTable.referralId, body.referralId),
+        ne(referralsTable.status, "converted"),
+      ),
+    )
+    .returning({ referralId: referralsTable.referralId });
+
+  if (updated.length === 0) {
+    // A concurrent callback converted it first — idempotent no-op ack.
+    return res.status(200).json({ ok: true, note: "already_converted" });
+  }
 
   await writeReferralAudit(body.referralId, body.status, {
     emaFirmId: body.emaFirmId ?? null,

@@ -58,7 +58,7 @@ export function AdminLogin() {
           <BrandHeader variant="compact" />
           <img
             src={heroFolders}
-            alt="E-Migration Assist case folders"
+            alt="EMA Leads Funnel case folders"
             className="w-full max-w-[520px] h-auto select-none drop-shadow-[0_30px_60px_rgba(37,99,235,0.25)]"
             data-testid="img-admin-hero"
             draggable={false}
@@ -79,7 +79,7 @@ export function AdminLogin() {
             <BrandHeader variant="compact" />
             <img
               src={heroFolders}
-              alt="E-Migration Assist case folders"
+              alt="EMA Leads Funnel case folders"
               className="w-40 h-auto select-none"
               draggable={false}
             />

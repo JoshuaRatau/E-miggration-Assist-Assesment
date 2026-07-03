@@ -61,96 +61,125 @@ router.post("/referrals/consent", async (req, res) => {
     consentSourcePage,
   } = parsed.data;
 
-  const [lead] = await db
-    .select()
-    .from(prelaunchLeadsTable)
-    .where(eq(prelaunchLeadsTable.referenceNumber, referenceNumber))
-    .limit(1);
+  // Serialise concurrent consent calls for the same lead: lock the lead row
+  // FOR UPDATE inside a transaction, re-check for an existing referral under
+  // the lock, then create. This closes the read-then-insert race that could
+  // otherwise mint duplicate referrals for a single lead.
+  const outcome = await db.transaction(async (tx) => {
+    const [lead] = await tx
+      .select()
+      .from(prelaunchLeadsTable)
+      .where(eq(prelaunchLeadsTable.referenceNumber, referenceNumber))
+      .limit(1)
+      .for("update");
 
-  if (!lead) {
+    if (!lead) {
+      return { kind: "not_found" as const };
+    }
+
+    // Idempotency: if this lead already has a referral, return it rather
+    // than creating a duplicate.
+    const [existing] = await tx
+      .select()
+      .from(referralsTable)
+      .where(eq(referralsTable.leadId, lead.id))
+      .orderBy(desc(referralsTable.createdAt))
+      .limit(1);
+    if (existing) {
+      return {
+        kind: "existing" as const,
+        referralId: existing.referralId,
+        status: existing.status,
+      };
+    }
+
+    const preview = deriveReferralPreview(lead);
+    const firm = await matchPartnerFirm({
+      matterType: preview.matterType,
+      region: preview.region,
+    });
+
+    const now = new Date();
+    const referralId = generateReferralId();
+
+    await tx.insert(referralsTable).values({
+      referralId,
+      leadId: lead.id,
+      funnelFirmId: firm?.id ?? null,
+      status: "offered",
+      matterType: preview.matterType,
+      urgency: preview.urgency,
+      region: preview.region,
+      summary: preview.summary,
+      consentToShare: true,
+      consentTextVersion: consentTextVersion ?? "v1",
+      consentSourcePage: consentSourcePage ?? null,
+      consentIp: req.ip ?? null,
+      consentUserAgent: req.header("user-agent") ?? null,
+      consentAt: now,
+      offeredAt: now,
+    });
+
+    return {
+      kind: "created" as const,
+      referralId,
+      matched: Boolean(firm),
+      firmId: firm?.id ?? null,
+      firmContactEmail: firm?.contactEmail ?? null,
+      preview,
+    };
+  });
+
+  if (outcome.kind === "not_found") {
     return res.status(404).json({ error: "lead_not_found" });
   }
-
-  // Idempotency: if this lead already has a live referral, return it rather
-  // than creating a duplicate.
-  const [existing] = await db
-    .select()
-    .from(referralsTable)
-    .where(eq(referralsTable.leadId, lead.id))
-    .orderBy(desc(referralsTable.createdAt))
-    .limit(1);
-  if (existing) {
+  if (outcome.kind === "existing") {
     return res
       .status(200)
-      .json({ referralId: existing.referralId, status: existing.status });
+      .json({ referralId: outcome.referralId, status: outcome.status });
   }
 
-  const preview = deriveReferralPreview(lead);
-  const firm = await matchPartnerFirm({
-    matterType: preview.matterType,
-    region: preview.region,
-  });
-
-  const now = new Date();
-  const referralId = generateReferralId();
-
-  await db.insert(referralsTable).values({
-    referralId,
-    leadId: lead.id,
-    funnelFirmId: firm?.id ?? null,
-    status: "offered",
-    matterType: preview.matterType,
-    urgency: preview.urgency,
-    region: preview.region,
-    summary: preview.summary,
-    consentToShare: true,
+  // New referral created — write the audit trail and fire the firm offer
+  // email AFTER the transaction has committed.
+  await writeReferralAudit(outcome.referralId, "consent_recorded", {
     consentTextVersion: consentTextVersion ?? "v1",
-    consentSourcePage: consentSourcePage ?? null,
-    consentIp: req.ip ?? null,
-    consentUserAgent: req.header("user-agent") ?? null,
-    consentAt: now,
-    offeredAt: now,
+    matched: outcome.matched,
   });
-
-  await writeReferralAudit(referralId, "consent_recorded", {
-    consentTextVersion: consentTextVersion ?? "v1",
-    matched: Boolean(firm),
-  });
-  await writeReferralAudit(referralId, "offered", {
-    funnelFirmId: firm?.id ?? null,
+  await writeReferralAudit(outcome.referralId, "offered", {
+    funnelFirmId: outcome.firmId,
   });
 
   // Fire-and-forget offer email to the matched firm — secure preview link
   // only, NO applicant PII.
-  if (firm?.contactEmail) {
+  if (outcome.firmContactEmail) {
     const base = funnelBaseUrl();
     const previewLink = base
-      ? `${base}/referral-preview/${referralId}`
-      : `(configure PUBLIC_BASE_URL) /referral-preview/${referralId}`;
+      ? `${base}/referral-preview/${outcome.referralId}`
+      : `(configure PUBLIC_BASE_URL) /referral-preview/${outcome.referralId}`;
     void sendInternalNotificationEmail({
-      to: firm.contactEmail,
-      subject: `New referral preview — ${preview.matterType} [${referralId}]`,
+      to: outcome.firmContactEmail,
+      subject: `New referral preview — ${outcome.preview.matterType} [${outcome.referralId}]`,
       text: [
         `A new immigration referral matching your firm is available.`,
         ``,
-        `Matter type: ${preview.matterType}`,
-        `Urgency: ${preview.urgency}`,
-        `Region: ${preview.region}`,
+        `Matter type: ${outcome.preview.matterType}`,
+        `Urgency: ${outcome.preview.urgency}`,
+        `Region: ${outcome.preview.region}`,
         ``,
         `View the secure referral preview (no personal details are shown until you accept and open it in EMA):`,
         previewLink,
         ``,
-        `Reference: ${referralId}`,
+        `Reference: ${outcome.referralId}`,
         ``,
-        `— EMA Leads Funnel`,
+        `— E-Migration Assist`,
       ].join("\n"),
     });
   }
 
   return res.status(201).json({
-    referralId,
+    referralId: outcome.referralId,
     status: "offered",
-    matched: Boolean(firm),
+    matched: outcome.matched,
   });
 });
 

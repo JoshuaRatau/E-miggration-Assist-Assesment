@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "E-Migration Assist"
+title = "EMA Leads Funnel"
 version = "1.0.0"
 id = "artifacts/emigration-assist"
 router = "path"

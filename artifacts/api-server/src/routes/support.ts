@@ -91,7 +91,7 @@ router.post("/support", async (req, res) => {
     // turn a successfully-recorded request into a 500 for the user.
     const categoryLabel = CATEGORY_LABELS[data.category] ?? data.category;
     const body = [
-      "New support request from the E-Migration Assist widget.",
+      "New support request from the EMA Leads Funnel widget.",
       "",
       `Category: ${categoryLabel}`,
       `Name: ${data.name?.trim() || "(not provided)"}`,

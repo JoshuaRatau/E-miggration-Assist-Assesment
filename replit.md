@@ -1,6 +1,8 @@
-# E-Migration Assist
+# EMA Leads Funnel
 
-E-Migration Assist helps users navigate the immigration process via a 5-step assessment, optional document uploads, and WhatsApp integration, paired with an admin CRM for lead management.
+**Internal/operational name for this repo, workspace, and admin back-office.** This app is the lead-capture funnel (the "sender") that feeds the *separate* main **E-Migration Assist** platform. The public consumer-facing brand shown to leads and visitors (capture pages, referral preview, emails, WhatsApp) intentionally stays "E-Migration Assist" — only the internal/operational identity is "EMA Leads Funnel". Go by ROLE, not name: this repo is a funnel, not the main EMA platform.
+
+E-Migration Assist (the public brand) helps users navigate the immigration process via a 5-step assessment, optional document uploads, and WhatsApp integration, paired with an admin CRM for lead management.
 
 ## Run & Operate
 
