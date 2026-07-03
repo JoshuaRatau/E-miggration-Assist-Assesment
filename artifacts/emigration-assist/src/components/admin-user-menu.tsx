@@ -18,6 +18,7 @@ import {
   Megaphone,
   Upload,
   Download,
+  Share2,
   BarChart3,
   FileBarChart,
   CreditCard,
@@ -66,6 +67,7 @@ const OPERATIONS: Item[] = [
   { href: "/admin/communications", label: "Campaigns", Icon: Megaphone, testId: "menu-campaigns" },
   { href: "/admin/import", label: "Imports", Icon: Upload, testId: "menu-imports" },
   { href: "/admin/exports", label: "Exports", Icon: Download, testId: "menu-exports" },
+  { href: "/admin/referrals", label: "Referral Tunnel", Icon: Share2, testId: "menu-referrals" },
 ];
 
 const INTELLIGENCE: Item[] = [

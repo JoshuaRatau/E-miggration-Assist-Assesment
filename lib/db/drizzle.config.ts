@@ -7,6 +7,11 @@ if (!process.env.DATABASE_URL) {
 
 const parsed = new URL(process.env.DATABASE_URL);
 
+// Honour an explicit `sslmode=disable` (Replit's local `helium` dev DB does not
+// support SSL). Any other environment (e.g. production) keeps SSL enabled with
+// certificate verification relaxed.
+const sslDisabled = parsed.searchParams.get("sslmode") === "disable";
+
 export default defineConfig({
   schema: path.join(__dirname, "./src/schema/*.ts"),
   dialect: "postgresql",
@@ -16,8 +21,6 @@ export default defineConfig({
     user: decodeURIComponent(parsed.username),
     password: decodeURIComponent(parsed.password),
     database: parsed.pathname.replace(/^\//, ""),
-    ssl: {
-      rejectUnauthorized: false,
-    },
+    ssl: sslDisabled ? false : { rejectUnauthorized: false },
   },
 });

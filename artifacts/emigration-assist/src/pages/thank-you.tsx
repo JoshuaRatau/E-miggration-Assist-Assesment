@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Disclaimer } from "@/components/disclaimer";
 import { BrandHeader } from "@/components/brand-header";
 import { buildPersonalisedNote } from "@/lib/personalisedNote";
+import { ReferralConsentCard } from "@/components/referral-consent-card";
 import { trackPixelOncePersistent } from "@/lib/metaPixel";
 
 export function ThankYou() {
@@ -146,6 +147,10 @@ export function ThankYou() {
             </div>
           </CardFooter>
         </Card>
+
+        {reference ? (
+          <ReferralConsentCard referenceNumber={reference} />
+        ) : null}
       </div>
     </div>
   );

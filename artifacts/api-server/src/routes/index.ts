@@ -26,6 +26,8 @@ import otpRouter from "./otp";
 import { overstayIntakeRouter } from "./overstayIntake";
 import { businessIntakeRouter } from "./businessIntake";
 import { supportRouter } from "./support";
+import { referralsRouter } from "./referrals";
+import { referralGateRouter } from "./referralGate";
 
 const router: IRouter = Router();
 
@@ -56,5 +58,7 @@ router.use(otpRouter);
 router.use(overstayIntakeRouter);
 router.use(businessIntakeRouter);
 router.use(supportRouter);
+router.use(referralsRouter);
+router.use(referralGateRouter);
 
 export default router;

@@ -34,6 +34,8 @@ import {
 } from "@/pages/admin-stub";
 import { AdminSubscriptions } from "@/pages/admin-subscriptions";
 import { AdminExports } from "@/pages/admin-exports";
+import { AdminReferrals } from "@/pages/admin-referrals";
+import { ReferralPreview } from "@/pages/referral-preview";
 
 /** Phase C — legacy /admin/campaigns/* paths now live under
  *  /admin/communications/*. We replace history (no back-button bounce)
@@ -114,6 +116,7 @@ function Router() {
       <Route path="/business" component={BusinessAssessment} />
       <Route path="/thank-you/:reference" component={ThankYou} />
       <Route path="/status" component={Status} />
+      <Route path="/referral-preview/:referralId" component={ReferralPreview} />
 
       {/* Public admin auth pages — outside RequireAdminAuth so the
           login flow can render them without redirecting back to itself. */}
@@ -227,6 +230,11 @@ function Router() {
       <Route path="/admin/exports">
         <RequireAdminAuth>
           <AdminExports />
+        </RequireAdminAuth>
+      </Route>
+      <Route path="/admin/referrals">
+        <RequireAdminAuth>
+          <AdminReferrals />
         </RequireAdminAuth>
       </Route>
 
