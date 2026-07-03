@@ -1,0 +1,30 @@
+Clarification for the funnel agent — read this before building anything.
+
+Your observation is correct, and it's actually the sign you should proceed, not stop. Here's the mental model you're missing:
+
+This is a TWO-APP system living in TWO SEPARATE repositories/deployments:
+
+EMA (E-Migration Assist) — the immigration case-management platform. This is the receiving side. It already contains all the referral-tunnel code (/api/referrals/ingest, the /referral-gate page, the callback sender, REFERRAL_TUNNEL_SECRET handling, and the referral tables). It is built, merged, and live — in its own repo, which is NOT the repo you are in.
+The Leads Funnel — a separate, lightweight public lead-capture app. This is the sending side. This is what you build. Different codebase, different database.
+Why you can't find the receiving-side code in your repo — and why that's expected:
+The build prompt's line "the EMA receiving side is already built, merged, and live — do not rebuild it" means it exists in the other repo (EMA), reachable over HTTP. It does not mean it exists in your repo. You will never have an /api/referrals/ingest endpoint of your own — instead you call that endpoint on EMA over the network. So stop searching your codebase for it; you integrate with it remotely.
+
+The two apps share NO code and NO database. They communicate ONLY over HTTP, using:
+
+the shared REFERRAL_TUNNEL_SECRET (HMAC signing), and
+the byte-exact contract in the build prompt.
+⚠️ Important — resolve this before writing code: you said "this repo is EMA." If your repo actually contains EMA's full case-management codebase (the rest-express immigration platform), then it was most likely forked/seeded from EMA by mistake, or you're pointed at the wrong project. The funnel is a small lead-capture + matching + email + redirect app — it is not a second copy of EMA and must not reuse EMA's case/document/firm code. Confirm with the human which project is the intended funnel before proceeding. (The "referral" you found as an unrelated lead-source label is coincidental and unrelated to this tunnel.)
+
+What you actually build (the sender):
+
+An outbound HTTP client that POSTs to {EMA_APP_URL}/api/referrals/ingest with the x-referral-signature header (HMAC over stableStringify(body)).
+A token minter that signs a short-lived, one-time token and redirects the firm to {EMA_APP_URL}/referral-gate?token=....
+Your own inbound endpoint POST /api/referral-gate/callback that EMA calls back at each state change (you verify its signature).
+Consent capture (POPIA), partner matching, redacted preview page, referral email, and an audit/status board.
+What you need from the human / env:
+
+REFERRAL_TUNNEL_SECRET — the identical value EMA uses.
+EMA_APP_URL — the live EMA deployment URL (the other app).
+Give the human your app's public URL so they can set FUNNEL_API_URL on EMA's side, enabling the callback.
+Everything else — token format, base64url, the stableStringify algorithm, the ingest/callback body schemas (note the funnelAssignmentId vs assignmentId field-name difference), and the end-to-end acceptance criteria — is fully specified in the build prompt document you were given.
+
