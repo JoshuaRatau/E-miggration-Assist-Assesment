@@ -42,3 +42,9 @@ id = "q38gM7wsPHANtOw5qBtIZ"
 uri = "file://screenshots/admin-v2-verify.png"
 type = "image"
 title = "Live /admin (this environment) — v2 shell: sidebar, search, Overstay segment, new KPIs"
+
+[[outputs]]
+id = "TclVZNqmtGsx0otBSKp8F"
+uri = "file://reports/EMA-Funnel-Report-2026-07-04.pdf"
+type = "pdf"
+title = "EMA Leads Funnel — Change Report (24h)"

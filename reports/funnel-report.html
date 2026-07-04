@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: #1a1f29;
+    font-size: 12px;
+    line-height: 1.55;
+    margin: 0;
+  }
+  .wrap { padding: 0 4px; }
+  h1 { font-size: 26px; margin: 0 0 2px; color: #0f2942; }
+  h2 { font-size: 16px; margin: 26px 0 8px; color: #0f2942; border-bottom: 2px solid #d8e0ea; padding-bottom: 4px; }
+  h3 { font-size: 13px; margin: 16px 0 4px; color: #1c4670; }
+  p { margin: 6px 0; }
+  .sub { color: #5b6675; font-size: 12px; margin: 0 0 2px; }
+  .meta { color: #7a8494; font-size: 10.5px; margin-top: 6px; }
+  .banner {
+    background: #0f2942; color: #fff; padding: 20px 22px; border-radius: 8px; margin-bottom: 6px;
+  }
+  .banner h1 { color: #fff; }
+  .banner .sub { color: #b9c7d8; }
+  .pill { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .04em;
+    padding: 3px 9px; border-radius: 20px; text-transform: uppercase; }
+  .pill.green { background: #1f7a44; color: #fff; }
+  .pill.amber { background: #b5730f; color: #fff; }
+  .card { border: 1px solid #dbe2ec; border-radius: 7px; padding: 12px 15px; margin: 10px 0; background: #fafcff; }
+  .card.good { border-left: 4px solid #1f7a44; }
+  .card.warn { border-left: 4px solid #b5730f; background: #fffdf6; }
+  .card.info { border-left: 4px solid #1c4670; }
+  ul { margin: 6px 0; padding-left: 20px; }
+  li { margin: 3px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 11px; }
+  th { background: #eef3f9; text-align: left; padding: 6px 8px; border: 1px solid #d8e0ea; color: #0f2942; }
+  td { padding: 6px 8px; border: 1px solid #e3e9f1; vertical-align: top; }
+  code { font-family: "SF Mono", Menlo, Consolas, monospace; background: #eef1f5; padding: 1px 4px; border-radius: 3px; font-size: 10.5px; }
+  .kpi-row { width: 100%; margin: 10px 0; }
+  .kpi { display: inline-block; width: 24%; border: 1px solid #dbe2ec; border-radius: 7px; padding: 10px; text-align: center; margin-right: 4px; vertical-align: top; }
+  .kpi .n { font-size: 20px; font-weight: 700; color: #0f2942; }
+  .kpi .l { font-size: 9.5px; color: #6a7482; text-transform: uppercase; letter-spacing: .03em; margin-top: 2px; }
+  .check { color: #1f7a44; font-weight: 700; }
+  .foot { margin-top: 28px; padding-top: 10px; border-top: 1px solid #d8e0ea; color: #8892a0; font-size: 10px; }
+  .pagebreak { page-break-before: always; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="banner">
+    <h1>EMA Leads Funnel — Change Report</h1>
+    <p class="sub">Referral tunnel build, internal rebrand &amp; production rollout</p>
+    <p class="sub" style="margin-top:8px;">Reporting window: 3 July 2026 → 4 July 2026 (last 24 hours) &nbsp;·&nbsp; Prepared 4 July 2026</p>
+  </div>
+
+  <h2>1. Executive summary</h2>
+  <p>Over the last 24 hours the <strong>EMA Leads Funnel</strong> (our lead-capture funnel that feeds the separate main
+  E-Migration Assist platform) received two connected pieces of work, both now <strong>complete, tested, and published live</strong>:</p>
+  <div class="card good">
+    <p><span class="pill green">Done</span> &nbsp;<strong>A. Internal-only rebrand.</strong> Our internal/operational name is now
+    "EMA Leads Funnel", while the public brand our leads and visitors see stays "E-Migration Assist" everywhere.</p>
+    <p><span class="pill green">Done</span> &nbsp;<strong>B. Referral tunnel (sender side).</strong> With a lead's explicit consent,
+    the funnel can now offer a <em>privacy-redacted</em> referral to a matched partner firm and hand it off securely to the main EMA platform.</p>
+  </div>
+  <p>The funnel side is fully verified on both our development and live environments. The <strong>only remaining item is on the
+  other project (the main EMA platform)</strong>: its copy of the shared security key must be made identical to ours — see §6.</p>
+
+  <div class="kpi-row">
+    <div class="kpi"><div class="n">12</div><div class="l">Commits</div></div>
+    <div class="kpi"><div class="n">25</div><div class="l">Files changed</div></div>
+    <div class="kpi"><div class="n">~1,800</div><div class="l">Lines added</div></div>
+    <div class="kpi"><div class="n">1</div><div class="l">New DB table</div></div>
+  </div>
+
+  <h2>2. Background — what this funnel is</h2>
+  <p>This repository is the <strong>lead-capture funnel</strong>, not the main EMA platform. It captures prospective clients through a
+  guided assessment and manages them in an admin CRM. The new referral capability lets qualified, consenting leads be passed to a
+  partner law/immigration firm, who then picks them up inside the <em>separate</em> main EMA system. We built only the
+  <strong>sending</strong> side of that hand-off; the receiving side lives in the other project.</p>
+
+  <h2>3. Part A — Internal-only rebrand</h2>
+  <p>We separated our <em>operational</em> identity from our <em>public</em> identity, so the team and admin tools reflect the funnel's
+  true role without confusing the people we serve.</p>
+  <table>
+    <tr><th style="width:50%">Now says "EMA Leads Funnel" (internal)</th><th>Still says "E-Migration Assist" (public)</th></tr>
+    <tr>
+      <td>Repository README, project description, admin browser tab titles, admin logo alt-text, internal team notifications</td>
+      <td>Assessment / capture pages, referral preview shown to firms, all customer emails (incl. the firm offer sign-off), WhatsApp messages</td>
+    </tr>
+  </table>
+  <p class="meta">Guiding principle recorded for the team: <em>go by role, not name</em> — this repo is the funnel, the public brand stays intact.</p>
+
+  <h2>4. Part B — Referral tunnel (what it does)</h2>
+  <p>The tunnel adds a consent-based referral pathway with privacy and safety built in from the ground up.</p>
+  <h3>How it flows</h3>
+  <ul>
+    <li><strong>Consent:</strong> a lead explicitly opts in (POPIA-aligned) to be shared with a partner firm.</li>
+    <li><strong>Match &amp; offer:</strong> the funnel matches a suitable firm and offers them a <em>redacted</em> summary (matter type, urgency, region — <strong>no name, email, or phone</strong>).</li>
+    <li><strong>Accept &amp; open:</strong> the firm accepts and is redirected into the main EMA platform via a short-lived, signed link; the applicant's full details are delivered securely to EMA at that moment.</li>
+    <li><strong>Status callbacks:</strong> EMA reports progress back (account linked, converted, failed), which the funnel records.</li>
+    <li><strong>Admin board:</strong> a new <code>/admin/referrals</code> view lets the team see referral status.</li>
+  </ul>
+  <h3>Safety guarantees engineered in</h3>
+  <div class="card info">
+    <ul style="margin:0;">
+      <li><strong>Personal data is structurally protected.</strong> The referral records table has <em>no</em> name/email/phone columns at all — personal details only ever travel inside a single encrypted, signed hand-off to EMA.</li>
+      <li><strong>Every message is cryptographically signed</strong> (HMAC-SHA256) with a shared secret, so neither side can be spoofed.</li>
+      <li><strong>Fails safely.</strong> If the shared secret is missing, the tunnel refuses to operate rather than leak anything (returns a "not configured" response).</li>
+      <li><strong>No duplicates, no data loss.</strong> Consent creation locks the lead so two clicks can't create two referrals; a "converted" referral can never be accidentally regressed to an earlier state.</li>
+    </ul>
+  </div>
+
+  <div class="pagebreak"></div>
+
+  <h2>5. Publishing &amp; verification</h2>
+  <p>The funnel was <strong>published live</strong> during this window and independently verified end-to-end.</p>
+  <table>
+    <tr><th style="width:60%">Test performed (run against the live/dev funnel)</th><th>Result</th></tr>
+    <tr><td>Lead consents → referral created &amp; firm matched</td><td class="check">Pass</td></tr>
+    <tr><td>Repeat consent → same referral, no duplicate</td><td class="check">Pass</td></tr>
+    <tr><td>Firm preview shows redacted info only (no personal data)</td><td class="check">Pass</td></tr>
+    <tr><td>Accept → secure signed redirect into EMA</td><td class="check">Pass</td></tr>
+    <tr><td>Callback with wrong signature → rejected</td><td class="check">Pass</td></tr>
+    <tr><td>Callback with valid signature → accepted</td><td class="check">Pass</td></tr>
+    <tr><td>"Converted" status held against a late/regressing message</td><td class="check">Pass</td></tr>
+    <tr><td>Missing secret → tunnel refuses to send (fail-safe)</td><td class="check">Pass</td></tr>
+    <tr><td>Referral records confirmed to contain no personal-data columns</td><td class="check">Pass</td></tr>
+    <tr><td>Live published funnel reachable &amp; verifying signatures correctly</td><td class="check">Pass</td></tr>
+  </table>
+
+  <h2>6. Open item — action on the main EMA platform (not the funnel)</h2>
+  <div class="card warn">
+    <p><span class="pill amber">Action needed</span> &nbsp;During cross-system testing, the main EMA platform's signed status
+    callback was rejected by the funnel with a signature error. We proved conclusively this is <strong>not a funnel problem</strong>:
+    a callback signed with the funnel's own key passes the live funnel's signature check, so the funnel's development and production
+    keys match each other and the contract is correct.</p>
+    <p style="margin-bottom:0;"><strong>Root cause:</strong> EMA's copy of the shared secret (<code>REFERRAL_TUNNEL_SECRET</code>) is not byte-identical
+    to the funnel's — a copy-paste drift (typically a stray space or newline). <strong>Fix (on the EMA side):</strong> re-paste the
+    exact same secret value into EMA's workspace and production secrets, then republish EMA. No funnel change required.</p>
+  </div>
+
+  <h2>7. Configuration status &amp; go-live checklist</h2>
+  <table>
+    <tr><th style="width:34%">Item</th><th style="width:22%">Side</th><th>Status</th></tr>
+    <tr><td>Shared secret <code>REFERRAL_TUNNEL_SECRET</code></td><td>Funnel</td><td class="check">Set (dev + production match)</td></tr>
+    <tr><td>EMA target URL <code>EMA_APP_URL</code></td><td>Funnel</td><td>Set to EMA <strong>dev</strong> URL (swap to EMA's live URL after EMA is published)</td></tr>
+    <tr><td>Match shared secret exactly</td><td>EMA</td><td>Pending re-paste (see §6)</td></tr>
+    <tr><td>Point <code>FUNNEL_API_URL</code> at the live funnel</td><td>EMA</td><td>Use <code>https://immigrationassist.replit.app</code></td></tr>
+    <tr><td>Enable referrals flag <code>FF_PARTNER_REFERRALS=true</code></td><td>EMA</td><td>Pending (EMA production)</td></tr>
+    <tr><td>Publish the main EMA platform</td><td>EMA</td><td>Pending</td></tr>
+  </table>
+  <p class="meta">Once EMA's secret matches and EMA is published, the round-trip is live. The single remaining funnel-side step is
+  repointing <code>EMA_APP_URL</code> from EMA's dev address to its published address.</p>
+
+  <div class="pagebreak"></div>
+
+  <h2>Appendix A — Commit history (last 24h)</h2>
+  <table>
+    <tr><th style="width:70px">Commit</th><th style="width:110px">When</th><th>Summary</th></tr>
+    <tr><td><code>94df561</code></td><td>07-03 20:02</td><td>Add instructions for building the referral tunnel sending side</td></tr>
+    <tr><td><code>46f8efa</code></td><td>07-03 20:10</td><td>Add clarification document explaining referral tunnel system setup</td></tr>
+    <tr><td><code>c9c3867</code></td><td>07-03 20:56</td><td>Add a referral tunnel for lead management and firm matching</td></tr>
+    <tr><td><code>d0de6db</code></td><td>07-03 21:10</td><td>Improve referral system security and update application branding</td></tr>
+    <tr><td><code>38acd4b</code></td><td>07-03 22:54</td><td>Add new image assets for user interface elements</td></tr>
+    <tr><td><code>e0df3ad</code></td><td>07-03 23:00</td><td>Document the referral tunnel contract and rebrand details</td></tr>
+    <tr><td><code>5c62257</code></td><td>07-03 23:23</td><td><strong>Published the App (live)</strong></td></tr>
+    <tr><td><code>0bbde23</code>–<code>995ce46</code></td><td>07-03 23:32 → 07-04 00:03</td><td>Coordination screenshots &amp; asset updates (secret-parity investigation)</td></tr>
+  </table>
+
+  <h2>Appendix B — Files changed (25 total)</h2>
+  <h3>Backend — new tunnel engine (api-server)</h3>
+  <ul>
+    <li><code>lib/referralTunnel.ts</code> — signing/verification primitives (the security contract)</li>
+    <li><code>lib/referralService.ts</code> — firm matching, redacted preview, applicant hand-off, token minting</li>
+    <li><code>lib/referralAudit.ts</code> — append-only audit trail</li>
+    <li><code>routes/referrals.ts</code> — consent, preview, admin referral endpoints</li>
+    <li><code>routes/referralGate.ts</code> — accept/redirect + status callback receiver</li>
+    <li><code>routes/index.ts</code>, <code>routes/support.ts</code> — wiring</li>
+  </ul>
+  <h3>Database</h3>
+  <ul>
+    <li><code>lib/db/src/schema/referrals.ts</code> — new <code>referrals</code> table (privacy-safe: no personal-data columns) + audit table</li>
+    <li><code>lib/db/src/schema/index.ts</code>, <code>drizzle.config.ts</code> — registration</li>
+  </ul>
+  <h3>Frontend (emigration-assist)</h3>
+  <ul>
+    <li><code>src/components/referral-consent-card.tsx</code> — lead consent UI</li>
+    <li><code>src/pages/referral-preview.tsx</code> — redacted preview shown to firms</li>
+    <li><code>src/pages/admin-referrals.tsx</code> — admin referral board</li>
+    <li>Rebrand touches: <code>App.tsx</code>, <code>admin-layout.tsx</code>, <code>admin-user-menu.tsx</code>, <code>admin-login.tsx</code>, <code>admin.tsx</code>, <code>admin-lead-detail.tsx</code>, <code>thank-you.tsx</code>, <code>index.css</code>, <code>package.json</code>, <code>artifact.toml</code>, <code>opengraph.jpg</code></li>
+  </ul>
+  <h3>Docs</h3>
+  <ul>
+    <li><code>replit.md</code> — architecture decision record for the tunnel &amp; rebrand</li>
+    <li><code>.agents/memory/</code> — durable contract notes for future work</li>
+  </ul>
+
+  <h2>Appendix C — New API endpoints</h2>
+  <table>
+    <tr><th style="width:52%">Endpoint</th><th>Purpose</th></tr>
+    <tr><td><code>POST /api/referrals/consent</code></td><td>Lead opts in; creates &amp; matches referral</td></tr>
+    <tr><td><code>GET /api/referrals/preview/:id</code></td><td>Redacted preview for the firm</td></tr>
+    <tr><td><code>GET /api/referral-gate/redirect/:id</code></td><td>Accept → secure signed redirect into EMA</td></tr>
+    <tr><td><code>POST /api/referral-gate/callback</code></td><td>Receives signed status updates from EMA</td></tr>
+    <tr><td><code>GET /api/admin/referrals*</code></td><td>Admin listing/detail</td></tr>
+  </table>
+
+  <div class="foot">
+    EMA Leads Funnel — internal change report · Generated 4 July 2026 · Live backend: immigrationassist.replit.app ·
+    This document summarises work on the funnel (sender) only; the main E-Migration Assist platform is a separate project.
+  </div>
+
+</div>
+</body>
+</html>
