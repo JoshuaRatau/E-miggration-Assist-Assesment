@@ -35,7 +35,6 @@ import {
   AlertTriangle,
   Building2,
   KeyRound,
-  Clock,
 } from "lucide-react";
 
 // Animated counter — ramps from 0 to target over ~1.2s with ease-out cubic.
@@ -200,32 +199,6 @@ const TRUST_POINTS = [
     icon: Globe2,
     title: "South Africa first, globally scalable",
     body: "Built for the South African immigration ecosystem, with an architecture designed to expand beyond.",
-  },
-];
-
-// The two premium-priority problem pillars from the funnel brief. Each maps to
-// an EXISTING intake path — overstay → /overstay-assessment, stuck applications
-// → the general individual assessment (/assessment). No new questionnaire.
-const URGENT_PILLARS = [
-  {
-    icon: AlertTriangle,
-    tag: "Priority route",
-    title: "You overstayed or were declared undesirable",
-    body: "Afraid to leave or re-enter? Facing a ban or an undesirable declaration? We help you understand appeal, upliftment, regularisation, and your next legal step.",
-    cta: "Start the overstay / undesirable route",
-    href: "https://immigrationassist.replit.app/overstay-assessment?route=overstay_undesirable",
-    external: true,
-    testid: "pillar-overstay",
-  },
-  {
-    icon: Clock,
-    tag: "Priority route",
-    title: "Your application is stuck, delayed, or mismatched",
-    body: "Pending for months at Home Affairs? Documents or outcome don't match? Can't work, bank, travel, or move because your matter is unresolved? We route and diagnose it properly.",
-    cta: "Start a stuck-application review",
-    href: "/assessment?route=traveller&theme=stuck_application",
-    external: false,
-    testid: "pillar-stuck",
   },
 ];
 
@@ -397,76 +370,6 @@ export function Home() {
             </div>
           </div>
         </section>
-
-        {/* ============================================================ */}
-        {/* URGENT PROBLEM PILLARS — overstay + stuck applications        */}
-        {/* ============================================================ */}
-        <Reveal>
-          <section aria-labelledby="urgent-heading" className="space-y-8">
-            <div className="text-center max-w-3xl mx-auto space-y-3">
-              <p className="text-xs uppercase tracking-[0.22em] text-cyan-300">
-                The situations we resolve most
-              </p>
-              <h2
-                id="urgent-heading"
-                className="text-3xl sm:text-4xl font-display font-semibold tracking-tight text-slate-50"
-              >
-                Two urgent problems. One structured way through.
-              </h2>
-              <p className="text-base sm:text-lg text-slate-200 leading-relaxed">
-                If either of these is you, don't wait. Start here and we'll route
-                your matter to the right path.
-              </p>
-            </div>
-            <div className="grid md:grid-cols-2 gap-4 sm:gap-5">
-              {URGENT_PILLARS.map((p, i) => (
-                <Reveal key={p.title} delay={i * 80}>
-                  <Card className="group relative h-full overflow-hidden border-primary/40 bg-gradient-to-br from-primary/10 via-card/70 to-card/60 hover:border-primary/60 hover:-translate-y-0.5 transition-all">
-                    <div
-                      aria-hidden="true"
-                      className="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-primary/10 blur-3xl opacity-60 group-hover:opacity-100 transition-opacity"
-                    />
-                    <CardHeader className="space-y-4">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/25 to-cyan-400/10 ring-1 ring-primary/30 text-primary"
-                          aria-hidden="true"
-                        >
-                          <p.icon className="h-5 w-5" strokeWidth={1.7} />
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className="border-primary/40 bg-primary/15 text-primary rounded-full"
-                        >
-                          {p.tag}
-                        </Badge>
-                      </div>
-                      <CardTitle className="text-xl leading-snug">
-                        {p.title}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-5">
-                      <CardDescription className="text-base leading-relaxed">
-                        {p.body}
-                      </CardDescription>
-                      <RouteCTA
-                        href={p.href}
-                        external={p.external}
-                        testid={p.testid}
-                        className="inline-block"
-                      >
-                        <Button className="rounded-xl gap-2">
-                          {p.cta}
-                          <ArrowRight className="h-4 w-4" />
-                        </Button>
-                      </RouteCTA>
-                    </CardContent>
-                  </Card>
-                </Reveal>
-              ))}
-            </div>
-          </section>
-        </Reveal>
 
         {/* ============================================================ */}
         {/* CHOOSE YOUR ROUTE — the four primary funnel entry points      */}
