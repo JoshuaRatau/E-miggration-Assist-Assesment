@@ -185,6 +185,37 @@ const FREE_PLAN_BENEFITS = [
   "Platform onboarding",
 ];
 
+// Phase 8 — funnel trust/conversion content. Explains, in plain language,
+// what EMA actually does with a matter once someone starts an assessment.
+// Content-only; no forms, questions, or logic attached.
+const HOW_EMA_HELPS = [
+  {
+    icon: ScanLine,
+    title: "Route diagnosis",
+    body: "We read your situation and point you to the correct immigration route before you commit to a path.",
+  },
+  {
+    icon: ClipboardCheck,
+    title: "Structured immigration intake",
+    body: "A guided, confidential questionnaire captures the right details in the right order — no guesswork.",
+  },
+  {
+    icon: FileText,
+    title: "Document readiness support",
+    body: "We help you understand which supporting documents matter, so your matter is organised from the start.",
+  },
+  {
+    icon: Rocket,
+    title: "Case handoff preparation",
+    body: "Your information is prepared into a clean, structured record ready for the next step in your journey.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Secure handling of personal information",
+    body: "Your details are handled securely and in line with privacy requirements — never shared without consent.",
+  },
+];
+
 const TRUST_POINTS = [
   {
     icon: Lock,
@@ -529,6 +560,53 @@ export function Home() {
               {STANDARD_ROUTES.map((r, i) => (
                 <Reveal key={r.title} delay={i * 70}>
                   <RouteCard route={r} />
+                </Reveal>
+              ))}
+            </div>
+            {/* Privacy / trust note — reassures before the visitor commits. */}
+            <p className="mx-auto flex max-w-2xl items-start justify-center gap-2 text-center text-sm text-slate-300">
+              <Lock className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" aria-hidden="true" />
+              <span>
+                Your information is used to route your matter and prepare the
+                correct intake path. EMA handles personal information securely
+                and in line with privacy requirements.
+              </span>
+            </p>
+          </section>
+        </Reveal>
+
+        {/* ============================================================ */}
+        {/* HOW EMA HELPS — compact funnel value summary                  */}
+        {/* ============================================================ */}
+        <Reveal>
+          <section className="space-y-8">
+            <div className="text-center max-w-3xl mx-auto space-y-3">
+              <p className="text-xs uppercase tracking-[0.22em] text-cyan-300">
+                How EMA helps
+              </p>
+              <h2 className="text-3xl sm:text-4xl font-display font-semibold tracking-tight text-slate-50">
+                What happens once you start.
+              </h2>
+              <p className="text-base sm:text-lg text-slate-200 leading-relaxed">
+                From the moment you choose a route, EMA works to diagnose your
+                matter, structure your intake, and prepare it properly — securely,
+                every step of the way.
+              </p>
+            </div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+              {HOW_EMA_HELPS.map((item, i) => (
+                <Reveal key={item.title} delay={i * 70}>
+                  <div className="h-full rounded-2xl border border-border/50 bg-card/60 p-5 space-y-3">
+                    <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                      <item.icon className="h-4 w-4" />
+                    </div>
+                    <h3 className="font-semibold text-foreground">
+                      {item.title}
+                    </h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {item.body}
+                    </p>
+                  </div>
                 </Reveal>
               ))}
             </div>
