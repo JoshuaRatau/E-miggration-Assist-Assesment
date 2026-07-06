@@ -7,4 +7,5 @@
 - [Segment funnel pattern](segment-funnel-pattern.md) — new public funnels (overstay, firm/business) = dedicated page + `/api/<seg>-intake` route, no new DB cols (rich answers as JSON in admin_notes), not in OpenAPI; backend must enforce requireds.
 - [adminNotes not in slim list](admin-notes-slim-list.md) — GET /api/leads omits adminNotes; inline/drawer notes editors must fetch full lead via /api/leads/by-id/:id (key ["admin","lead",id]).
 - [Funnel landing route map](funnel-landing-routes.md) — home.tsx 4-route funnel; overstay CTA uses hardcoded absolute URL on purpose (don't switch to Wouter Link); stuck-application funnels to /assessment (no dedicated route).
+- [Funnel route context storage](funnel-context-storage.md) — route/theme persisted to prelaunch_leads.funnel_context jsonb; THREE lead-creating paths (leads + overstay-intake + business-intake) must stay in sync; /api/leads reads it off req.body to skip validation.
 - [Referral tunnel contract](referral-tunnel-contract.md) — sender-side funnel→EMA: two HMAC serializations (don't unify), fail-closed 503, referrals table stores NO PII, `converted` is terminal.
