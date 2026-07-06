@@ -140,6 +140,14 @@ export type LeadLeadScoreBreakdownItem = {
   occurrences: number;
 };
 
+/**
+ * Phase 4 — landing-page route context captured at submission (where the lead came from). NULL when no route context was present.
+ */
+export type LeadFunnelContext = {
+  route?: string | null;
+  theme?: string | null;
+} | null;
+
 export interface Lead {
   id: string;
   referenceNumber: string;
@@ -196,6 +204,8 @@ export interface Lead {
   representativeRelationship?: string | null;
   /** Phase 6A.5 — commercial tier the lead is heading toward. One of: free, basic, plus, pro, premium (B2C self-serve); starter_firm, growth_firm, scale_firm, enterprise (B2B firm); concierge (white-glove); unknown (sentinel). NULL means not yet classified. Drives tier-aware scoring (Phase 6B) and SLA tracking (Phase 6D). */
   intendedTier?: string | null;
+  /** Phase 4 — landing-page route context captured at submission (where the lead came from). NULL when no route context was present. */
+  funnelContext?: LeadFunnelContext;
   website?: string | null;
   firmSize?: string | null;
   operatingRegions?: string[] | null;
@@ -236,6 +246,14 @@ export interface PublicLead {
 }
 
 /**
+ * Phase 4 — landing-page route context captured at submission (where the lead came from). NULL when no route context was present.
+ */
+export type AdminLeadListItemFunnelContext = {
+  route?: string | null;
+  theme?: string | null;
+} | null;
+
+/**
  * Slim row shape returned by GET /api/leads for the admin dashboard.
 Intentionally a strict subset of `Lead` — omits internal "rules
 engine" fields (internalClassification, leadScore, leadCategory,
@@ -265,6 +283,8 @@ export interface AdminLeadListItem {
   representativeRelationship?: string | null;
   /** Phase 6A.5 — commercial tier the lead is heading toward (free | basic | plus | pro | premium | starter_firm | growth_firm | scale_firm | enterprise | concierge | unknown). NULL means not yet classified. */
   intendedTier?: string | null;
+  /** Phase 4 — landing-page route context captured at submission (where the lead came from). NULL when no route context was present. */
+  funnelContext?: AdminLeadListItemFunnelContext;
   firmSize?: string | null;
   serviceFocus?: string | null;
   /** admin_users.id of the operator assigned to this lead */

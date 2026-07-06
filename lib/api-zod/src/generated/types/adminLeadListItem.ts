@@ -5,6 +5,7 @@
  * E-Migration Assist API
  * OpenAPI spec version: 0.2.0
  */
+import type { AdminLeadListItemFunnelContext } from "./adminLeadListItemFunnelContext";
 
 /**
  * Slim row shape returned by GET /api/leads for the admin dashboard.
@@ -36,6 +37,8 @@ export interface AdminLeadListItem {
   representativeRelationship?: string | null;
   /** Phase 6A.5 — commercial tier the lead is heading toward (free | basic | plus | pro | premium | starter_firm | growth_firm | scale_firm | enterprise | concierge | unknown). NULL means not yet classified. */
   intendedTier?: string | null;
+  /** Phase 4 — landing-page route context captured at submission (where the lead came from). NULL when no route context was present. */
+  funnelContext?: AdminLeadListItemFunnelContext;
   firmSize?: string | null;
   serviceFocus?: string | null;
   /** admin_users.id of the operator assigned to this lead */

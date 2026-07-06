@@ -812,6 +812,19 @@ components:
             concierge (white-glove); unknown (sentinel). NULL means
             not yet classified. Drives tier-aware scoring (Phase 6B)
             and SLA tracking (Phase 6D).
+        funnelContext:
+          type: object
+          nullable: true
+          description: >-
+            Phase 4 — landing-page route context captured at submission
+            (where the lead came from). NULL when no route context was present.
+          properties:
+            route:
+              type: string
+              nullable: true
+            theme:
+              type: string
+              nullable: true
         website:
           type: string
           nullable: true
@@ -982,6 +995,19 @@ components:
             (free | basic | plus | pro | premium | starter_firm |
             growth_firm | scale_firm | enterprise | concierge | unknown).
             NULL means not yet classified.
+        funnelContext:
+          type: object
+          nullable: true
+          description: >-
+            Phase 4 — landing-page route context captured at submission
+            (where the lead came from). NULL when no route context was present.
+          properties:
+            route:
+              type: string
+              nullable: true
+            theme:
+              type: string
+              nullable: true
         firmSize:
           type: string
           nullable: true

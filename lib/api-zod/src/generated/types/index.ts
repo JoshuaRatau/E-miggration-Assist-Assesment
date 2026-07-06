@@ -7,6 +7,7 @@
  */
 
 export * from "./adminLeadListItem";
+export * from "./adminLeadListItemFunnelContext";
 export * from "./analyticsEventInput";
 export * from "./analyticsEventInputPayload";
 export * from "./analyticsEventResponse";
@@ -42,6 +43,7 @@ export * from "./emigrationSubscriptionDataInterval";
 export * from "./emigrationSubscriptionDataPlanCurrency";
 export * from "./healthStatus";
 export * from "./lead";
+export * from "./leadFunnelContext";
 export * from "./leadLeadScoreBreakdownItem";
 export * from "./leadMixBucket";
 export * from "./listDocumentsParams";

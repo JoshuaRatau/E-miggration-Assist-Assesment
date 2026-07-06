@@ -5,6 +5,7 @@
  * E-Migration Assist API
  * OpenAPI spec version: 0.2.0
  */
+import type { LeadFunnelContext } from "./leadFunnelContext";
 import type { LeadLeadScoreBreakdownItem } from "./leadLeadScoreBreakdownItem";
 
 export interface Lead {
@@ -63,6 +64,8 @@ export interface Lead {
   representativeRelationship?: string | null;
   /** Phase 6A.5 — commercial tier the lead is heading toward. One of: free, basic, plus, pro, premium (B2C self-serve); starter_firm, growth_firm, scale_firm, enterprise (B2B firm); concierge (white-glove); unknown (sentinel). NULL means not yet classified. Drives tier-aware scoring (Phase 6B) and SLA tracking (Phase 6D). */
   intendedTier?: string | null;
+  /** Phase 4 — landing-page route context captured at submission (where the lead came from). NULL when no route context was present. */
+  funnelContext?: LeadFunnelContext;
   website?: string | null;
   firmSize?: string | null;
   operatingRegions?: string[] | null;

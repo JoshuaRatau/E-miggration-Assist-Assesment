@@ -12,6 +12,7 @@ import {
   statusLabel,
 } from "@/lib/leadStatus";
 import { tierBadgeClass, tierLabel } from "@/lib/intendedTier";
+import { funnelRouteLabel, funnelThemeLabel } from "@/lib/funnelContext";
 import {
   Dialog,
   DialogContent,
@@ -1344,6 +1345,30 @@ export function Admin() {
                             <div className="font-mono text-[10px] text-muted-foreground">
                               {lead.referenceNumber}
                             </div>
+                            {lead.funnelContext &&
+                            (lead.funnelContext.route ||
+                              lead.funnelContext.theme) ? (
+                              <div className="mt-1 flex flex-wrap items-center gap-1">
+                                {lead.funnelContext.route ? (
+                                  <span
+                                    className="inline-flex items-center rounded border border-cyan-300 bg-cyan-50 px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wide text-cyan-800"
+                                    data-testid={`badge-funnel-route-${lead.referenceNumber}`}
+                                    title="Funnel route (where this lead came from)"
+                                  >
+                                    {funnelRouteLabel(lead.funnelContext.route)}
+                                  </span>
+                                ) : null}
+                                {lead.funnelContext.theme ? (
+                                  <span
+                                    className="inline-flex items-center rounded border border-amber-300 bg-amber-50 px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wide text-amber-800"
+                                    data-testid={`badge-funnel-theme-${lead.referenceNumber}`}
+                                    title="Funnel theme"
+                                  >
+                                    {funnelThemeLabel(lead.funnelContext.theme)}
+                                  </span>
+                                ) : null}
+                              </div>
+                            ) : null}
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-col gap-1 items-start">

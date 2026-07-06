@@ -127,6 +127,15 @@ export const ListLeadsResponseItem = zod
       .describe(
         "Phase 6A.5 — commercial tier the lead is heading toward (free | basic | plus | pro | premium | starter_firm | growth_firm | scale_firm | enterprise | concierge | unknown). NULL means not yet classified.",
       ),
+    funnelContext: zod
+      .object({
+        route: zod.string().nullish(),
+        theme: zod.string().nullish(),
+      })
+      .nullish()
+      .describe(
+        "Phase 4 — landing-page route context captured at submission (where the lead came from). NULL when no route context was present.",
+      ),
     firmSize: zod.string().nullish(),
     serviceFocus: zod.string().nullish(),
     assignedTo: zod
@@ -289,6 +298,15 @@ export const GetLeadByIdResponse = zod.object({
     .nullish()
     .describe(
       "Phase 6A.5 — commercial tier the lead is heading toward. One of: free, basic, plus, pro, premium (B2C self-serve); starter_firm, growth_firm, scale_firm, enterprise (B2B firm); concierge (white-glove); unknown (sentinel). NULL means not yet classified. Drives tier-aware scoring (Phase 6B) and SLA tracking (Phase 6D).",
+    ),
+  funnelContext: zod
+    .object({
+      route: zod.string().nullish(),
+      theme: zod.string().nullish(),
+    })
+    .nullish()
+    .describe(
+      "Phase 4 — landing-page route context captured at submission (where the lead came from). NULL when no route context was present.",
     ),
   website: zod.string().nullish(),
   firmSize: zod.string().nullish(),

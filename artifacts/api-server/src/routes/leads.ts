@@ -145,6 +145,10 @@ function serializeLeadAdminList(
     // Phase 6A.5 — surface the tier on the slim list so the dashboard can
     // render its tier-mix badge / filter without an N+1 detail fetch.
     intendedTier: row.intendedTier,
+    // Phase 4 (funnel context) — surface the saved landing-page route/theme
+    // so the dashboard can show where each lead came from. Read-only; the
+    // column is populated at submission time (see lib/funnelContext.ts).
+    funnelContext: row.funnelContext ?? null,
     assignedTo: row.assignedTo,
     lastContactedAt: row.lastContactedAt
       ? row.lastContactedAt.toISOString()
