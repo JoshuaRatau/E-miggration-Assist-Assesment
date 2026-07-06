@@ -150,6 +150,15 @@ export function Assessment() {
   useEffect(() => {
     document.title = "Immigration Assessment | E-Migration Assist";
     trackEvent("assessment_started");
+    const fc = readFunnelContext();
+    trackEvent("funnel_assessment_started", {
+      payload: {
+        route: fc?.route,
+        theme: fc?.theme,
+        path: window.location.pathname,
+        timestamp: new Date().toISOString(),
+      },
+    });
   }, []);
 
   const form = useForm<AssessmentFormValues>({
@@ -357,6 +366,16 @@ export function Assessment() {
         onSuccess: (result) => {
           trackEvent("assessment_completed", {
             referenceNumber: result.referenceNumber,
+          });
+          const fc = readFunnelContext();
+          trackEvent("funnel_lead_submitted", {
+            referenceNumber: result.referenceNumber,
+            payload: {
+              route: fc?.route,
+              theme: fc?.theme,
+              path: window.location.pathname,
+              timestamp: new Date().toISOString(),
+            },
           });
           setCreatedLead({
             id: result.id,

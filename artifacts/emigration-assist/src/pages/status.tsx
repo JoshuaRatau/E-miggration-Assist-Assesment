@@ -18,6 +18,7 @@ import { CheckCircle2, FileText, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { Disclaimer } from "@/components/disclaimer";
 import { BrandHeader } from "@/components/brand-header";
+import { trackEvent } from "@/lib/analytics";
 
 export function Status() {
   useEffect(() => {
@@ -49,7 +50,18 @@ export function Status() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = searchRef.trim().toUpperCase();
-    if (trimmed) setActiveRef(trimmed);
+    if (trimmed) {
+      trackEvent("reference_lookup_started", {
+        payload: {
+          route:
+            new URLSearchParams(window.location.search).get("route") ??
+            undefined,
+          path: window.location.pathname,
+          timestamp: new Date().toISOString(),
+        },
+      });
+      setActiveRef(trimmed);
+    }
   };
 
   const status = data as

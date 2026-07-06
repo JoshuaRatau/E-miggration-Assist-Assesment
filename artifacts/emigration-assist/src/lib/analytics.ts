@@ -6,7 +6,13 @@ type EventName =
   | "lead.whatsapp_captured"
   // Conversion Engine V1: admin clicked the per-row "Contact" quick-action
   // on /admin.  Payload: { leadId, channel: "whatsapp" | "email" }.
-  | "lead_contact_clicked";
+  | "lead_contact_clicked"
+  // Milestone 2 — Funnel Intelligence (Phase 9): lightweight funnel analytics.
+  // Purely additive telemetry — no flow, questionnaire, or submission changes.
+  | "funnel_route_selected"
+  | "funnel_assessment_started"
+  | "funnel_lead_submitted"
+  | "reference_lookup_started";
 
 import { apiUrl } from "./apiBase";
 

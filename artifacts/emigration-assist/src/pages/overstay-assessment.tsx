@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { BrandHeader } from "@/components/brand-header";
 import { DocumentUploader } from "@/components/DocumentUploader";
 import { readFunnelContext } from "@/lib/funnelContext";
+import { trackEvent } from "@/lib/analytics";
 import brandLogo from "@assets/E-Migration_Assist_New_Logo-removebg-preview_1778252859401.png";
 import heroSuitcase from "@assets/overstay_hero_no_bg.png";
 import {
@@ -169,6 +170,18 @@ export default function OverstayAssessment() {
   const [step, setStep] = useState(STEP_INTRO);
   const [form, setForm] = useState<FormState>(INITIAL);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const fc = readFunnelContext();
+    trackEvent("funnel_assessment_started", {
+      payload: {
+        route: fc?.route,
+        theme: fc?.theme,
+        path: window.location.pathname,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }, []);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [result, setResult] = useState<{
     leadId: string;
@@ -241,6 +254,16 @@ export default function OverstayAssessment() {
         referenceNumber: string;
       };
       setResult({ leadId: data.leadId, referenceNumber: data.referenceNumber });
+      const fc = readFunnelContext();
+      trackEvent("funnel_lead_submitted", {
+        referenceNumber: data.referenceNumber,
+        payload: {
+          route: fc?.route,
+          theme: fc?.theme,
+          path: window.location.pathname,
+          timestamp: new Date().toISOString(),
+        },
+      });
       setStep(STEP_SUCCESS);
     } catch (err) {
       setSubmitError(

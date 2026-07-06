@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { BrandHeader } from "@/components/brand-header";
 import { CountryCombobox } from "@/components/country-combobox";
 import { findByIso, findByName } from "@/lib/countries";
 import { readFunnelContext } from "@/lib/funnelContext";
+import { trackEvent } from "@/lib/analytics";
 import heroSuitcase from "@assets/overstay_hero_no_bg.png";
 import {
   ArrowRight,
@@ -218,6 +219,18 @@ export default function BusinessAssessment() {
   const [step, setStep] = useState(STEP_INTRO);
   const [form, setForm] = useState<FormState>(INITIAL);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const fc = readFunnelContext();
+    trackEvent("funnel_assessment_started", {
+      payload: {
+        route: fc?.route,
+        theme: fc?.theme,
+        path: window.location.pathname,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }, []);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [result, setResult] = useState<{
     leadId: string;
@@ -376,6 +389,16 @@ export default function BusinessAssessment() {
         referenceNumber: string;
       };
       setResult({ leadId: data.leadId, referenceNumber: data.referenceNumber });
+      const fc = readFunnelContext();
+      trackEvent("funnel_lead_submitted", {
+        referenceNumber: data.referenceNumber,
+        payload: {
+          route: fc?.route,
+          theme: fc?.theme,
+          path: window.location.pathname,
+          timestamp: new Date().toISOString(),
+        },
+      });
       setStep(STEP_SUCCESS);
     } catch (err) {
       setSubmitError(

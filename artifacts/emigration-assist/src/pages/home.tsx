@@ -13,6 +13,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Disclaimer } from "@/components/disclaimer";
 import { BrandHeader } from "@/components/brand-header";
+import { trackEvent } from "@/lib/analytics";
 import heroFolders from "@assets/hero-folders_1778252732296_nobg.png";
 import {
   ArrowRight,
@@ -349,26 +350,55 @@ function RouteCTA({
   external,
   className = "",
   testid,
+  onClick,
   children,
 }: {
   href: string;
   external?: boolean;
   className?: string;
   testid?: string;
+  onClick?: () => void;
   children: React.ReactNode;
 }) {
   if (external) {
     return (
-      <a href={href} className={className} data-testid={testid}>
+      <a href={href} className={className} data-testid={testid} onClick={onClick}>
         {children}
       </a>
     );
   }
   return (
-    <Link href={href} className={className} data-testid={testid}>
+    <Link href={href} className={className} data-testid={testid} onClick={onClick}>
       {children}
     </Link>
   );
+}
+
+// Milestone 2 — Funnel Intelligence (Phase 9): fire a lightweight, no-op-safe
+// funnel event when a visitor selects a route. Metadata is parsed from the
+// route's EXISTING href (route/theme query params + destination path) — nothing
+// about navigation, CTA destinations, or funnel_context passing changes.
+function trackRouteSelected(route: FunnelRoute) {
+  let routeParam: string | undefined;
+  let themeParam: string | undefined;
+  let destinationPath: string | undefined;
+  try {
+    const url = new URL(route.href, window.location.origin);
+    routeParam = url.searchParams.get("route") ?? undefined;
+    themeParam = url.searchParams.get("theme") ?? undefined;
+    destinationPath = url.pathname;
+  } catch {
+    // Malformed href — still record the selection without derived metadata.
+  }
+  trackEvent("funnel_route_selected", {
+    payload: {
+      route: routeParam,
+      theme: themeParam,
+      ctaLabel: route.cta,
+      destinationPath,
+      timestamp: new Date().toISOString(),
+    },
+  });
 }
 
 // A single funnel route card: icon, title, short description, 3–5 example
@@ -419,6 +449,7 @@ function RouteCard({ route }: { route: FunnelRoute }) {
           href={r.href}
           external={r.external}
           testid={r.testid}
+          onClick={() => trackRouteSelected(r)}
           className="mt-auto block"
         >
           <Button
