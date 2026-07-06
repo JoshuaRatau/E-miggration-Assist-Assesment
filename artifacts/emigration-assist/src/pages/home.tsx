@@ -31,6 +31,11 @@ import {
   Globe2,
   Check,
   Star,
+  Plane,
+  AlertTriangle,
+  Building2,
+  KeyRound,
+  Clock,
 } from "lucide-react";
 
 // Animated counter — ramps from 0 to target over ~1.2s with ease-out cubic.
@@ -198,6 +203,107 @@ const TRUST_POINTS = [
   },
 ];
 
+// The two premium-priority problem pillars from the funnel brief. Each maps to
+// an EXISTING intake path — overstay → /overstay-assessment, stuck applications
+// → the general individual assessment (/assessment). No new questionnaire.
+const URGENT_PILLARS = [
+  {
+    icon: AlertTriangle,
+    tag: "Priority route",
+    title: "You overstayed or were declared undesirable",
+    body: "Afraid to leave or re-enter? Facing a ban or an undesirable declaration? We help you understand appeal, upliftment, regularisation, and your next legal step.",
+    cta: "Start the overstay / undesirable route",
+    href: "https://immigrationassist.replit.app/overstay-assessment",
+    external: true,
+    testid: "pillar-overstay",
+  },
+  {
+    icon: Clock,
+    tag: "Priority route",
+    title: "Your application is stuck, delayed, or mismatched",
+    body: "Pending for months at Home Affairs? Documents or outcome don't match? Can't work, bank, travel, or move because your matter is unresolved? We route and diagnose it properly.",
+    cta: "Start a stuck-application review",
+    href: "/assessment",
+    external: false,
+    testid: "pillar-stuck",
+  },
+];
+
+// The four primary funnel routes. Overstay keeps the existing absolute-URL link
+// (deliberate production routing); the rest use in-app Wouter navigation. Every
+// route opens an EXISTING intake — nothing about the questionnaires changes.
+const FUNNEL_ROUTES = [
+  {
+    icon: AlertTriangle,
+    title: "Overstayed / Undesirable",
+    body: "Overstay consequences, bans, or an undesirable declaration.",
+    cta: "Start",
+    href: "https://immigrationassist.replit.app/overstay-assessment",
+    external: true,
+    featured: true,
+    testid: "route-overstay",
+  },
+  {
+    icon: Plane,
+    title: "Traveller",
+    body: "Travel, movement, re-entry, or a new individual visa matter.",
+    cta: "Start",
+    href: "/assessment",
+    external: false,
+    featured: false,
+    testid: "route-traveller",
+  },
+  {
+    icon: Building2,
+    title: "Firm / Professional",
+    body: "Practitioners, law firms, HR, and mobility teams.",
+    cta: "Start",
+    href: "/business-assessment",
+    external: false,
+    featured: false,
+    testid: "route-firm",
+  },
+  {
+    icon: KeyRound,
+    title: "Continue with reference",
+    body: "Return to an existing case and check its progress.",
+    cta: "Continue",
+    href: "/status",
+    external: false,
+    featured: false,
+    testid: "route-reference",
+  },
+];
+
+// Renders the correct link element for a route: an absolute <a> for external
+// production routing, or a Wouter <Link> for in-app navigation.
+function RouteCTA({
+  href,
+  external,
+  className = "",
+  testid,
+  children,
+}: {
+  href: string;
+  external?: boolean;
+  className?: string;
+  testid?: string;
+  children: React.ReactNode;
+}) {
+  if (external) {
+    return (
+      <a href={href} className={className} data-testid={testid}>
+        {children}
+      </a>
+    );
+  }
+  return (
+    <Link href={href} className={className} data-testid={testid}>
+      {children}
+    </Link>
+  );
+}
+
 export function Home() {
   useEffect(() => {
     document.title =
@@ -259,66 +365,44 @@ export function Home() {
               className="text-[2rem] leading-[1.1] sm:text-5xl lg:text-[3.2rem] xl:text-[3.5rem] font-display font-bold tracking-tight text-slate-50"
               data-testid="hero-headline"
             >
-              South Africa's next-generation{" "}
+              Overstayed, declared undesirable, or{" "}
               <span className="bg-gradient-to-r from-primary to-cyan-400 bg-clip-text text-transparent">
-                immigration platform
-              </span>{" "}
-              is arriving.
+                stuck at Home Affairs?
+              </span>
             </h1>
             <p className="text-base sm:text-lg lg:text-xl text-slate-200 leading-relaxed">
-              A new immigration technology ecosystem — structured workflows,
-              document intelligence, and AI-assisted guidance for travellers,
-              firms, and concierge clients.
+              If your visa expired, your application is stuck or mismatched, or
+              you can't travel, work, or bank because your matter is unresolved —
+              E-Migration Assist helps you find the right route and resolve it
+              properly.
             </p>
           </div>
 
-          {/* CTAs + trust strip — the conversion focal point. */}
+          {/* Primary route entry — one clear action, plus the returning-user path.
+              The full four-route selector lives in the #routes section below. */}
           <div className="relative mt-8 sm:mt-10 lg:mt-12 flex flex-col items-center gap-4 sm:gap-5">
-            <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3 sm:gap-4 w-full sm:w-auto">
-              <Link href="/assessment" className="w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 w-full sm:w-auto">
+              <a href="#routes" className="w-full sm:w-auto">
                 <Button
                   size="lg"
-                  className="w-full sm:w-auto h-14 px-7 text-base sm:text-lg rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all gap-2"
-                  data-testid="button-start-assessment"
+                  className="w-full sm:w-auto h-14 px-8 text-base sm:text-lg rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all gap-2"
+                  data-testid="button-choose-route"
                 >
-                  Start as a Traveller
-                  <ArrowRight className="h-5 w-5" />
-                </Button>
-              </Link>
-              <a
-                href="https://immigrationassist.replit.app/overstay-assessment"
-                className="w-full sm:w-auto"
-              >
-                <Button
-                  size="lg"
-                  className="w-full sm:w-auto h-14 px-7 text-base sm:text-lg rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all gap-2"
-                  data-testid="button-start-overstayed"
-                >
-                  Start as Overstayed or Declared Undesirable
+                  Find the right route for your situation
                   <ArrowRight className="h-5 w-5" />
                 </Button>
               </a>
-              <Link href="/business-assessment" className="w-full sm:w-auto">
+              <Link href="/status" className="w-full sm:w-auto">
                 <Button
+                  variant="outline"
                   size="lg"
-                  className="w-full sm:w-auto h-14 px-7 text-base sm:text-lg rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all gap-2"
-                  data-testid="button-start-firm"
+                  className="w-full sm:w-auto h-14 px-6 text-base rounded-xl border-slate-400/50 bg-white/70 hover:bg-white/90 backdrop-blur-md text-foreground/90 hover:text-foreground shadow-[0_8px_30px_-12px_rgba(15,23,42,0.25)] transition-all"
+                  data-testid="button-have-reference"
                 >
-                  Start as Firm/Professional
-                  <ArrowRight className="h-5 w-5" />
+                  I already have a reference
                 </Button>
               </Link>
             </div>
-            <Link href="/status" className="w-full sm:w-auto">
-              <Button
-                variant="outline"
-                size="lg"
-                className="w-full sm:w-auto h-14 px-6 text-base rounded-xl border-slate-400/50 bg-white/70 hover:bg-white/90 backdrop-blur-md text-foreground/90 hover:text-foreground shadow-[0_8px_30px_-12px_rgba(15,23,42,0.25)] transition-all"
-                data-testid="button-have-reference"
-              >
-                I already have a reference
-              </Button>
-            </Link>
             <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-slate-300">
               <span className="inline-flex items-center gap-1.5">
                 <Lock className="h-3.5 w-3.5" />
@@ -335,6 +419,145 @@ export function Home() {
             </div>
           </div>
         </section>
+
+        {/* ============================================================ */}
+        {/* URGENT PROBLEM PILLARS — overstay + stuck applications        */}
+        {/* ============================================================ */}
+        <Reveal>
+          <section aria-labelledby="urgent-heading" className="space-y-8">
+            <div className="text-center max-w-3xl mx-auto space-y-3">
+              <p className="text-xs uppercase tracking-[0.22em] text-cyan-300">
+                The situations we resolve most
+              </p>
+              <h2
+                id="urgent-heading"
+                className="text-3xl sm:text-4xl font-display font-semibold tracking-tight text-slate-50"
+              >
+                Two urgent problems. One structured way through.
+              </h2>
+              <p className="text-base sm:text-lg text-slate-200 leading-relaxed">
+                If either of these is you, don't wait. Start here and we'll route
+                your matter to the right path.
+              </p>
+            </div>
+            <div className="grid md:grid-cols-2 gap-4 sm:gap-5">
+              {URGENT_PILLARS.map((p, i) => (
+                <Reveal key={p.title} delay={i * 80}>
+                  <Card className="group relative h-full overflow-hidden border-primary/40 bg-gradient-to-br from-primary/10 via-card/70 to-card/60 hover:border-primary/60 hover:-translate-y-0.5 transition-all">
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-primary/10 blur-3xl opacity-60 group-hover:opacity-100 transition-opacity"
+                    />
+                    <CardHeader className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/25 to-cyan-400/10 ring-1 ring-primary/30 text-primary"
+                          aria-hidden="true"
+                        >
+                          <p.icon className="h-5 w-5" strokeWidth={1.7} />
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className="border-primary/40 bg-primary/15 text-primary rounded-full"
+                        >
+                          {p.tag}
+                        </Badge>
+                      </div>
+                      <CardTitle className="text-xl leading-snug">
+                        {p.title}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-5">
+                      <CardDescription className="text-base leading-relaxed">
+                        {p.body}
+                      </CardDescription>
+                      <RouteCTA
+                        href={p.href}
+                        external={p.external}
+                        testid={p.testid}
+                        className="inline-block"
+                      >
+                        <Button className="rounded-xl gap-2">
+                          {p.cta}
+                          <ArrowRight className="h-4 w-4" />
+                        </Button>
+                      </RouteCTA>
+                    </CardContent>
+                  </Card>
+                </Reveal>
+              ))}
+            </div>
+          </section>
+        </Reveal>
+
+        {/* ============================================================ */}
+        {/* CHOOSE YOUR ROUTE — the four primary funnel entry points      */}
+        {/* ============================================================ */}
+        <Reveal>
+          <section id="routes" className="scroll-mt-24 space-y-8">
+            <div className="text-center max-w-3xl mx-auto space-y-3">
+              <p className="text-xs uppercase tracking-[0.22em] text-cyan-300">
+                Choose your route
+              </p>
+              <h2 className="text-3xl sm:text-4xl font-display font-semibold tracking-tight text-slate-50">
+                Pick the path that matches your situation.
+              </h2>
+              <p className="text-base sm:text-lg text-slate-200 leading-relaxed">
+                Four clear routes — each opens a structured, confidential
+                assessment and gives you a free reference number.
+              </p>
+            </div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+              {FUNNEL_ROUTES.map((r, i) => (
+                <Reveal key={r.title} delay={i * 70}>
+                  <Card
+                    className={`group relative flex h-full flex-col justify-between overflow-hidden transition-all hover:-translate-y-0.5 ${
+                      r.featured
+                        ? "border-primary/50 bg-gradient-to-br from-primary/12 to-card/60 ring-1 ring-primary/30"
+                        : "bg-card/60 border-border/50 hover:border-primary/40"
+                    }`}
+                  >
+                    {r.featured && (
+                      <span className="absolute right-3 top-3 rounded-full bg-primary px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground shadow">
+                        Most urgent
+                      </span>
+                    )}
+                    <CardHeader className="space-y-4">
+                      <div
+                        className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/25 to-cyan-400/10 ring-1 ring-primary/30 text-primary"
+                        aria-hidden="true"
+                      >
+                        <r.icon className="h-5 w-5" strokeWidth={1.7} />
+                      </div>
+                      <CardTitle className="text-lg leading-snug">
+                        {r.title}
+                      </CardTitle>
+                      <CardDescription className="text-sm leading-relaxed">
+                        {r.body}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <RouteCTA
+                        href={r.href}
+                        external={r.external}
+                        testid={r.testid}
+                        className="block"
+                      >
+                        <Button
+                          variant={r.featured ? "default" : "outline"}
+                          className="w-full rounded-xl gap-2"
+                        >
+                          {r.cta}
+                          <ArrowRight className="h-4 w-4" />
+                        </Button>
+                      </RouteCTA>
+                    </CardContent>
+                  </Card>
+                </Reveal>
+              ))}
+            </div>
+          </section>
+        </Reveal>
 
         {/* ============================================================ */}
         {/* WHAT IS E-MIGRATION ASSIST                                    */}
