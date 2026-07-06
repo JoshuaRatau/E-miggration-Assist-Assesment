@@ -35,6 +35,7 @@ import {
   AlertTriangle,
   Building2,
   KeyRound,
+  Clock,
 } from "lucide-react";
 
 // Animated counter — ramps from 0 to target over ~1.2s with ease-out cubic.
@@ -202,14 +203,36 @@ const TRUST_POINTS = [
   },
 ];
 
-// The four primary funnel routes. Overstay keeps the existing absolute-URL link
-// (deliberate production routing); the rest use in-app Wouter navigation. Every
-// route opens an EXISTING intake — nothing about the questionnaires changes.
-const FUNNEL_ROUTES = [
+type FunnelRoute = {
+  icon: typeof AlertTriangle;
+  title: string;
+  body: string;
+  examples: string[];
+  cta: string;
+  href: string;
+  external: boolean;
+  featured: boolean;
+  testid: string;
+};
+
+// The primary funnel entry points. Overstay keeps the existing absolute-URL
+// link (deliberate production routing); the rest use in-app Wouter navigation.
+// Every route opens an EXISTING intake with EXISTING route context — nothing
+// about the questionnaires, destinations, or funnel_context passing changes.
+// `featured` marks the two priority journeys from the product brief (overstay
+// + stuck applications) so they stay the most visually prominent.
+const FUNNEL_ROUTES: FunnelRoute[] = [
   {
     icon: AlertTriangle,
-    title: "Overstayed / Undesirable",
-    body: "Overstay consequences, bans, or an undesirable declaration.",
+    title: "Overstayed / Declared Undesirable",
+    body: "If you've overstayed or been declared undesirable, time matters — we help you understand your options and next legal step before you act.",
+    examples: [
+      "Overstayed a visa or permit",
+      "Declared undesirable or facing a ban",
+      "Appealing a declaration",
+      "Upliftment application",
+      "Regularisation guidance",
+    ],
     cta: "Start",
     href: "https://immigrationassist.replit.app/overstay-assessment?route=overstay_undesirable",
     external: true,
@@ -217,9 +240,33 @@ const FUNNEL_ROUTES = [
     testid: "route-overstay",
   },
   {
+    icon: Clock,
+    title: "Visa Anomalies / Stuck Applications",
+    body: "An application stuck, delayed, or an outcome that doesn't match? We help you diagnose it and route your matter to the right path.",
+    examples: [
+      "Pending for months at Home Affairs",
+      "Documents or outcome don't match",
+      "Can't work, bank, travel, or move",
+      "Rejected and unsure why",
+      "Status mismatch or error",
+    ],
+    cta: "Start",
+    href: "/assessment?route=traveller&theme=stuck_application",
+    external: false,
+    featured: true,
+    testid: "route-stuck",
+  },
+  {
     icon: Plane,
     title: "Traveller",
-    body: "Travel, movement, re-entry, or a new individual visa matter.",
+    body: "Understand the correct immigration pathway before you apply — no guesswork.",
+    examples: [
+      "Visiting South Africa",
+      "Extending a stay",
+      "Returning to South Africa",
+      "Understanding visa options",
+      "A new individual visa matter",
+    ],
     cta: "Start",
     href: "/assessment?route=traveller",
     external: false,
@@ -229,7 +276,14 @@ const FUNNEL_ROUTES = [
   {
     icon: Building2,
     title: "Firm / Professional",
-    body: "Practitioners, law firms, HR, and mobility teams.",
+    body: "Built for teams and partners managing immigration on behalf of others.",
+    examples: [
+      "Immigration practitioners",
+      "Law firms",
+      "HR departments",
+      "Corporate mobility teams",
+      "Professional partners",
+    ],
     cta: "Start",
     href: "/business-assessment?route=firm_professional",
     external: false,
@@ -239,7 +293,12 @@ const FUNNEL_ROUTES = [
   {
     icon: KeyRound,
     title: "Continue with reference",
-    body: "Return to an existing case and check its progress.",
+    body: "Only for existing EMA matters — pick up where you left off using your reference number.",
+    examples: [
+      "Check your case progress",
+      "Resume a saved assessment",
+      "Look up an existing reference",
+    ],
     cta: "Continue",
     href: "/status?route=continue_reference",
     external: false,
@@ -247,6 +306,10 @@ const FUNNEL_ROUTES = [
     testid: "route-reference",
   },
 ];
+
+// Priority journeys lead the section; the rest follow in a secondary row.
+const PRIORITY_ROUTES = FUNNEL_ROUTES.filter((r) => r.featured);
+const STANDARD_ROUTES = FUNNEL_ROUTES.filter((r) => !r.featured);
 
 // Renders the correct link element for a route: an absolute <a> for external
 // production routing, or a Wouter <Link> for in-app navigation.
@@ -274,6 +337,69 @@ function RouteCTA({
     <Link href={href} className={className} data-testid={testid}>
       {children}
     </Link>
+  );
+}
+
+// A single funnel route card: icon, title, short description, 3–5 example
+// situations, and a CTA that opens the EXISTING intake. Priority routes get the
+// featured treatment (ring + gradient + "Most urgent" badge) so the two brief
+// priority journeys stay the most visually prominent.
+function RouteCard({ route }: { route: FunnelRoute }) {
+  const r = route;
+  return (
+    <Card
+      className={`group relative flex h-full flex-col justify-between overflow-hidden transition-all hover:-translate-y-0.5 ${
+        r.featured
+          ? "border-primary/50 bg-gradient-to-br from-primary/12 to-card/60 ring-1 ring-primary/30"
+          : "bg-card/60 border-border/50 hover:border-primary/40"
+      }`}
+    >
+      {r.featured && (
+        <span className="absolute right-3 top-3 rounded-full bg-primary px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground shadow">
+          Most urgent
+        </span>
+      )}
+      <CardHeader className="space-y-4">
+        <div
+          className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/25 to-cyan-400/10 ring-1 ring-primary/30 text-primary"
+          aria-hidden="true"
+        >
+          <r.icon className="h-5 w-5" strokeWidth={1.7} />
+        </div>
+        <CardTitle className="text-lg leading-snug">{r.title}</CardTitle>
+        <CardDescription className="text-sm leading-relaxed">
+          {r.body}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-1 flex-col gap-5">
+        <ul className="space-y-1.5 text-sm text-muted-foreground">
+          {r.examples.map((ex) => (
+            <li key={ex} className="flex items-start gap-2">
+              <Check
+                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary"
+                strokeWidth={2.2}
+                aria-hidden="true"
+              />
+              <span>{ex}</span>
+            </li>
+          ))}
+        </ul>
+        <RouteCTA
+          href={r.href}
+          external={r.external}
+          testid={r.testid}
+          className="mt-auto block"
+        >
+          <Button
+            variant={r.featured ? "default" : "outline"}
+            className="w-full rounded-xl gap-2"
+          >
+            {r.cta}
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </RouteCTA>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -372,7 +498,7 @@ export function Home() {
         </section>
 
         {/* ============================================================ */}
-        {/* CHOOSE YOUR ROUTE — the four primary funnel entry points      */}
+        {/* CHOOSE YOUR ROUTE — the primary funnel entry points           */}
         {/* ============================================================ */}
         <Reveal>
           <section id="routes" className="scroll-mt-24 space-y-8">
@@ -384,56 +510,25 @@ export function Home() {
                 Pick the path that matches your situation.
               </h2>
               <p className="text-base sm:text-lg text-slate-200 leading-relaxed">
-                Four clear routes — each opens a structured, confidential
-                assessment and gives you a free reference number.
+                Five clear routes — each opens a structured, confidential
+                assessment and gives you a free reference number. Start with the
+                two most urgent situations, or pick the path that fits you.
               </p>
             </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-              {FUNNEL_ROUTES.map((r, i) => (
+            {/* Priority journeys — the two urgent situations from the product
+                brief lead the section as larger, featured cards. */}
+            <div className="grid sm:grid-cols-2 gap-4 sm:gap-5">
+              {PRIORITY_ROUTES.map((r, i) => (
                 <Reveal key={r.title} delay={i * 70}>
-                  <Card
-                    className={`group relative flex h-full flex-col justify-between overflow-hidden transition-all hover:-translate-y-0.5 ${
-                      r.featured
-                        ? "border-primary/50 bg-gradient-to-br from-primary/12 to-card/60 ring-1 ring-primary/30"
-                        : "bg-card/60 border-border/50 hover:border-primary/40"
-                    }`}
-                  >
-                    {r.featured && (
-                      <span className="absolute right-3 top-3 rounded-full bg-primary px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground shadow">
-                        Most urgent
-                      </span>
-                    )}
-                    <CardHeader className="space-y-4">
-                      <div
-                        className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/25 to-cyan-400/10 ring-1 ring-primary/30 text-primary"
-                        aria-hidden="true"
-                      >
-                        <r.icon className="h-5 w-5" strokeWidth={1.7} />
-                      </div>
-                      <CardTitle className="text-lg leading-snug">
-                        {r.title}
-                      </CardTitle>
-                      <CardDescription className="text-sm leading-relaxed">
-                        {r.body}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <RouteCTA
-                        href={r.href}
-                        external={r.external}
-                        testid={r.testid}
-                        className="block"
-                      >
-                        <Button
-                          variant={r.featured ? "default" : "outline"}
-                          className="w-full rounded-xl gap-2"
-                        >
-                          {r.cta}
-                          <ArrowRight className="h-4 w-4" />
-                        </Button>
-                      </RouteCTA>
-                    </CardContent>
-                  </Card>
+                  <RouteCard route={r} />
+                </Reveal>
+              ))}
+            </div>
+            {/* Remaining routes. */}
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+              {STANDARD_ROUTES.map((r, i) => (
+                <Reveal key={r.title} delay={i * 70}>
+                  <RouteCard route={r} />
                 </Reveal>
               ))}
             </div>

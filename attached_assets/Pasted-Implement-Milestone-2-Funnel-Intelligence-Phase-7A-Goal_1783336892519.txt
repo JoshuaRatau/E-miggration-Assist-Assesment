@@ -1,0 +1,82 @@
+Implement Milestone 2 – Funnel Intelligence (Phase 7A).
+
+Goal:
+Make the public funnel feel more personalised and intelligent based on the route the user selects, while keeping all existing assessment flows, questionnaires, validation, APIs, database schema, dashboard, and submission logic completely unchanged.
+
+IMPORTANT GUARDRAILS
+
+Do NOT modify:
+- Existing questionnaires.
+- Validation rules.
+- Lead submission APIs.
+- Database schema.
+- Dashboard.
+- Lead creation logic.
+- Existing routes.
+- Existing funnel_context behaviour.
+- Route context passing.
+- Analytics implemented in previous phases.
+
+This phase is UI and content only.
+
+OBJECTIVE
+
+Each route should clearly explain how EMA helps before the user enters the existing assessment.
+
+Implement the following:
+
+1. Traveller Experience
+- Add a short introduction explaining that EMA helps travellers understand the correct immigration pathway before applying.
+- Mention examples such as:
+  • Visiting South Africa
+  • Extending a stay
+  • Returning to South Africa
+  • Understanding visa options
+- Keep the existing CTA destination (/assessment) unchanged.
+
+2. Overstayed / Declared Undesirable Experience
+- Clearly explain that EMA assists with:
+  • Overstay situations
+  • Undesirable declarations
+  • Appeal processes
+  • Upliftment applications
+  • Regularisation guidance
+- Emphasise urgency without using alarming language.
+- Keep the existing CTA destination unchanged.
+
+3. Firm / Professional Experience
+- Explain that this route is designed for:
+  • Immigration practitioners
+  • Law firms
+  • HR departments
+  • Corporate mobility teams
+  • Professional partners
+- Keep the existing CTA destination (/business-assessment) unchanged.
+
+4. Continue with Reference
+- Improve the wording so users immediately understand this option is only for existing EMA matters.
+- Do not change its destination or behaviour.
+
+5. Route Cards
+- Make each route card feel more informative by adding:
+  - A concise description.
+  - A list of 3–5 example situations.
+  - A clear call-to-action.
+- Maintain the existing styling and responsive layout.
+
+6. Visual Hierarchy
+- Ensure the two priority journeys from the product brief remain the most visually prominent:
+  - Overstayed / Declared Undesirable
+  - Visa Anomalies / Stuck Applications
+
+7. Maintain Existing Logic
+- Every CTA must continue pointing to the existing intake routes.
+- Do not alter any downstream logic.
+- Do not introduce new questions or forms.
+
+Before making changes, review the existing landing page to avoid duplicating content. Integrate the new messaging naturally into the current design rather than expanding the page unnecessarily.
+
+Success Criteria:
+- Users immediately understand which route is right for them.
+- The page feels personalised without changing the underlying assessments.
+- All existing functionality continues to work exactly as before.
