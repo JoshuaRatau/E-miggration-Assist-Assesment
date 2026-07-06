@@ -378,31 +378,9 @@ export function Home() {
             </p>
           </div>
 
-          {/* Primary route entry — one clear action, plus the returning-user path.
-              The full four-route selector lives in the #routes section below. */}
-          <div className="relative mt-8 sm:mt-10 lg:mt-12 flex flex-col items-center gap-4 sm:gap-5">
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 w-full sm:w-auto">
-              <a href="#routes" className="w-full sm:w-auto">
-                <Button
-                  size="lg"
-                  className="w-full sm:w-auto h-14 px-8 text-base sm:text-lg rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all gap-2"
-                  data-testid="button-choose-route"
-                >
-                  Find the right route for your situation
-                  <ArrowRight className="h-5 w-5" />
-                </Button>
-              </a>
-              <Link href="/status" className="w-full sm:w-auto">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="w-full sm:w-auto h-14 px-6 text-base rounded-xl border-slate-400/50 bg-white/70 hover:bg-white/90 backdrop-blur-md text-foreground/90 hover:text-foreground shadow-[0_8px_30px_-12px_rgba(15,23,42,0.25)] transition-all"
-                  data-testid="button-have-reference"
-                >
-                  I already have a reference
-                </Button>
-              </Link>
-            </div>
+          {/* Trust signals under the hero. The four-route selector below is the
+              primary action now — no intermediate "find your route" gate. */}
+          <div className="relative mt-8 sm:mt-10 flex flex-col items-center gap-4 sm:gap-5">
             <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-slate-300">
               <span className="inline-flex items-center gap-1.5">
                 <Lock className="h-3.5 w-3.5" />
