@@ -24,6 +24,7 @@ export type AuditAction =
   | "lead_notes_changed"
   | "lead_note_added"
   | "lead_intended_tier_changed"
+  | "lead_assigned_changed"
   | "lead_converted"
   | "case_status_changed"
   | "document_downloaded"

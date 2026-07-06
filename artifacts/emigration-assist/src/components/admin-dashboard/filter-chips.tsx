@@ -46,6 +46,11 @@ interface FilterChipsProps {
   country: string;
   onCountry: (v: string) => void;
   countryOptions: string[];
+  // Phase 11C — "Assigned To" filter. `assignee` is "ALL" (any), "UNASSIGNED",
+  // or an admin-user id. Options come from the shared assignable-users roster.
+  assignee: string;
+  onAssignee: (v: string) => void;
+  assigneeOptions: { id: string; label: string }[];
 }
 
 const CHIP_TRIGGER =
@@ -64,7 +69,16 @@ export function FilterChips({
   country,
   onCountry,
   countryOptions,
+  assignee,
+  onAssignee,
+  assigneeOptions,
 }: FilterChipsProps) {
+  const assigneeLabel =
+    assignee === "ALL"
+      ? "Assigned to: Any"
+      : assignee === "UNASSIGNED"
+        ? "Assigned to: Unassigned"
+        : `Assigned to: ${assigneeOptions.find((o) => o.id === assignee)?.label ?? "—"}`;
   return (
     <div
       className="flex flex-wrap items-center gap-2"
@@ -118,6 +132,25 @@ export function FilterChips({
           {(Object.keys(OWNER_LABELS) as OwnerFilter[]).map((k) => (
             <SelectItem key={k} value={k}>
               {OWNER_LABELS[k]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {/* Assigned To (Phase 11C) */}
+      <Select value={assignee} onValueChange={onAssignee}>
+        <SelectTrigger
+          className={`w-auto gap-1.5 ${CHIP_TRIGGER}`}
+          data-testid="chip-assignee"
+        >
+          <SelectValue>{assigneeLabel}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="ALL">Assigned to: Any</SelectItem>
+          <SelectItem value="UNASSIGNED">Assigned to: Unassigned</SelectItem>
+          {assigneeOptions.map((o) => (
+            <SelectItem key={o.id} value={o.id}>
+              {o.label}
             </SelectItem>
           ))}
         </SelectContent>

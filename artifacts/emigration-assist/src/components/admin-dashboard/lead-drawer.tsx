@@ -30,6 +30,7 @@ import { canAdvanceStatus, statusLabel } from "@/lib/leadStatus";
 import { tierBadgeClass, tierLabel } from "@/lib/intendedTier";
 import { enquiryCategoryLabel } from "@/lib/typeOfEnquiry";
 import { deriveLeadScore } from "@/lib/leadScore";
+import { useAssignableUsers } from "@/lib/useAssignableUsers";
 import { useToast } from "@/hooks/use-toast";
 
 // Canonical funnel + priority lists, mirrored from the leads table so the
@@ -162,6 +163,7 @@ export function LeadDrawer({
   onDelete?: (lead: Lead) => void;
 }) {
   const { toast } = useToast();
+  const { labelFor } = useAssignableUsers();
   const open = lead !== null;
   const segment = lead ? segmentOfLead(lead) : null;
   const name =
@@ -452,7 +454,7 @@ export function LeadDrawer({
                       : safe(null)}
                   </Field>
                   <Field label="Owner">
-                    {lead.assignedTo ? "Assigned" : "Unassigned"}
+                    {lead.assignedTo ? labelFor(lead.assignedTo) : "Unassigned"}
                   </Field>
                 </dl>
               </section>
@@ -464,7 +466,7 @@ export function LeadDrawer({
                   <span className="capitalize">{lead.leadPriority ?? "—"}</span>
                 </Field>
                 <Field label="Owner">
-                  {lead.assignedTo ? "Assigned" : "Unassigned"}
+                  {lead.assignedTo ? labelFor(lead.assignedTo) : "Unassigned"}
                 </Field>
                 <Field label="Next step">{safe(lead.nextStep)}</Field>
               </Section>

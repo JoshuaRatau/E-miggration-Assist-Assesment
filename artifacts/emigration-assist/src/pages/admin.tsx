@@ -71,6 +71,7 @@ import {
   type TimeRange,
   type OwnerFilter,
 } from "@/components/admin-dashboard/filter-chips";
+import { useAssignableUsers } from "@/lib/useAssignableUsers";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -391,6 +392,11 @@ export function Admin() {
   const [timeRange, setTimeRange] = useState<TimeRange>("all");
   const [scoreMin80, setScoreMin80] = useState(false);
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>("all");
+  // Phase 11C — "Assigned To" filter. "ALL" = any, "UNASSIGNED", or a user id.
+  const [assigneeFilter, setAssigneeFilter] = useState<string>("ALL");
+  // Shared admin-user roster: powers the "Assigned To" filter options and
+  // resolves each lead's `assignedTo` uuid → display name in the table.
+  const { activeUsers, labelFor } = useAssignableUsers();
   const [countryFilter, setCountryFilter] = useState<string>("ANY");
 
   // Right-side lead drawer (placeholder content in Phase 1).
@@ -550,6 +556,13 @@ export function Admin() {
         ownerFilter === "assigned" ? !!l.assignedTo : !l.assignedTo,
       );
     }
+    if (assigneeFilter !== "ALL") {
+      out = out.filter((l) =>
+        assigneeFilter === "UNASSIGNED"
+          ? !l.assignedTo
+          : l.assignedTo === assigneeFilter,
+      );
+    }
     if (countryFilter !== "ANY") {
       out = out.filter(
         (l) => (l.countryOfResidence ?? l.nationality) === countryFilter,
@@ -626,6 +639,7 @@ export function Admin() {
     timeRange,
     scoreMin80,
     ownerFilter,
+    assigneeFilter,
     countryFilter,
   ]);
 
@@ -639,6 +653,7 @@ export function Admin() {
     timeRange !== "all" ||
     scoreMin80 ||
     ownerFilter !== "all" ||
+    assigneeFilter !== "ALL" ||
     countryFilter !== "ANY" ||
     search.trim().length > 0;
 
@@ -1201,6 +1216,12 @@ export function Admin() {
           country={countryFilter}
           onCountry={setCountryFilter}
           countryOptions={countryOptions}
+          assignee={assigneeFilter}
+          onAssignee={setAssigneeFilter}
+          assigneeOptions={activeUsers.map((u) => ({
+            id: u.id,
+            label: u.displayName?.trim() || u.email,
+          }))}
         />
 
         {/* Phase 6 — read-only lead volume by funnel route/context. Compact
@@ -1545,7 +1566,7 @@ export function Admin() {
                               data-testid={`owner-${lead.referenceNumber}`}
                             >
                               {lead.assignedTo ? (
-                                "Assigned"
+                                labelFor(lead.assignedTo)
                               ) : (
                                 <span className="text-muted-foreground">
                                   Unassigned

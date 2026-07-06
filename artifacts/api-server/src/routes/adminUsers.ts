@@ -49,6 +49,34 @@ router.get("/admin/users", async (req, res) => {
   return res.json({ users: rows.map(publicUser) });
 });
 
+/**
+ * GET /admin/assignable-users
+ *
+ * Lightweight roster of admin users for the lead-ownership picker. Unlike
+ * the superadmin-only "Manage Admins" list above, ANY authenticated admin
+ * may read this — assigning a lead to a colleague is a routine operational
+ * action, not user administration. Returns a minimal shape (id + label +
+ * active flag) so the frontend can both populate the assignee dropdown and
+ * resolve a stored `assigned_to` uuid → display name across the dashboard,
+ * detail page, and activity feed. All users are returned (incl. deactivated
+ * ones) so historical assignments to a since-disabled account still render
+ * a name rather than a bare uuid; the frontend hides inactive users from
+ * the "assign" options while still using them for name resolution.
+ */
+router.get("/admin/assignable-users", async (req, res) => {
+  if (!(await requireAdminAuth(req, res))) return;
+  const rows = await db
+    .select({
+      id: adminUsersTable.id,
+      email: adminUsersTable.email,
+      displayName: adminUsersTable.displayName,
+      isActive: adminUsersTable.isActive,
+    })
+    .from(adminUsersTable)
+    .orderBy(desc(adminUsersTable.isActive), adminUsersTable.email);
+  return res.json({ users: rows });
+});
+
 const createBody = z.object({
   email: z.string().email(),
   displayName: z.string().min(1).max(120).optional(),

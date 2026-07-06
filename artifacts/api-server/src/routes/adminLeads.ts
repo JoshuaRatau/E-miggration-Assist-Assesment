@@ -109,6 +109,15 @@ router.patch("/admin/leads/:id", async (req, res) => {
   const updates: Partial<typeof prelaunchLeadsTable.$inferInsert> = {};
   const fieldsUpdated: string[] = [];
   let requestedStatus: string | null = null;
+  // Resolved display name of the NEW assignee (null when clearing). Captured
+  // during validation so the audit row can render "assigned to <name>"
+  // without a second lookup. See the assignedTo block below.
+  let assignedToName: string | null = null;
+  // Activity status of the NEW assignee (null when clearing or not touched).
+  // Used below to reject *re-*assignment to a deactivated user while still
+  // allowing an already-assigned inactive owner to be preserved on an
+  // unrelated PATCH. See the guard after the BEFORE snapshot.
+  let pendingAssigneeActive: boolean | null = null;
 
   if (Object.prototype.hasOwnProperty.call(body, "status")) {
     const v = body.status;
@@ -163,10 +172,53 @@ router.patch("/admin/leads/:id", async (req, res) => {
     fieldsUpdated.push("intendedTier");
   }
 
+  // Phase 11C — lead ownership. `assignedTo` is a soft-ref to admin_users.id
+  // (no FK). Nullable: explicit null clears the assignment. When non-null we
+  // verify the referenced admin user actually exists so a stale/garbage uuid
+  // can't be persisted — returning 400 rather than silently storing a
+  // dangling reference. The resolved display name is captured for the audit.
+  if (Object.prototype.hasOwnProperty.call(body, "assignedTo")) {
+    const v = body.assignedTo;
+    if (v !== null && typeof v !== "string") {
+      return res.status(400).json({
+        error: "assignedTo must be an admin user id (string) or null",
+      });
+    }
+    if (typeof v === "string") {
+      const trimmed = v.trim();
+      if (trimmed.length === 0) {
+        return res.status(400).json({
+          error: "assignedTo must be a non-empty admin user id or null",
+        });
+      }
+      const [assignee] = await db
+        .select({
+          id: adminUsersTable.id,
+          email: adminUsersTable.email,
+          displayName: adminUsersTable.displayName,
+          isActive: adminUsersTable.isActive,
+        })
+        .from(adminUsersTable)
+        .where(eq(adminUsersTable.id, trimmed))
+        .limit(1);
+      if (!assignee) {
+        return res.status(400).json({
+          error: "assignedTo does not reference a known admin user",
+        });
+      }
+      updates.assignedTo = trimmed;
+      assignedToName = assignee.displayName ?? assignee.email;
+      pendingAssigneeActive = assignee.isActive;
+    } else {
+      updates.assignedTo = null;
+    }
+    fieldsUpdated.push("assignedTo");
+  }
+
   if (fieldsUpdated.length === 0) {
     return res.status(400).json({
       error:
-        "Body must include at least one of: status, priority, notes, intendedTier",
+        "Body must include at least one of: status, priority, notes, intendedTier, assignedTo",
     });
   }
 
@@ -183,10 +235,27 @@ router.patch("/admin/leads/:id", async (req, res) => {
       leadPriority: prelaunchLeadsTable.leadPriority,
       adminNotes: prelaunchLeadsTable.adminNotes,
       intendedTier: prelaunchLeadsTable.intendedTier,
+      assignedTo: prelaunchLeadsTable.assignedTo,
     })
     .from(prelaunchLeadsTable)
     .where(eq(prelaunchLeadsTable.id, id))
     .limit(1);
+
+  // Phase 11C — active-assignee rule. The UI only ever offers *active* admins
+  // in the assignee picker, so the API mirrors that: you cannot (re)assign a
+  // lead to a deactivated user. The one deliberate exception is a no-op — if
+  // the lead is ALREADY owned by that (now-inactive) user, an unrelated PATCH
+  // that echoes the same assignedTo is allowed through so editing such a lead
+  // isn't wedged. Only a genuine *change* to an inactive user is rejected.
+  if (
+    typeof updates.assignedTo === "string" &&
+    pendingAssigneeActive === false &&
+    (before?.assignedTo ?? null) !== updates.assignedTo
+  ) {
+    return res.status(400).json({
+      error: "assignedTo must reference an active admin user",
+    });
+  }
 
   // Phase 5 §10 — bidirectional pipeline. The funnel is no longer
   // forward-only; operators may move a lead forward OR backward to any
@@ -363,6 +432,39 @@ router.patch("/admin/leads/:id", async (req, res) => {
         },
       });
     }
+  }
+  if (
+    fieldsUpdated.includes("assignedTo") &&
+    (before?.assignedTo ?? null) !== (updated.assignedTo ?? null)
+  ) {
+    // Resolve the PREVIOUS assignee's display name (if any) so the timeline
+    // can render "reassigned from X to Y" without the client re-resolving
+    // uuids. The new assignee's name was captured during validation.
+    let beforeName: string | null = null;
+    if (before?.assignedTo) {
+      const [prev] = await db
+        .select({
+          email: adminUsersTable.email,
+          displayName: adminUsersTable.displayName,
+        })
+        .from(adminUsersTable)
+        .where(eq(adminUsersTable.id, before.assignedTo))
+        .limit(1);
+      beforeName = prev ? (prev.displayName ?? prev.email) : null;
+    }
+    void writeAudit({
+      req,
+      action: "lead_assigned_changed",
+      leadId: updated.id,
+      before: {
+        assignedTo: before?.assignedTo ?? null,
+        assignedToName: beforeName,
+      },
+      after: {
+        assignedTo: updated.assignedTo ?? null,
+        assignedToName,
+      },
+    });
   }
   if (caseId !== null && caseCreatedThisCall) {
     void writeAudit({

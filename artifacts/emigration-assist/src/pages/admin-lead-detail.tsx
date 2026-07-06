@@ -26,6 +26,7 @@ import { DocumentUploader } from "@/components/DocumentUploader";
 import { getAdminToken, clearAdminToken } from "@/lib/adminToken";
 import { canAdvanceStatus, statusLabel } from "@/lib/leadStatus";
 import { INTENDED_TIER_VALUES, TIER_LABEL } from "@/lib/intendedTier";
+import { useAssignableUsers } from "@/lib/useAssignableUsers";
 import { AdminLayout } from "@/components/admin-layout";
 import { LeadScoreBadge } from "@/components/lead-score-badge";
 import { LeadActivityPanel } from "@/components/lead-activity-panel";
@@ -120,7 +121,12 @@ export function AdminLeadDetail() {
   // string is the "Unset" sentinel; persisted to the server as null
   // when the operator picks it (or saves while still empty).
   const [intendedTier, setIntendedTier] = useState<string>("");
+  // Phase 11C — local draft for the assignee dropdown. Empty string is the
+  // "Unassigned" sentinel; persisted to the server as null.
+  const [assignedTo, setAssignedTo] = useState<string>("");
   const [saving, setSaving] = useState(false);
+
+  const { activeUsers, labelFor } = useAssignableUsers();
 
   useEffect(() => {
     document.title = "Lead Detail | EMA Leads Funnel";
@@ -132,6 +138,7 @@ export function AdminLeadDetail() {
       setLeadPriority(lead.leadPriority ?? "medium");
       setAdminNotes(lead.adminNotes ?? "");
       setIntendedTier(lead.intendedTier ?? "");
+      setAssignedTo(lead.assignedTo ?? "");
     }
   }, [lead]);
 
@@ -156,6 +163,7 @@ export function AdminLeadDetail() {
             priority: leadPriority,
             notes: adminNotes === "" ? null : adminNotes,
             intendedTier: intendedTier === "" ? null : intendedTier,
+            assignedTo: assignedTo === "" ? null : assignedTo,
           }),
         },
       );
@@ -180,7 +188,7 @@ export function AdminLeadDetail() {
       qc.invalidateQueries({ queryKey: ["admin", "lead", id, "events"] });
       toast({
         title: "Lead updated",
-        description: "Status, priority and notes have been saved.",
+        description: "Your changes have been saved.",
       });
     } catch (err) {
       toast({
@@ -468,6 +476,46 @@ export function AdminLeadDetail() {
                     {INTENDED_TIER_VALUES.map((t) => (
                       <SelectItem key={t} value={t}>
                         {TIER_LABEL[t]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-sm font-medium">
+                  Assigned to{" "}
+                  <span className="text-xs font-normal text-muted-foreground">
+                    (internal owner responsible for this lead)
+                  </span>
+                </label>
+                <Select
+                  value={assignedTo === "" ? "__unassigned__" : assignedTo}
+                  onValueChange={(v) =>
+                    setAssignedTo(v === "__unassigned__" ? "" : v)
+                  }
+                >
+                  <SelectTrigger
+                    className="md:w-72"
+                    data-testid="select-assigned-to"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__unassigned__">
+                      — Unassigned —
+                    </SelectItem>
+                    {/* If the current assignee is inactive (deactivated), it
+                        won't appear in activeUsers — surface it explicitly so
+                        the saved value stays visible and isn't silently lost. */}
+                    {assignedTo !== "" &&
+                      !activeUsers.some((u) => u.id === assignedTo) && (
+                        <SelectItem value={assignedTo}>
+                          {labelFor(assignedTo)} (inactive)
+                        </SelectItem>
+                      )}
+                    {activeUsers.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.displayName?.trim() || u.email}
                       </SelectItem>
                     ))}
                   </SelectContent>

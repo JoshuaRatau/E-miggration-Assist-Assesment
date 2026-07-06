@@ -49,6 +49,28 @@ function summariseAudit(entry: TimelineEntry): string {
     const noteText = after && typeof after.note === "string" ? after.note : "";
     return noteText ? `Note: ${noteText}` : "Internal note added";
   }
+  if (entry.title === "lead_assigned_changed") {
+    // Resolve a display label defensively: prefer the snapshotted name, fall
+    // back to a short id, then a generic placeholder — legacy/partial rows must
+    // never surface a literal "null" in the timeline.
+    const nameFor = (
+      side: Record<string, unknown> | null,
+    ): string => {
+      if (!side) return "someone";
+      if (typeof side.assignedToName === "string" && side.assignedToName.trim())
+        return side.assignedToName;
+      if (typeof side.assignedTo === "string" && side.assignedTo.trim())
+        return `${side.assignedTo.slice(0, 8)}…`;
+      return "someone";
+    };
+    const afterId =
+      after && typeof after.assignedTo === "string" ? after.assignedTo : null;
+    const beforeId =
+      before && typeof before.assignedTo === "string" ? before.assignedTo : null;
+    if (!afterId) return "Assignment cleared";
+    if (beforeId) return `Reassigned from ${nameFor(before)} to ${nameFor(after)}`;
+    return `Assigned to ${nameFor(after)}`;
+  }
   if (entry.title === "lead_converted") return "Lead converted to case";
   if (entry.title === "manual_contact_click") {
     const channel = after && (after.channel as string | undefined);
