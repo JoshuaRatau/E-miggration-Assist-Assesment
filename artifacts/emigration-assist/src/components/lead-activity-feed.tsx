@@ -45,6 +45,10 @@ function summariseAudit(entry: TimelineEntry): string {
   if (entry.title === "lead_priority_changed" && before && after) {
     return `Priority: ${String(before.leadPriority ?? "?")} → ${String(after.leadPriority ?? "?")}`;
   }
+  if (entry.title === "lead_note_added") {
+    const noteText = after && typeof after.note === "string" ? after.note : "";
+    return noteText ? `Note: ${noteText}` : "Internal note added";
+  }
   if (entry.title === "lead_converted") return "Lead converted to case";
   if (entry.title === "manual_contact_click") {
     const channel = after && (after.channel as string | undefined);

@@ -29,6 +29,7 @@ import { INTENDED_TIER_VALUES, TIER_LABEL } from "@/lib/intendedTier";
 import { AdminLayout } from "@/components/admin-layout";
 import { LeadScoreBadge } from "@/components/lead-score-badge";
 import { LeadActivityPanel } from "@/components/lead-activity-panel";
+import { InternalNotesPanel } from "@/components/internal-notes-panel";
 
 const STATUS_OPTIONS = [
   "new",
@@ -359,6 +360,8 @@ export function AdminLeadDetail() {
         </Card>
 
         <LeadActivityPanel leadId={id} />
+
+        <InternalNotesPanel leadId={id} />
 
         <Card>
           <CardHeader>

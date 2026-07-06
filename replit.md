@@ -60,6 +60,12 @@ Browser → www.emigration-assist.com/assessment/*   (marketing site, separate V
 
 Listed newest-first. Older blocks are intentionally compressed; if a detail isn't here it's either obvious from the code or in `git log`.
 
+### Milestone 3 (Lead Operations) — Phase 11A status + 11B internal notes
+
+**11A — `needs_more_information` status:** added to the existing 9-stage `lead_status` pipeline (after `reviewing`). `lead_status` is a **text col → no migration**; the value is mirrored across ~9 hardcoded enumeration sites incl. a type-required kanban `Record<LeadStatus,…>`. OpenAPI has no `enum:` on the field (doc text only) so no codegen. See `.agents/memory/lead-status-enum-sites.md`.
+
+**11B — internal lead notes (reuse, no new table):** notes are stored as append-only **`lead_audit` rows** (`action="lead_note_added"`, text in `after.note`) — reusing the existing audit/history mechanism rather than a duplicate store, so notes auto-surface in the shared `/timeline` feed (`lead-activity-feed.tsx` renders them) with actor + timestamp already resolved via the `admin_users` join. Two admin-gated routes (NOT in OpenAPI, sibling convention): `GET/POST /api/admin/leads/:id/notes`. **Durability contract:** unlike the fire-and-forget `writeAudit` used for incidental forensics, the POST **awaits** the insert and returns 500 on failure (a note is user-intent data, must not be silently lost); validates non-empty/≤5000 chars (400) + lead-exists (404). Author = `actorUserId` (null for legacy x-admin-token). **Internal-only invariant:** no public serializer or customer-facing route references notes; UI is `InternalNotesPanel` on the admin lead-detail page only. The pre-existing single-blob `adminNotes` field is untouched and coexists (blob = editable summary; notes = append-only authored log).
+
 ### Referral tunnel (sender side) + internal-only rebrand
 
 **Rebrand:** operational/admin/code identity is now "EMA Leads Funnel" (repo README, `package.json` description, artifact title, admin `document.title`s + alt text, internal notifications) while the **public consumer brand stays "E-Migration Assist"** everywhere leads/visitors see it (capture pages, referral preview, emails incl. the firm offer email sign-off, WhatsApp). Go by ROLE not name: this repo is the lead funnel, not the main EMA platform.

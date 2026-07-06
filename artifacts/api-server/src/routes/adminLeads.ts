@@ -8,6 +8,8 @@ import {
   analyticsEventsTable,
   leadCasesTable as leadCasesQueryRef,
   leadEventsTable,
+  leadAuditTable,
+  adminUsersTable,
 } from "@workspace/db";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import {
@@ -36,7 +38,7 @@ const INTENDED_TIER_VALUES = [
 ] as const;
 import { requireAdminToken } from "../lib/adminAuth";
 import { ensureCaseForLead } from "../lib/cases";
-import { writeAudit } from "../lib/audit";
+import { writeAudit, actorTokenHash } from "../lib/audit";
 import { recordLeadEvent } from "../lib/recordLeadEvent";
 import { canAdvanceStatus } from "../lib/classification";
 
@@ -614,6 +616,119 @@ router.get("/admin/leads/:id/events", async (req, res) => {
       occurredAt: r.occurredAt.toISOString(),
     })),
   });
+});
+
+/**
+ * Phase 11B — internal-only lead notes.
+ *
+ * Rather than introduce a duplicate notes store, notes reuse the existing
+ * append-only `lead_audit` history mechanism: each note is a
+ * `lead_note_added` audit row with the text carried in `after.note`. This
+ * means notes automatically surface in the shared `/timeline` activity
+ * feed (actor + timestamp already resolved via the admin_users join) while
+ * these two dedicated routes give the lead-detail UI a focused notes view.
+ *
+ * INTERNAL-ONLY: admin-gated, never referenced by any public serializer or
+ * customer-facing route. Deliberately OUT of the OpenAPI spec — sibling
+ * resource, same convention as /timeline and /events.
+ */
+router.get("/admin/leads/:id/notes", async (req, res) => {
+  if (!(await requireAdminToken(req, res))) return;
+
+  const { id } = req.params;
+  if (!id || typeof id !== "string") {
+    return res.status(400).json({ error: "Missing lead id" });
+  }
+
+  const [lead] = await db
+    .select({ id: prelaunchLeadsTable.id })
+    .from(prelaunchLeadsTable)
+    .where(eq(prelaunchLeadsTable.id, id))
+    .limit(1);
+  if (!lead) return res.status(404).json({ error: "Lead not found" });
+
+  // Left join so notes authored via legacy x-admin-token (actorUserId
+  // NULL) still surface, just without an attributed author.
+  const rows = await db
+    .select({
+      id: leadAuditTable.id,
+      after: leadAuditTable.after,
+      createdAt: leadAuditTable.createdAt,
+      actorEmail: adminUsersTable.email,
+    })
+    .from(leadAuditTable)
+    .leftJoin(adminUsersTable, eq(adminUsersTable.id, leadAuditTable.actorUserId))
+    .where(
+      and(
+        eq(leadAuditTable.leadId, id),
+        eq(leadAuditTable.action, "lead_note_added"),
+      ),
+    )
+    .orderBy(desc(leadAuditTable.createdAt));
+
+  return res.json({
+    leadId: lead.id,
+    notes: rows.map((r) => ({
+      id: r.id,
+      note: String((r.after as { note?: unknown } | null)?.note ?? ""),
+      createdAt: r.createdAt.toISOString(),
+      actorEmail: r.actorEmail ?? null,
+    })),
+  });
+});
+
+router.post("/admin/leads/:id/notes", async (req, res) => {
+  if (!(await requireAdminToken(req, res))) return;
+
+  const { id } = req.params;
+  if (!id || typeof id !== "string") {
+    return res.status(400).json({ error: "Missing lead id" });
+  }
+
+  const raw = (req.body as { note?: unknown } | undefined)?.note;
+  const note = typeof raw === "string" ? raw.trim() : "";
+  if (note.length === 0) {
+    return res.status(400).json({ error: "Note text is required" });
+  }
+  if (note.length > 5000) {
+    return res.status(400).json({ error: "Note exceeds 5000 characters" });
+  }
+
+  const [lead] = await db
+    .select({ id: prelaunchLeadsTable.id })
+    .from(prelaunchLeadsTable)
+    .where(eq(prelaunchLeadsTable.id, id))
+    .limit(1);
+  if (!lead) return res.status(404).json({ error: "Lead not found" });
+
+  // A note is deliberate user-intent data, so — unlike the fire-and-forget
+  // `writeAudit` used for incidental forensics — the insert is awaited and
+  // any failure is surfaced (500) rather than swallowed.
+  try {
+    const [inserted] = await db
+      .insert(leadAuditTable)
+      .values({
+        action: "lead_note_added",
+        leadId: id,
+        actorUserId: req.adminUser?.id ?? null,
+        actorTokenHash: actorTokenHash(req),
+        after: { note } as never,
+      })
+      .returning({
+        id: leadAuditTable.id,
+        createdAt: leadAuditTable.createdAt,
+      });
+
+    return res.status(201).json({
+      id: inserted.id,
+      note,
+      createdAt: inserted.createdAt.toISOString(),
+      actorEmail: req.adminUser?.email ?? null,
+    });
+  } catch (err) {
+    req.log.error({ err, leadId: id }, "Failed to persist lead note");
+    return res.status(500).json({ error: "Failed to save note" });
+  }
 });
 
 export default router;
