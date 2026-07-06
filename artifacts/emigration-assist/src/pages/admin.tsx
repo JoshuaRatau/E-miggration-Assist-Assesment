@@ -916,6 +916,58 @@ export function Admin() {
     [metricsLeads],
   );
 
+  // Phase 6 — read-only lead volume by funnel route/context. Counted over the
+  // filter-free population so the strip stays a stable overview regardless of
+  // the active filters. Mirrors the Phase 5 filter mapping exactly: the three
+  // route buckets match funnelContext.route, "stuck" matches theme, and
+  // "no context" is a lead with neither route nor theme captured. Buckets can
+  // overlap (a lead may carry both route + theme), so counts are not a
+  // partition and are not expected to sum to the total.
+  const routeCounts = useMemo(() => {
+    const counts = {
+      traveller: 0,
+      overstay_undesirable: 0,
+      firm_professional: 0,
+      stuck_application: 0,
+      none: 0,
+    };
+    for (const l of metricsLeads ?? []) {
+      const ctx = l.funnelContext;
+      const route = ctx?.route;
+      const theme = ctx?.theme;
+      if (route === "traveller") counts.traveller += 1;
+      if (route === "overstay_undesirable") counts.overstay_undesirable += 1;
+      if (route === "firm_professional") counts.firm_professional += 1;
+      if (theme === "stuck_application") counts.stuck_application += 1;
+      if (!route && !theme) counts.none += 1;
+    }
+    return counts;
+  }, [metricsLeads]);
+
+  const routeSummary = useMemo(
+    () =>
+      [
+        { key: "traveller", label: "Traveller", value: routeCounts.traveller },
+        {
+          key: "overstay_undesirable",
+          label: "Overstayed / Undesirable",
+          value: routeCounts.overstay_undesirable,
+        },
+        {
+          key: "firm_professional",
+          label: "Firm / Professional",
+          value: routeCounts.firm_professional,
+        },
+        {
+          key: "stuck_application",
+          label: "Stuck Application / Visa Anomaly",
+          value: routeCounts.stuck_application,
+        },
+        { key: "none", label: "No route context", value: routeCounts.none },
+      ] as const,
+    [routeCounts],
+  );
+
   // Chip option lists derived from the full population so the dropdowns stay
   // stable as the operator narrows the table.
   const countryOptions = useMemo(() => {
@@ -1148,6 +1200,31 @@ export function Admin() {
           onCountry={setCountryFilter}
           countryOptions={countryOptions}
         />
+
+        {/* Phase 6 — read-only lead volume by funnel route/context. Compact
+            pill strip above the table; purely informational (no filtering).
+            Only shown once the population has loaded so transient zero counts
+            are never mistaken for real values. */}
+        {metricsLeads && (
+          <div
+            className="flex flex-wrap items-center gap-2"
+            data-testid="route-summary"
+            aria-label="Lead volume by funnel route"
+          >
+            {routeSummary.map((r) => (
+              <div
+                key={r.key}
+                data-testid={`route-summary-${r.key}`}
+                className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1 text-xs"
+              >
+                <span className="text-muted-foreground">{r.label}</span>
+                <span className="font-semibold tabular-nums text-foreground">
+                  {r.value}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
 
         <Card>
           <CardHeader>
