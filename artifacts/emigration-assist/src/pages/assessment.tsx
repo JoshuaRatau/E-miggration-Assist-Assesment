@@ -30,7 +30,10 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { BrandHeader } from "@/components/brand-header";
 import { trackEvent } from "@/lib/analytics";
-import { readFunnelContext } from "@/lib/funnelContext";
+import {
+  readFunnelContext,
+  buildSubmissionFunnelContext,
+} from "@/lib/funnelContext";
 import { trackPixel } from "@/lib/metaPixel";
 import { DocumentUploader } from "@/components/DocumentUploader";
 import { CountryCombobox } from "@/components/country-combobox";
@@ -357,7 +360,7 @@ export function Assessment() {
       finalize: false,
       // Phase 3 — forward landing-page funnel context (route/theme) if present.
       // Omitted from the JSON body when absent (undefined is dropped).
-      funnelContext: readFunnelContext(),
+      funnelContext: buildSubmissionFunnelContext(),
     } as any;
 
     createLead.mutate(

@@ -7,7 +7,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { BrandHeader } from "@/components/brand-header";
 import { DocumentUploader } from "@/components/DocumentUploader";
-import { readFunnelContext } from "@/lib/funnelContext";
+import {
+  readFunnelContext,
+  buildSubmissionFunnelContext,
+} from "@/lib/funnelContext";
 import { trackEvent } from "@/lib/analytics";
 import brandLogo from "@assets/E-Migration_Assist_New_Logo-removebg-preview_1778252859401.png";
 import heroSuitcase from "@assets/overstay_hero_no_bg.png";
@@ -233,7 +236,7 @@ export default function OverstayAssessment() {
               ? form.otherSituationDetail.trim() || null
               : null,
           consentAccepted: true,
-          funnelContext: readFunnelContext(),
+          funnelContext: buildSubmissionFunnelContext(),
         }),
       });
       if (!res.ok) {

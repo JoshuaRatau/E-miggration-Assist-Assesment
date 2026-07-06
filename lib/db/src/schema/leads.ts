@@ -84,6 +84,18 @@ export const prelaunchLeadsTable = pgTable("prelaunch_leads", {
   funnelContext: jsonb("funnel_context").$type<{
     route?: string;
     theme?: string;
+    // Phase 10 — lightweight attribution metadata (compile-time only; still the
+    // same jsonb column, no migration). Purely additive — never drives logic.
+    landingPage?: string;
+    referrer?: string;
+    utm_source?: string;
+    utm_medium?: string;
+    utm_campaign?: string;
+    utm_content?: string;
+    utm_term?: string;
+    deviceType?: string;
+    browser?: string;
+    timestamp?: string;
   }>(),
   assignedTo: uuid("assigned_to"),
   lastContactedAt: timestamp("last_contacted_at", { withTimezone: true }),

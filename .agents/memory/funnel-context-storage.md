@@ -37,3 +37,18 @@ the params from `window.location.search`.
 **Prod note:** the `funnel_context` column must exist in the production DB before
 deploy (`pnpm --filter @workspace/db run push`) or writes fail. Note the db push
 script lives in the `@workspace/db` package, not the repo root.
+
+**Attribution extension (Phase 10):** `funnel_context` also carries first-touch
+attribution alongside route/theme — `landingPage, referrer, utm_source/medium/
+campaign/content/term, deviceType, browser, timestamp`. All jsonb keys in the SAME
+column; no new DB columns (the schema `$type` was widened, compile-time only).
+**Why first-touch, not submission-time:** route CTAs navigate to hardcoded,
+param-free destination URLs (which must NOT change), so UTM/referrer are gone by
+submission. `captureFunnelAttribution()` (frontend `lib/funnelContext.ts`) snapshots
+them ONCE per session into `sessionStorage["ema_funnel_attribution"]` on App mount;
+`buildSubmissionFunnelContext()` merges that snapshot with the current-URL
+route/theme (route/theme win) and the 3 submit sites send it.
+**Server sanitizer** (`sanitizeFunnelContext`) allow-lists route/theme + deviceType,
+trims/length-caps the free-form attribution strings, drops unknown/oversized/blank,
+and now returns `null` ONLY when the whole object is empty (so attribution-only
+leads still persist). Same shared sanitizer covers all 3 routes.

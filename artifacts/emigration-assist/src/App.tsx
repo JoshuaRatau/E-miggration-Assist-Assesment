@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation, useRoute } from "wouter";
 import { trackPixel } from "@/lib/metaPixel";
+import { captureFunnelAttribution } from "@/lib/funnelContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -244,6 +245,9 @@ function Router() {
 }
 
 function App() {
+  useEffect(() => {
+    captureFunnelAttribution();
+  }, []);
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
