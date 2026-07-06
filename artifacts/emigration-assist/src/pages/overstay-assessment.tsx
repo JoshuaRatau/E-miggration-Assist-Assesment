@@ -314,9 +314,12 @@ export default function OverstayAssessment() {
                 </h1>
 
                 <p className="text-base text-muted-foreground sm:text-lg">
-                  A guided 10-step assessment that helps you organise your
-                  circumstances and surface the procedural options that may be
-                  available under South African immigration processes.
+                  If you've overstayed or been declared undesirable, time
+                  matters — but you still have options. This guided assessment
+                  helps you organise your circumstances and surface the
+                  procedural routes that may apply, including appeals, upliftment
+                  applications, and regularisation guidance under South African
+                  immigration processes.
                 </p>
 
                 <div className="grid gap-3 sm:grid-cols-3">

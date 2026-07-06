@@ -460,7 +460,9 @@ export default function BusinessAssessment() {
                 </h1>
 
                 <p className="text-base text-muted-foreground sm:text-lg">
-                  A guided 6-step assessment that maps how your firm handles
+                  Built for immigration practitioners, law firms, HR
+                  departments, corporate mobility teams, and professional
+                  partners. This guided assessment maps how your firm handles
                   immigration matters today — and surfaces where a purpose-built
                   platform could remove the bottlenecks holding your team back.
                 </p>

@@ -475,14 +475,30 @@ export function Assessment() {
   // (When wantsDocs === "no" the gate radio still renders on step 7 so
   // the user can flip back to "yes" before clicking Continue.)
 
+  // Phase 7B — route-specific intro copy (UI/content only). Reads the
+  // landing-page funnel context (theme) that is already forwarded on
+  // submission; it never affects questions, validation, or flow.
+  const stuckApplication = readFunnelContext()?.theme === "stuck_application";
+  const introTitle = stuckApplication
+    ? "Visa Anomalies & Stuck Applications"
+    : "Find the Right Immigration Pathway";
+  const introDescription = stuckApplication
+    ? "If your Home Affairs matter is pending, delayed, mismatched, or unresolved, this assessment helps us pinpoint exactly where it's stuck. We help people who can't work, bank, travel, or move because their application or status hasn't been resolved — so we can guide you to the right next step."
+    : "Understand the correct immigration pathway before you apply — no guesswork. Whether you're visiting South Africa, extending a stay, returning to South Africa, or weighing up your visa options, this assessment helps you find the route that fits.";
+
   return (
     <div className="min-h-screen bg-background py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto space-y-8">
         <BrandHeader variant="compact" />
         <div className="space-y-4">
           <h1 className="text-3xl font-display font-semibold text-center">
-            Your Preliminary Assessment
+            {introTitle}
           </h1>
+          {step === 1 && (
+            <p className="mx-auto max-w-xl text-center text-sm text-muted-foreground">
+              {introDescription}
+            </p>
+          )}
           <Progress
             value={(Math.min(step, totalSteps) / totalSteps) * 100}
             className="h-2"
