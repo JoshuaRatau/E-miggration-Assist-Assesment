@@ -156,6 +156,7 @@ function serializeLeadAdminList(
     nextFollowUpAt: row.nextFollowUpAt
       ? row.nextFollowUpAt.toISOString()
       : null,
+    followUpNote: row.followUpNote ?? null,
     tags: row.tags,
     archivedAt: row.archivedAt ? row.archivedAt.toISOString() : null,
     hasWhatsapp: typeof row.whatsapp === "string" && row.whatsapp.length > 0,

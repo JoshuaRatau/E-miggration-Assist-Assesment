@@ -11,7 +11,7 @@ import {
   leadAuditTable,
   adminUsersTable,
 } from "@workspace/db";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import {
   LEAD_STATUS_VALUES,
   LEAD_PRIORITY_VALUES,
@@ -38,7 +38,7 @@ const INTENDED_TIER_VALUES = [
 ] as const;
 import { requireAdminToken } from "../lib/adminAuth";
 import { ensureCaseForLead } from "../lib/cases";
-import { writeAudit, actorTokenHash } from "../lib/audit";
+import { writeAudit, actorTokenHash, type AuditAction } from "../lib/audit";
 import { recordLeadEvent } from "../lib/recordLeadEvent";
 import { canAdvanceStatus } from "../lib/classification";
 
@@ -215,10 +215,56 @@ router.patch("/admin/leads/:id", async (req, res) => {
     fieldsUpdated.push("assignedTo");
   }
 
+  // Phase 11D — next follow-up. `nextFollowUpAt` reuses the existing timestamp
+  // column (date + optional time collapsed into one instant by the client);
+  // explicit null clears the follow-up. `followUpNote` is an optional free-text
+  // note that rides alongside it. The follow-up OWNER is derived from the
+  // lead's `assignedTo` — there is no separate owner field. The scheduled /
+  // updated / removed distinction is resolved from the before/after diff after
+  // the UPDATE; "completed" is a dedicated route (has different side effects).
+  if (Object.prototype.hasOwnProperty.call(body, "nextFollowUpAt")) {
+    const v = body.nextFollowUpAt;
+    if (v === null) {
+      updates.nextFollowUpAt = null;
+    } else if (typeof v === "string") {
+      const parsed = new Date(v);
+      if (Number.isNaN(parsed.getTime())) {
+        return res.status(400).json({
+          error: "nextFollowUpAt must be an ISO date-time string or null",
+        });
+      }
+      updates.nextFollowUpAt = parsed;
+    } else {
+      return res.status(400).json({
+        error: "nextFollowUpAt must be an ISO date-time string or null",
+      });
+    }
+    fieldsUpdated.push("nextFollowUpAt");
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "followUpNote")) {
+    const v = body.followUpNote;
+    if (v !== null && typeof v !== "string") {
+      return res
+        .status(400)
+        .json({ error: "followUpNote must be a string or null" });
+    }
+    if (typeof v === "string" && v.length > 2000) {
+      return res
+        .status(400)
+        .json({ error: "followUpNote exceeds 2000 characters" });
+    }
+    // Normalise empty/whitespace-only notes to null so a blank field doesn't
+    // persist an empty string (keeps "has a note" checks simple downstream).
+    const trimmed = typeof v === "string" ? v.trim() : null;
+    updates.followUpNote = trimmed && trimmed.length > 0 ? trimmed : null;
+    fieldsUpdated.push("followUpNote");
+  }
+
   if (fieldsUpdated.length === 0) {
     return res.status(400).json({
       error:
-        "Body must include at least one of: status, priority, notes, intendedTier, assignedTo",
+        "Body must include at least one of: status, priority, notes, intendedTier, assignedTo, nextFollowUpAt, followUpNote",
     });
   }
 
@@ -236,10 +282,31 @@ router.patch("/admin/leads/:id", async (req, res) => {
       adminNotes: prelaunchLeadsTable.adminNotes,
       intendedTier: prelaunchLeadsTable.intendedTier,
       assignedTo: prelaunchLeadsTable.assignedTo,
+      nextFollowUpAt: prelaunchLeadsTable.nextFollowUpAt,
+      followUpNote: prelaunchLeadsTable.followUpNote,
     })
     .from(prelaunchLeadsTable)
     .where(eq(prelaunchLeadsTable.id, id))
     .limit(1);
+
+  // Phase 11D invariant — a follow-up note may never outlive its due date. If
+  // the follow-up ends up cleared after this PATCH (either explicitly nulled in
+  // this request, or already absent and only a note was sent), force-clear the
+  // note too. Keeps state strict (no orphaned note) and prevents a misleading
+  // `lead_followup_updated` audit for a note with no scheduled follow-up. The
+  // client already enforces this in the UI; this is the authoritative guard.
+  const resolvedFollowUpAt = fieldsUpdated.includes("nextFollowUpAt")
+    ? (updates.nextFollowUpAt as Date | null)
+    : (before?.nextFollowUpAt ?? null);
+  if (!resolvedFollowUpAt) {
+    const noteAlready = before?.followUpNote ?? null;
+    if (updates.followUpNote != null || noteAlready != null) {
+      updates.followUpNote = null;
+      if (!fieldsUpdated.includes("followUpNote")) {
+        fieldsUpdated.push("followUpNote");
+      }
+    }
+  }
 
   // Phase 11C — active-assignee rule. The UI only ever offers *active* admins
   // in the assignee picker, so the API mirrors that: you cannot (re)assign a
@@ -465,6 +532,55 @@ router.patch("/admin/leads/:id", async (req, res) => {
         assignedToName,
       },
     });
+  }
+  // Phase 11D — follow-up audit. A single PATCH can touch the due-date and/or
+  // the note; we treat them as one logical "follow-up" change and emit at most
+  // ONE audit row, choosing the verb from the before/after due-date transition:
+  //   null  → set   ⇒ scheduled
+  //   set   → set   ⇒ updated   (date and/or note changed)
+  //   set   → null  ⇒ removed
+  // "completed" is never emitted here — it's the dedicated /complete route,
+  // which also stamps lastContactedAt. The owner is snapshotted (derived from
+  // assignedTo) so the timeline can render "for <owner>" without a join.
+  if (
+    fieldsUpdated.includes("nextFollowUpAt") ||
+    fieldsUpdated.includes("followUpNote")
+  ) {
+    const beforeDue = before?.nextFollowUpAt
+      ? before.nextFollowUpAt.toISOString()
+      : null;
+    const afterDue = updated.nextFollowUpAt
+      ? updated.nextFollowUpAt.toISOString()
+      : null;
+    const beforeNote = before?.followUpNote ?? null;
+    const afterNote = updated.followUpNote ?? null;
+    const changed = beforeDue !== afterDue || beforeNote !== afterNote;
+    if (changed) {
+      let action: AuditAction;
+      if (beforeDue === null && afterDue !== null) {
+        action = "lead_followup_scheduled";
+      } else if (beforeDue !== null && afterDue === null) {
+        action = "lead_followup_removed";
+      } else {
+        // both non-null (updated), or a note-only change while due stays null
+        action = "lead_followup_updated";
+      }
+      void writeAudit({
+        req,
+        action,
+        leadId: updated.id,
+        before: {
+          dueAt: beforeDue,
+          note: beforeNote,
+          ownerId: before?.assignedTo ?? null,
+        },
+        after: {
+          dueAt: afterDue,
+          note: afterNote,
+          ownerId: updated.assignedTo ?? null,
+        },
+      });
+    }
   }
   if (caseId !== null && caseCreatedThisCall) {
     void writeAudit({
@@ -831,6 +947,84 @@ router.post("/admin/leads/:id/notes", async (req, res) => {
     req.log.error({ err, leadId: id }, "Failed to persist lead note");
     return res.status(500).json({ error: "Failed to save note" });
   }
+});
+
+/**
+ * POST /api/admin/leads/:id/follow-up/complete
+ *
+ * Phase 11D — mark the currently-scheduled follow-up as done. This is distinct
+ * from clearing the follow-up via PATCH (which is "removed"): completing also
+ * stamps `lastContactedAt = now()` because a completed follow-up implies the
+ * operator actually made contact, and emits the `lead_followup_completed` audit
+ * verb so the timeline distinguishes "I did it" from "I cancelled it".
+ *
+ * Idempotency / preconditions: returns 400 if no follow-up is currently
+ * scheduled (nothing to complete). The clear + lastContactedAt stamp happen in
+ * a single atomic UPDATE guarded on `next_follow_up_at IS NOT NULL` so two
+ * concurrent completes can't both "win" and double-write the audit row.
+ * NOT in OpenAPI (sibling-route convention, matches /notes and /archive).
+ */
+router.post("/admin/leads/:id/follow-up/complete", async (req, res) => {
+  if (!(await requireAdminToken(req, res))) return;
+
+  const { id } = req.params;
+  if (!id || typeof id !== "string") {
+    return res.status(400).json({ error: "Missing lead id" });
+  }
+
+  const [before] = await db
+    .select({
+      id: prelaunchLeadsTable.id,
+      nextFollowUpAt: prelaunchLeadsTable.nextFollowUpAt,
+      followUpNote: prelaunchLeadsTable.followUpNote,
+      assignedTo: prelaunchLeadsTable.assignedTo,
+    })
+    .from(prelaunchLeadsTable)
+    .where(eq(prelaunchLeadsTable.id, id))
+    .limit(1);
+  if (!before) return res.status(404).json({ error: "Lead not found" });
+  if (!before.nextFollowUpAt) {
+    return res
+      .status(400)
+      .json({ error: "No follow-up is scheduled for this lead" });
+  }
+
+  const [updated] = await db
+    .update(prelaunchLeadsTable)
+    .set({
+      nextFollowUpAt: null,
+      followUpNote: null,
+      lastContactedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(prelaunchLeadsTable.id, id),
+        isNotNull(prelaunchLeadsTable.nextFollowUpAt),
+      ),
+    )
+    .returning();
+  // Lost the race to a concurrent complete/remove — the follow-up is already
+  // gone, so there's nothing (more) to do. Treat as a benign no-op success.
+  if (!updated) {
+    return res
+      .status(400)
+      .json({ error: "No follow-up is scheduled for this lead" });
+  }
+
+  void writeAudit({
+    req,
+    action: "lead_followup_completed",
+    leadId: updated.id,
+    before: {
+      dueAt: before.nextFollowUpAt.toISOString(),
+      note: before.followUpNote ?? null,
+      ownerId: before.assignedTo ?? null,
+    },
+    after: { dueAt: null, note: null, ownerId: updated.assignedTo ?? null },
+  });
+
+  return res.json(serializeLead(updated));
 });
 
 export default router;

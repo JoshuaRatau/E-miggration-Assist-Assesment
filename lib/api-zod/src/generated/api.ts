@@ -144,6 +144,10 @@ export const ListLeadsResponseItem = zod
       .describe("admin_users.id of the operator assigned to this lead"),
     lastContactedAt: zod.string().nullish(),
     nextFollowUpAt: zod.string().nullish(),
+    followUpNote: zod
+      .string()
+      .nullish()
+      .describe("Optional free-text note attached to the scheduled follow-up."),
     tags: zod.array(zod.string()).nullish(),
     hasWhatsapp: zod.boolean(),
     createdAt: zod.string(),
@@ -270,6 +274,10 @@ export const GetLeadByIdResponse = zod.object({
     .describe("admin_users.id of the operator the lead is assigned to."),
   lastContactedAt: zod.string().nullish(),
   nextFollowUpAt: zod.string().nullish(),
+  followUpNote: zod
+    .string()
+    .nullish()
+    .describe("Optional free-text note attached to the scheduled follow-up."),
   tags: zod.array(zod.string()).nullish(),
   organizationName: zod.string().nullish(),
   organizationType: zod

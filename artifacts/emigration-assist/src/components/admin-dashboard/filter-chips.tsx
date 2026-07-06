@@ -19,6 +19,20 @@ import { BRAND } from "@/lib/leadSegment";
 
 export type TimeRange = "all" | "today" | "7d" | "30d";
 export type OwnerFilter = "all" | "assigned" | "unassigned";
+export type FollowUpFilterValue =
+  | "all"
+  | "overdue"
+  | "due_today"
+  | "upcoming"
+  | "none";
+
+const FOLLOW_UP_LABELS: Record<FollowUpFilterValue, string> = {
+  all: "Follow-up: Any",
+  overdue: "Follow-up: Overdue",
+  due_today: "Follow-up: Due today",
+  upcoming: "Follow-up: Upcoming",
+  none: "Follow-up: None",
+};
 
 const TIME_RANGE_LABELS: Record<TimeRange, string> = {
   all: "All time",
@@ -51,6 +65,10 @@ interface FilterChipsProps {
   assignee: string;
   onAssignee: (v: string) => void;
   assigneeOptions: { id: string; label: string }[];
+  // Phase 11D — follow-up filter. Narrows leads by their derived follow-up
+  // state (overdue / due today / upcoming / none) client-side.
+  followUp: FollowUpFilterValue;
+  onFollowUp: (v: FollowUpFilterValue) => void;
 }
 
 const CHIP_TRIGGER =
@@ -72,6 +90,8 @@ export function FilterChips({
   assignee,
   onAssignee,
   assigneeOptions,
+  followUp,
+  onFollowUp,
 }: FilterChipsProps) {
   const assigneeLabel =
     assignee === "ALL"
@@ -151,6 +171,26 @@ export function FilterChips({
           {assigneeOptions.map((o) => (
             <SelectItem key={o.id} value={o.id}>
               {o.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {/* Follow-up (Phase 11D) */}
+      <Select
+        value={followUp}
+        onValueChange={(v) => onFollowUp(v as FollowUpFilterValue)}
+      >
+        <SelectTrigger
+          className={`w-auto gap-1.5 ${CHIP_TRIGGER}`}
+          data-testid="chip-follow-up"
+        >
+          <SelectValue>{FOLLOW_UP_LABELS[followUp]}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {(Object.keys(FOLLOW_UP_LABELS) as FollowUpFilterValue[]).map((k) => (
+            <SelectItem key={k} value={k}>
+              {FOLLOW_UP_LABELS[k]}
             </SelectItem>
           ))}
         </SelectContent>

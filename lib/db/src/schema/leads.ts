@@ -101,6 +101,10 @@ export const prelaunchLeadsTable = pgTable("prelaunch_leads", {
   assignedTo: uuid("assigned_to"),
   lastContactedAt: timestamp("last_contacted_at", { withTimezone: true }),
   nextFollowUpAt: timestamp("next_follow_up_at", { withTimezone: true }),
+  // Phase 11D — optional free-text note attached to the scheduled follow-up
+  // (`nextFollowUpAt`). NULL when no follow-up is set or none was written.
+  // The follow-up's OWNER is derived from `assignedTo` (no separate column).
+  followUpNote: text("follow_up_note"),
   tags: text("tags").array(),
 
   // ── Professional-lead (B2B) fields ───────────────────────────────────────

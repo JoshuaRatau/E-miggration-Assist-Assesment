@@ -45,6 +45,8 @@ export interface AdminLeadListItem {
   assignedTo?: string | null;
   lastContactedAt?: string | null;
   nextFollowUpAt?: string | null;
+  /** Optional free-text note attached to the scheduled follow-up. */
+  followUpNote?: string | null;
   tags?: string[] | null;
   hasWhatsapp: boolean;
   createdAt: string;

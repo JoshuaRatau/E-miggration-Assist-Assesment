@@ -191,6 +191,8 @@ export interface Lead {
   assignedTo?: string | null;
   lastContactedAt?: string | null;
   nextFollowUpAt?: string | null;
+  /** Optional free-text note attached to the scheduled follow-up. */
+  followUpNote?: string | null;
   tags?: string[] | null;
   organizationName?: string | null;
   /** law_firm | immigration_consultancy | global_mobility | independent_practitioner. Null for individual leads. */
@@ -291,6 +293,8 @@ export interface AdminLeadListItem {
   assignedTo?: string | null;
   lastContactedAt?: string | null;
   nextFollowUpAt?: string | null;
+  /** Optional free-text note attached to the scheduled follow-up. */
+  followUpNote?: string | null;
   tags?: string[] | null;
   hasWhatsapp: boolean;
   createdAt: string;

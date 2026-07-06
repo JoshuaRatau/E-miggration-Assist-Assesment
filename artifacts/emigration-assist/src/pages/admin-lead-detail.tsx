@@ -124,6 +124,13 @@ export function AdminLeadDetail() {
   // Phase 11C — local draft for the assignee dropdown. Empty string is the
   // "Unassigned" sentinel; persisted to the server as null.
   const [assignedTo, setAssignedTo] = useState<string>("");
+  // Phase 11D — follow-up draft. `followUpDate` is a yyyy-MM-dd string (empty
+  // = no follow-up → cleared to null on save); `followUpTime` is an optional
+  // HH:mm (defaults to 09:00 when a date is set); `followUpNote` is free text.
+  const [followUpDate, setFollowUpDate] = useState<string>("");
+  const [followUpTime, setFollowUpTime] = useState<string>("");
+  const [followUpNote, setFollowUpNote] = useState<string>("");
+  const [completing, setCompleting] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const { activeUsers, labelFor } = useAssignableUsers();
@@ -139,6 +146,16 @@ export function AdminLeadDetail() {
       setAdminNotes(lead.adminNotes ?? "");
       setIntendedTier(lead.intendedTier ?? "");
       setAssignedTo(lead.assignedTo ?? "");
+      // Phase 11D — split the stored instant back into local date + time inputs.
+      const raw = lead.nextFollowUpAt ? new Date(lead.nextFollowUpAt) : null;
+      if (raw && !Number.isNaN(raw.getTime())) {
+        setFollowUpDate(format(raw, "yyyy-MM-dd"));
+        setFollowUpTime(format(raw, "HH:mm"));
+      } else {
+        setFollowUpDate("");
+        setFollowUpTime("");
+      }
+      setFollowUpNote(lead.followUpNote ?? "");
     }
   }, [lead]);
 
@@ -164,6 +181,19 @@ export function AdminLeadDetail() {
             notes: adminNotes === "" ? null : adminNotes,
             intendedTier: intendedTier === "" ? null : intendedTier,
             assignedTo: assignedTo === "" ? null : assignedTo,
+            // Phase 11D — combine local date + optional time into an ISO
+            // instant. No date → clear the follow-up (null). A note without a
+            // date is dropped (the note has no follow-up to attach to).
+            nextFollowUpAt:
+              followUpDate === ""
+                ? null
+                : new Date(
+                    `${followUpDate}T${followUpTime || "09:00"}`,
+                  ).toISOString(),
+            followUpNote:
+              followUpDate === "" || followUpNote.trim() === ""
+                ? null
+                : followUpNote.trim(),
           }),
         },
       );
@@ -198,6 +228,50 @@ export function AdminLeadDetail() {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Phase 11D — mark the scheduled follow-up complete via the dedicated sibling
+  // route (clears the follow-up + stamps lastContactedAt + audits "completed",
+  // distinct from just clearing the date which audits "removed").
+  const handleCompleteFollowUp = async () => {
+    if (!lead) return;
+    const token = getAdminToken();
+    if (!token) return;
+    setCompleting(true);
+    try {
+      const res = await fetch(
+        `${(import.meta.env.VITE_API_URL ?? import.meta.env.BASE_URL).replace(/\/$/, "")}/api/admin/leads/${id}/follow-up/complete`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "x-admin-token": token },
+        },
+      );
+      if (!res.ok) {
+        if (res.status === 401) clearAdminToken();
+        const body = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(body.error ?? `Server returned ${res.status}`);
+      }
+      const updated = (await res.json()) as Lead;
+      qc.setQueryData(leadQueryKey, updated);
+      qc.invalidateQueries({ queryKey: ["/api/leads"] });
+      qc.invalidateQueries({ queryKey: ["admin", "leads"] });
+      qc.invalidateQueries({ queryKey: ["admin", "lead", id, "events"] });
+      toast({
+        title: "Follow-up completed",
+        description: "The follow-up has been cleared and contact logged.",
+      });
+    } catch (err) {
+      toast({
+        title: "Could not complete follow-up",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setCompleting(false);
     }
   };
 
@@ -521,6 +595,83 @@ export function AdminLeadDetail() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            {/* Phase 11D — Next Follow-up. Date + optional time + note. The
+                follow-up belongs to whoever the lead is assigned to (derived,
+                not a separate field). Cleared by emptying the date and saving;
+                "Mark complete" clears it AND logs contact. */}
+            <div
+              className="space-y-3 rounded-lg border bg-muted/30 p-4"
+              data-testid="section-follow-up"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium">Next follow-up</label>
+                <span className="text-xs text-muted-foreground">
+                  Owner:{" "}
+                  {assignedTo === "" ? "Unassigned" : labelFor(assignedTo)}
+                </span>
+              </div>
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Date</label>
+                  <input
+                    type="date"
+                    value={followUpDate}
+                    onChange={(e) => setFollowUpDate(e.target.value)}
+                    className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                    data-testid="input-follow-up-date"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">
+                    Time (optional)
+                  </label>
+                  <input
+                    type="time"
+                    value={followUpTime}
+                    onChange={(e) => setFollowUpTime(e.target.value)}
+                    disabled={followUpDate === ""}
+                    className="h-9 rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50"
+                    data-testid="input-follow-up-time"
+                  />
+                </div>
+                {followUpDate !== "" && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-9 text-muted-foreground"
+                    onClick={() => {
+                      setFollowUpDate("");
+                      setFollowUpTime("");
+                      setFollowUpNote("");
+                    }}
+                    data-testid="button-clear-follow-up"
+                  >
+                    Clear
+                  </Button>
+                )}
+                {lead.nextFollowUpAt && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-9"
+                    onClick={handleCompleteFollowUp}
+                    disabled={completing}
+                    data-testid="button-complete-follow-up"
+                  >
+                    {completing ? "Completing…" : "Mark complete"}
+                  </Button>
+                )}
+              </div>
+              <Textarea
+                value={followUpNote}
+                onChange={(e) => setFollowUpNote(e.target.value)}
+                placeholder="What's the next action? (optional)"
+                rows={2}
+                disabled={followUpDate === ""}
+                className="disabled:opacity-50"
+                data-testid="textarea-follow-up-note"
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Internal notes</label>

@@ -1,0 +1,94 @@
+Implement Milestone 3 – Lead Operations (Phase 11D).
+
+Goal:
+Add lightweight follow-up and task management to the existing Leads Dashboard using the current lead, audit, assignment, and activity systems.
+
+IMPORTANT
+
+Reuse existing:
+- lead records
+- admin users
+- audit/history
+- timeline
+- dashboard
+- permissions
+- assignment system
+
+Do NOT create:
+- a duplicate CRM
+- a separate task system unless absolutely necessary
+- customer-facing tasks
+- public APIs for tasks
+
+Requirements
+
+1. Add a "Next Follow-up" section to the Lead Detail page.
+
+Each lead should optionally have:
+- Follow-up date
+- Follow-up time (optional)
+- Follow-up note
+
+2. Display the follow-up on:
+- Lead Detail page
+- Leads Dashboard (compact indicator)
+- Lead Drawer (if appropriate)
+
+3. Dashboard filtering
+
+Allow filtering:
+- Due Today
+- Overdue
+- Upcoming
+- No Follow-up
+
+4. Dashboard indicators
+
+Show small visual indicators for:
+- 🔴 Overdue
+- 🟡 Due Today
+- 🟢 Upcoming
+
+Use existing badge styling where possible.
+
+5. Timeline integration
+
+Every follow-up action must automatically create audit entries:
+
+Examples:
+
+- Follow-up scheduled
+- Follow-up updated
+- Follow-up completed
+- Follow-up removed
+
+Reuse the existing audit/history mechanism.
+
+6. Assignment integration
+
+When a lead has an assigned owner, the follow-up belongs to that owner.
+
+If the assignment changes, preserve the follow-up.
+
+7. Preserve all existing behaviour
+
+Do NOT change:
+- questionnaires
+- routing
+- funnel_context
+- attribution
+- analytics
+- lead creation
+- submission APIs
+- dashboard layout
+- status workflow
+- internal notes
+- assignment functionality
+
+Success Criteria
+
+The Leads Dashboard now supports daily operational work:
+- consultants know which lead to contact next,
+- overdue follow-ups are clearly visible,
+- every follow-up is tracked in the existing audit trail,
+- and the feature integrates naturally with the current assignment workflow without introducing duplicate systems.

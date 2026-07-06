@@ -71,6 +71,34 @@ function summariseAudit(entry: TimelineEntry): string {
     if (beforeId) return `Reassigned from ${nameFor(before)} to ${nameFor(after)}`;
     return `Assigned to ${nameFor(after)}`;
   }
+  // Phase 11D — follow-up lifecycle. Before/after payload = {dueAt, note}.
+  if (
+    entry.title === "lead_followup_scheduled" ||
+    entry.title === "lead_followup_updated" ||
+    entry.title === "lead_followup_completed" ||
+    entry.title === "lead_followup_removed"
+  ) {
+    const fmtDate = (v: unknown): string | null => {
+      if (typeof v !== "string" || !v) return null;
+      const d = new Date(v);
+      return Number.isNaN(d.getTime()) ? null : format(d, "MMM d, yyyy");
+    };
+    const afterDue = fmtDate(after?.dueAt);
+    const note =
+      after && typeof after.note === "string" && after.note.trim()
+        ? after.note
+        : null;
+    if (entry.title === "lead_followup_scheduled") {
+      const base = afterDue ? `Follow-up scheduled for ${afterDue}` : "Follow-up scheduled";
+      return note ? `${base}: ${note}` : base;
+    }
+    if (entry.title === "lead_followup_updated") {
+      const base = afterDue ? `Follow-up updated to ${afterDue}` : "Follow-up updated";
+      return note ? `${base}: ${note}` : base;
+    }
+    if (entry.title === "lead_followup_completed") return "Follow-up completed";
+    return "Follow-up removed";
+  }
   if (entry.title === "lead_converted") return "Lead converted to case";
   if (entry.title === "manual_contact_click") {
     const channel = after && (after.channel as string | undefined);

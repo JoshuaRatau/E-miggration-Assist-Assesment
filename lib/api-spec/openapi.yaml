@@ -764,6 +764,10 @@ components:
         nextFollowUpAt:
           type: string
           nullable: true
+        followUpNote:
+          type: string
+          nullable: true
+          description: Optional free-text note attached to the scheduled follow-up.
         tags:
           type: array
           nullable: true
@@ -1024,6 +1028,10 @@ components:
         nextFollowUpAt:
           type: string
           nullable: true
+        followUpNote:
+          type: string
+          nullable: true
+          description: Optional free-text note attached to the scheduled follow-up.
         tags:
           type: array
           items:

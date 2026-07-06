@@ -60,6 +60,11 @@ import {
   computeSegmentCounts,
   criticalOverstayLeads,
 } from "@/lib/leadSegment";
+import {
+  followUpInfo,
+  matchesFollowUpFilter,
+  type FollowUpFilter,
+} from "@/lib/followUp";
 import { DashboardSidebar } from "@/components/admin-dashboard/dashboard-sidebar";
 import { KpiStrip } from "@/components/admin-dashboard/kpi-strip";
 import { SegmentToggle } from "@/components/admin-dashboard/segment-toggle";
@@ -217,8 +222,10 @@ function segmentPillClass(
 // `isOverdueSla` (which already excludes terminal statuses) so the cell and
 // the "Overdue SLA" KPI never disagree.
 function SlaPill({ lead }: { lead: Lead }) {
-  const raw = lead.nextFollowUpAt ? new Date(lead.nextFollowUpAt) : null;
-  if (!raw || Number.isNaN(raw.getTime())) {
+  // Phase 11D — follow-up state is derived by the shared `followUpInfo` helper
+  // so the table pill, drawer, and detail page all read identically.
+  const info = followUpInfo(lead);
+  if (info.state === "none") {
     return (
       <span
         className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
@@ -230,43 +237,22 @@ function SlaPill({ lead }: { lead: Lead }) {
       </span>
     );
   }
-  const now = new Date();
-  const overdue = isOverdueSla(lead, now);
-  const endOfToday = new Date(now);
-  endOfToday.setHours(23, 59, 59, 999);
-  const isToday = !overdue && raw.getTime() <= endOfToday.getTime();
-  const isPast = raw.getTime() < now.getTime();
-  let dot = "bg-emerald-500";
-  let label = "On track";
-  let state = "on_track";
-  if (overdue) {
-    dot = "bg-amber-500";
-    label = "Overdue";
-    state = "overdue";
-  } else if (isToday) {
-    dot = "bg-blue-500";
-    label = "Due today";
-    state = "due_today";
-  } else if (isPast) {
-    // Past-due but non-overdue means a terminal lead — follow-up no longer
-    // actionable, render neutrally rather than a misleading "On track".
-    dot = "bg-muted-foreground/40";
-    label = "Closed";
-    state = "closed";
-  }
   return (
     <span
       className="inline-flex flex-col gap-0.5 text-xs"
       data-testid={`sla-${lead.referenceNumber}`}
-      data-sla={state}
+      data-sla={info.state}
+      title={info.note ?? undefined}
     >
       <span className="inline-flex items-center gap-1.5 font-medium">
-        <span className={`h-2 w-2 rounded-full ${dot}`} />
-        {label}
+        <span className={`h-2 w-2 rounded-full ${info.dot}`} />
+        {info.label}
       </span>
-      <span className="text-[10px] text-muted-foreground">
-        {format(raw, "MMM d")}
-      </span>
+      {info.dueAt && (
+        <span className="text-[10px] text-muted-foreground">
+          {format(info.dueAt, "MMM d")}
+        </span>
+      )}
     </span>
   );
 }
@@ -394,6 +380,8 @@ export function Admin() {
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>("all");
   // Phase 11C — "Assigned To" filter. "ALL" = any, "UNASSIGNED", or a user id.
   const [assigneeFilter, setAssigneeFilter] = useState<string>("ALL");
+  // Phase 11D — follow-up filter. "all" = any, else overdue/due_today/upcoming/none.
+  const [followUpFilter, setFollowUpFilter] = useState<FollowUpFilter>("all");
   // Shared admin-user roster: powers the "Assigned To" filter options and
   // resolves each lead's `assignedTo` uuid → display name in the table.
   const { activeUsers, labelFor } = useAssignableUsers();
@@ -568,6 +556,10 @@ export function Admin() {
         (l) => (l.countryOfResidence ?? l.nationality) === countryFilter,
       );
     }
+    if (followUpFilter !== "all") {
+      const now = new Date();
+      out = out.filter((l) => matchesFollowUpFilter(l, followUpFilter, now));
+    }
     if (quickFilter === "hot") {
       const now = new Date();
       out = out.filter((l) => isHotLead(l, now));
@@ -640,6 +632,7 @@ export function Admin() {
     scoreMin80,
     ownerFilter,
     assigneeFilter,
+    followUpFilter,
     countryFilter,
   ]);
 
@@ -654,6 +647,7 @@ export function Admin() {
     scoreMin80 ||
     ownerFilter !== "all" ||
     assigneeFilter !== "ALL" ||
+    followUpFilter !== "all" ||
     countryFilter !== "ANY" ||
     search.trim().length > 0;
 
@@ -1222,6 +1216,8 @@ export function Admin() {
             id: u.id,
             label: u.displayName?.trim() || u.email,
           }))}
+          followUp={followUpFilter}
+          onFollowUp={setFollowUpFilter}
         />
 
         {/* Phase 6 — read-only lead volume by funnel route/context. Compact

@@ -25,7 +25,8 @@ import { Button } from "@/components/ui/button";
 import { LeadScoreBadge } from "@/components/lead-score-badge";
 import { LeadSourceBadge } from "@/components/lead-source-badge";
 import { LeadActivityFeed } from "@/components/lead-activity-feed";
-import { segmentOfLead, isOverdueSla } from "@/lib/leadSegment";
+import { segmentOfLead } from "@/lib/leadSegment";
+import { followUpInfo } from "@/lib/followUp";
 import { canAdvanceStatus, statusLabel } from "@/lib/leadStatus";
 import { tierBadgeClass, tierLabel } from "@/lib/intendedTier";
 import { enquiryCategoryLabel } from "@/lib/typeOfEnquiry";
@@ -62,28 +63,22 @@ function segmentPillClass(segment: string): string {
   return "bg-blue-100 text-blue-800";
 }
 
-// Drawer-local SLA decode — kept consistent with the leads-table SlaPill so a
-// lead's follow-up state reads identically in both surfaces.
+// Drawer-local SLA decode — delegates to the shared `followUpInfo` helper so a
+// lead's follow-up state reads identically across the table pill, drawer, and
+// detail page. Adds a preformatted date string for the drawer's layout.
 function slaState(lead: Lead): {
   label: string;
   dot: string;
   date: string | null;
+  note: string | null;
 } {
-  const raw = lead.nextFollowUpAt ? new Date(lead.nextFollowUpAt) : null;
-  if (!raw || Number.isNaN(raw.getTime())) {
-    return { label: "Not set", dot: "bg-muted-foreground/40", date: null };
-  }
-  const now = new Date();
-  const overdue = isOverdueSla(lead, now);
-  const endOfToday = new Date(now);
-  endOfToday.setHours(23, 59, 59, 999);
-  const dateStr = format(raw, "MMM d, yyyy");
-  if (overdue) return { label: "Overdue", dot: "bg-amber-500", date: dateStr };
-  if (raw.getTime() <= endOfToday.getTime())
-    return { label: "Due today", dot: "bg-blue-500", date: dateStr };
-  if (raw.getTime() < now.getTime())
-    return { label: "Closed", dot: "bg-muted-foreground/40", date: dateStr };
-  return { label: "On track", dot: "bg-emerald-500", date: dateStr };
+  const info = followUpInfo(lead);
+  return {
+    label: info.label,
+    dot: info.dot,
+    date: info.dueAt ? format(info.dueAt, "MMM d, yyyy") : null,
+    note: info.note,
+  };
 }
 
 function safe(value: string | null | undefined): ReactNode {
@@ -456,6 +451,7 @@ export function LeadDrawer({
                   <Field label="Owner">
                     {lead.assignedTo ? labelFor(lead.assignedTo) : "Unassigned"}
                   </Field>
+                  {sla?.note && <Field label="Note">{sla.note}</Field>}
                 </dl>
               </section>
 
