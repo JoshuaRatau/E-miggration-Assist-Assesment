@@ -79,6 +79,7 @@ export interface DashboardKpis {
 
 const IN_PROGRESS_STATUSES = new Set([
   "reviewing",
+  "needs_more_information",
   "contacted",
   "engaged",
   "qualified",

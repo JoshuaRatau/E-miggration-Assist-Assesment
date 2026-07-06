@@ -53,6 +53,7 @@ const PRIORITY_WEIGHTS: Record<string, number> = {
 const FUNNEL_WEIGHTS: Record<string, number> = {
   new: 5,
   reviewing: 10,
+  needs_more_information: 10,
   contacted: 15,
   engaged: 20,
   qualified: 25,

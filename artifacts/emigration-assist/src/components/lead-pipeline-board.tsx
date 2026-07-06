@@ -25,6 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 const COLUMN_HEADER_CLASS: Record<LeadStatus, string> = {
   new: "border-blue-500/60 text-blue-300",
   reviewing: "border-sky-500/60 text-sky-300",
+  needs_more_information: "border-yellow-500/60 text-yellow-300",
   contacted: "border-amber-500/60 text-amber-300",
   engaged: "border-teal-500/60 text-teal-300",
   qualified: "border-green-500/60 text-green-300",

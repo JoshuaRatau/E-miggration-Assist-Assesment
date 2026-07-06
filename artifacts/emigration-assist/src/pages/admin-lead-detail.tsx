@@ -33,6 +33,7 @@ import { LeadActivityPanel } from "@/components/lead-activity-panel";
 const STATUS_OPTIONS = [
   "new",
   "reviewing",
+  "needs_more_information",
   "contacted",
   "engaged",
   "qualified",

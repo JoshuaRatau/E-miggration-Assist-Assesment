@@ -38,6 +38,7 @@ import { useToast } from "@/hooks/use-toast";
 const STATUS_VALUES = [
   "new",
   "reviewing",
+  "needs_more_information",
   "contacted",
   "engaged",
   "qualified",

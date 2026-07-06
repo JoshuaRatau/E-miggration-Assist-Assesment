@@ -158,8 +158,13 @@ export function deriveAutoPriority(
 
 // Canonical lead-status enum AND funnel order.  The array order is the
 // forward-only progression operators must follow:
-//   new → reviewing → contacted → engaged → qualified
-//       → proposal_sent → ready_for_case → converted → closed
+//   new → reviewing → needs_more_information → contacted → engaged
+//       → qualified → proposal_sent → ready_for_case → converted → closed
+//
+// `needs_more_information` (Phase 11A) is a review-queue holding state:
+// the lead has been triaged but is blocked pending extra details from
+// the applicant before it can progress. Like every other stage it is
+// bidirectional — the only hard invariant remains the `converted` lock.
 //
 // `ready_for_case` (V2) sits between "qualified" and "converted":
 // "all checks passed, awaiting handover".
@@ -176,6 +181,7 @@ export function deriveAutoPriority(
 export const LEAD_STATUS_VALUES = [
   "new",
   "reviewing",
+  "needs_more_information",
   "contacted",
   "engaged",
   "qualified",
@@ -216,6 +222,7 @@ export function canAdvanceStatus(
 const NEXT_STEP_BY_STATUS: Record<string, string> = {
   new: "Review lead",
   reviewing: "Contact lead",
+  needs_more_information: "Request information",
   contacted: "Follow up",
   engaged: "Qualify lead",
   qualified: "Send proposal",

@@ -95,6 +95,7 @@ const ENUM_VALUES: Partial<Record<AudienceField, string[]>> = {
   leadStatus: [
     "new",
     "reviewing",
+    "needs_more_information",
     "contacted",
     "engaged",
     "qualified",

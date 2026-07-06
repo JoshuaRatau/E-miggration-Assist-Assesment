@@ -101,6 +101,7 @@ import { Textarea } from "@/components/ui/textarea";
 const STATUS_VALUES = [
   "new",
   "reviewing",
+  "needs_more_information",
   "contacted",
   "engaged",
   "qualified",
@@ -123,6 +124,7 @@ const STATUS_OPTIONS = [
   { value: "ALL", label: "All statuses" },
   { value: "new", label: "New" },
   { value: "reviewing", label: "Reviewing" },
+  { value: "needs_more_information", label: "Needs More Information" },
   { value: "contacted", label: "Contacted" },
   { value: "engaged", label: "Engaged" },
   { value: "qualified", label: "Qualified" },
