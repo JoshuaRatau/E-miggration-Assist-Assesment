@@ -337,6 +337,16 @@ export function Admin() {
   const [status, setStatus] = useState("ALL");
   const [whatsappFilter, setWhatsappFilter] = useState("ANY");
   const [sourceFilter, setSourceFilter] = useState("ANY");
+  // Phase 5 — funnel route/context filter (client-side over fetched leads).
+  // "ALL" = no narrowing. traveller/overstay_undesirable/firm_professional
+  // match funnelContext.route; stuck_application matches funnelContext.theme.
+  const [routeFilter, setRouteFilter] = useState<
+    | "ALL"
+    | "traveller"
+    | "overstay_undesirable"
+    | "firm_professional"
+    | "stuck_application"
+  >("ALL");
   const [sort, setSort] = useState<"newest" | "priority" | "score">("newest");
   // Soft-archive view. When true the leads list shows ONLY archived leads
   // (server filters via ?archived=true); when false it shows the active
@@ -505,6 +515,17 @@ export function Admin() {
       // badge does, keeping the filter and the cell perfectly aligned.
       out = out.filter((l) => normalizeLeadSource(l.source) === sourceFilter);
     }
+    if (routeFilter !== "ALL") {
+      // Phase 5 — narrow by saved funnel context. The "stuck_application"
+      // option matches the theme field; the rest match the route field.
+      out = out.filter((l) => {
+        const ctx = l.funnelContext;
+        if (!ctx) return false;
+        return routeFilter === "stuck_application"
+          ? ctx.theme === "stuck_application"
+          : ctx.route === routeFilter;
+      });
+    }
     if (timeRange !== "all") {
       const now = Date.now();
       const cutoff =
@@ -598,6 +619,7 @@ export function Admin() {
     search,
     whatsappFilter,
     sourceFilter,
+    routeFilter,
     sort,
     timeRange,
     scoreMin80,
@@ -610,6 +632,7 @@ export function Admin() {
     status !== "ALL" ||
     whatsappFilter !== "ANY" ||
     sourceFilter !== "ANY" ||
+    routeFilter !== "ALL" ||
     quickFilter !== "none" ||
     timeRange !== "all" ||
     scoreMin80 ||
@@ -1054,6 +1077,34 @@ export function Admin() {
                         {leadSourceMeta(s).label}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">
+                  Route
+                </label>
+                <Select
+                  value={routeFilter}
+                  onValueChange={(v) =>
+                    setRouteFilter(v as typeof routeFilter)
+                  }
+                >
+                  <SelectTrigger data-testid="select-filter-route">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All routes</SelectItem>
+                    <SelectItem value="traveller">Traveller</SelectItem>
+                    <SelectItem value="overstay_undesirable">
+                      Overstayed / Undesirable
+                    </SelectItem>
+                    <SelectItem value="firm_professional">
+                      Firm / Professional
+                    </SelectItem>
+                    <SelectItem value="stuck_application">
+                      Stuck Application / Visa Anomaly
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
