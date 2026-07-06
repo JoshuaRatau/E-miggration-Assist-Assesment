@@ -10,6 +10,7 @@ import { Slider } from "@/components/ui/slider";
 import { BrandHeader } from "@/components/brand-header";
 import { CountryCombobox } from "@/components/country-combobox";
 import { findByIso, findByName } from "@/lib/countries";
+import { readFunnelContext } from "@/lib/funnelContext";
 import heroSuitcase from "@assets/overstay_hero_no_bg.png";
 import {
   ArrowRight,
@@ -354,6 +355,7 @@ export default function BusinessAssessment() {
           countryOfResidence: form.countryOfResidence.trim() || null,
           consentAccepted: true,
           website: "",
+          funnelContext: readFunnelContext(),
         }),
       });
       if (!res.ok) {

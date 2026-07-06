@@ -5,6 +5,7 @@ import { db, prelaunchLeadsTable } from "@workspace/db";
 import { createRateBucket } from "../lib/rateLimit";
 import { normalizeWhatsapp } from "../lib/whatsapp";
 import { recordLeadEvent } from "../lib/recordLeadEvent";
+import { sanitizeFunnelContext } from "../lib/funnelContext";
 import { buildConfirmationDispatcher } from "../lib/confirmation";
 
 const router: IRouter = Router();
@@ -353,6 +354,10 @@ router.post("/business-intake", async (req, res) => {
         internalClassification: "business",
         tags,
         adminNotes,
+        // Phase 3 — funnel route context (route/theme) forwarded by the CTA.
+        funnelContext: sanitizeFunnelContext(
+          (req.body as { funnelContext?: unknown }).funnelContext,
+        ),
         // ── B2B contact-intelligence columns ──────────────────────────────
         organizationName: data.firmName,
         representativeName: data.fullName,

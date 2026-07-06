@@ -76,6 +76,15 @@ export const prelaunchLeadsTable = pgTable("prelaunch_leads", {
   // Phase 2 of the comms-architecture rollout — surfaced in the admin
   // dashboard as an attribution sub-label under the source badge.
   sourceCampaign: text("source_campaign"),
+  // Phase 3 — funnel route context. Lightweight `{route, theme}` captured from
+  // the landing-page CTA query string at submission time and forwarded by the
+  // public/intake forms. Pure attribution metadata for downstream analytics,
+  // classification, and hand-off — never drives questionnaire logic, scoring,
+  // validation, or dispatch. NULL when no funnel context was present.
+  funnelContext: jsonb("funnel_context").$type<{
+    route?: string;
+    theme?: string;
+  }>(),
   assignedTo: uuid("assigned_to"),
   lastContactedAt: timestamp("last_contacted_at", { withTimezone: true }),
   nextFollowUpAt: timestamp("next_follow_up_at", { withTimezone: true }),

@@ -20,6 +20,7 @@ import { recordLeadEvent } from "../lib/recordLeadEvent";
 import { requireAdminToken } from "../lib/adminAuth";
 import { findUsableVerifiedOtp } from "../lib/otp";
 import { createRateBucket } from "../lib/rateLimit";
+import { sanitizeFunnelContext } from "../lib/funnelContext";
 
 // Pre-traffic hardening: per-key sliding-window limiters guarding the
 // public lead-submission endpoint against scripted abuse. Three
@@ -414,6 +415,12 @@ router.post("/leads", async (req, res) => {
       // free-text but trimmed and capped to keep storage bounded.
       source: normalizeSource(data.source),
       sourceCampaign: normalizeCampaign(data.sourceCampaign),
+      // Phase 3 — persist landing-page funnel context (route/theme) if the
+      // client forwarded it. Read straight off req.body (not CreateLeadBody)
+      // so the questionnaire validation schema is untouched.
+      funnelContext: sanitizeFunnelContext(
+        (req.body as { funnelContext?: unknown }).funnelContext,
+      ),
     })
     .returning();
 

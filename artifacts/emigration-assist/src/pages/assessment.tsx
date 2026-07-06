@@ -30,6 +30,7 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { BrandHeader } from "@/components/brand-header";
 import { trackEvent } from "@/lib/analytics";
+import { readFunnelContext } from "@/lib/funnelContext";
 import { trackPixel } from "@/lib/metaPixel";
 import { DocumentUploader } from "@/components/DocumentUploader";
 import { CountryCombobox } from "@/components/country-combobox";
@@ -345,6 +346,9 @@ export function Assessment() {
       // Defer confirmation to the explicit finalize step. No outbound
       // email/WhatsApp is sent on this call.
       finalize: false,
+      // Phase 3 — forward landing-page funnel context (route/theme) if present.
+      // Omitted from the JSON body when absent (undefined is dropped).
+      funnelContext: readFunnelContext(),
     } as any;
 
     createLead.mutate(

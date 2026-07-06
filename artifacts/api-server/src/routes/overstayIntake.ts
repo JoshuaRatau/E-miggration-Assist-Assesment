@@ -5,6 +5,7 @@ import { db, prelaunchLeadsTable } from "@workspace/db";
 import { createRateBucket } from "../lib/rateLimit";
 import { normalizeWhatsapp } from "../lib/whatsapp";
 import { recordLeadEvent } from "../lib/recordLeadEvent";
+import { sanitizeFunnelContext } from "../lib/funnelContext";
 
 const router: IRouter = Router();
 
@@ -280,6 +281,10 @@ router.post("/overstay-intake", async (req, res) => {
             : "overstay",
         tags,
         adminNotes,
+        // Phase 3 — funnel route context (route/theme) forwarded by the CTA.
+        funnelContext: sanitizeFunnelContext(
+          (req.body as { funnelContext?: unknown }).funnelContext,
+        ),
       })
       .returning();
   } catch (err) {
