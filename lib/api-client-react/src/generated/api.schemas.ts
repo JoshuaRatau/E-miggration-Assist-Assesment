@@ -221,6 +221,8 @@ export interface Lead {
   caseWorkflowKey?: string | null;
   /** Milestone 4 Phase 12C — workflow attachment state of the linked case: "assigned" (caseWorkflowKey set), "review_required" (no recognised workflow — needs manual selection in EMA), or the legacy "unassigned" default. null until the lead is converted. */
   caseWorkflowStatus?: string | null;
+  /** Milestone 4 Phase 13A — READ-ONLY client-portal readiness of the linked case, DERIVED (never written this phase) from the case's persisted portal_status + workflow state: "not_prepared", "ready_to_activate", "activated", or "manual_review_required". null until the lead is converted. Preparation-only — no client account or login exists yet and nothing is activated or notified. */
+  casePortalStatus?: string | null;
   adminNotes?: string | null;
   /** True if the lead has a stored canonical WhatsApp number. */
   hasWhatsapp?: boolean;

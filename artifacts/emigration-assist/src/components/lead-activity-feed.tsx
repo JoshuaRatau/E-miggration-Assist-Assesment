@@ -121,6 +121,13 @@ function summariseAudit(entry: TimelineEntry): string {
   }
   if (entry.title === "case_workflow_review_required")
     return "Workflow review required — no automatic match";
+  if (entry.title === "portal_prepared")
+    return "Client portal prepared for activation";
+  if (entry.title === "portal_activated") return "Client portal activated";
+  if (entry.title === "portal_activation_blocked")
+    return "Client portal activation blocked";
+  if (entry.title === "portal_activation_failed")
+    return "Client portal activation failed";
   if (entry.title === "manual_contact_click") {
     const channel = after && (after.channel as string | undefined);
     return channel ? `Manual contact via ${channel}` : "Manual contact opened";

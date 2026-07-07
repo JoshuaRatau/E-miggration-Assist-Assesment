@@ -38,6 +38,7 @@ const INTENDED_TIER_VALUES = [
 ] as const;
 import { requireAdminToken } from "../lib/adminAuth";
 import { ensureCaseForLead, assignWorkflowForCase } from "../lib/cases";
+import { deriveClientPortalStatus } from "../lib/clientPortal";
 import { buildConversionPreview } from "../lib/leadToApplication";
 import { writeAudit, actorTokenHash, type AuditAction } from "../lib/audit";
 import { recordLeadEvent } from "../lib/recordLeadEvent";
@@ -49,6 +50,7 @@ function serializeLead(
   row: typeof prelaunchLeadsTable.$inferSelect,
   caseId: string | null = null,
   caseWorkflow: { key: string | null; status: string | null } | null = null,
+  casePortalStatusRaw: string | null = null,
 ) {
   return {
     ...row,
@@ -79,6 +81,14 @@ function serializeLead(
     // 'review_required', or the legacy 'unassigned' default.
     caseWorkflowKey: caseWorkflow?.key ?? null,
     caseWorkflowStatus: caseWorkflow?.status ?? null,
+    // Phase 13A — read-only client-portal readiness. Derived (never written)
+    // from the persisted portal_status + workflow state; null until converted.
+    casePortalStatus: caseId
+      ? deriveClientPortalStatus({
+          portalStatus: casePortalStatusRaw,
+          workflowStatus: caseWorkflow?.status ?? null,
+        })
+      : null,
   };
 }
 
@@ -394,6 +404,7 @@ router.patch("/admin/leads/:id", async (req, res) => {
   let caseId: string | null = null;
   let caseCreatedThisCall = false;
   let caseWorkflow: { key: string | null; status: string | null } | null = null;
+  let casePortalStatusRaw: string | null = null;
   if (updated.leadStatus === "converted") {
     try {
       // ensureCaseForLead's `created` flag is sourced from the atomic
@@ -407,6 +418,10 @@ router.patch("/admin/leads/:id", async (req, res) => {
       );
       caseId = result.row.id;
       caseCreatedThisCall = result.created;
+      // Phase 13A — portal_status is never written this phase, so the case
+      // row's persisted value (default 'not_prepared') is accurate in BOTH the
+      // freshly-created and already-converted branches.
+      casePortalStatusRaw = result.row.portalStatus;
 
       // Phase 12C — the PATCH path is ALSO a conversion path (dashboard
       // lead-drawer). Attach the resolved workflow ONLY on the call that
@@ -656,7 +671,9 @@ router.patch("/admin/leads/:id", async (req, res) => {
       req.log.warn({ err }, "Failed to log admin.lead_updated event"),
     );
 
-  return res.json(serializeLead(updated, caseId, caseWorkflow));
+  return res.json(
+    serializeLead(updated, caseId, caseWorkflow, casePortalStatusRaw),
+  );
 });
 
 /**
@@ -1134,7 +1151,15 @@ router.post("/admin/leads/:id/convert", async (req, res) => {
         referenceNumber: existingCase.referenceNumber,
         status: existingCase.status,
       },
-      lead: serializeLead(lead, existingCase.id),
+      lead: serializeLead(
+        lead,
+        existingCase.id,
+        {
+          key: existingCase.workflowKey,
+          status: existingCase.workflowStatus,
+        },
+        existingCase.portalStatus,
+      ),
     });
   }
 
@@ -1264,10 +1289,15 @@ router.post("/admin/leads/:id/convert", async (req, res) => {
         workflowKey: workflow.workflowKey,
         workflowStatus: workflow.outcome,
       },
-      lead: serializeLead(freshLead ?? effectiveLead, caseId, {
-        key: workflow.workflowKey,
-        status: workflow.outcome,
-      }),
+      lead: serializeLead(
+        freshLead ?? effectiveLead,
+        caseId,
+        {
+          key: workflow.workflowKey,
+          status: workflow.outcome,
+        },
+        result.row.portalStatus,
+      ),
     });
   } catch (err) {
     req.log.error({ err, leadId: id }, "Lead conversion failed");

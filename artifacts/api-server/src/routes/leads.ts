@@ -21,6 +21,7 @@ import { requireAdminToken } from "../lib/adminAuth";
 import { findUsableVerifiedOtp } from "../lib/otp";
 import { createRateBucket } from "../lib/rateLimit";
 import { sanitizeFunnelContext } from "../lib/funnelContext";
+import { deriveClientPortalStatus } from "../lib/clientPortal";
 
 // Pre-traffic hardening: per-key sliding-window limiters guarding the
 // public lead-submission endpoint against scripted abuse. Three
@@ -77,6 +78,7 @@ function serializeLead(
   row: typeof prelaunchLeadsTable.$inferSelect,
   caseId: string | null = null,
   caseWorkflow: { key: string | null; status: string | null } | null = null,
+  casePortalStatusRaw: string | null = null,
 ) {
   return {
     ...row,
@@ -98,6 +100,14 @@ function serializeLead(
     // 'review_required', or legacy 'unassigned' once a case exists.
     caseWorkflowKey: caseWorkflow?.key ?? null,
     caseWorkflowStatus: caseWorkflow?.status ?? null,
+    // Phase 13A — read-only client-portal readiness. Derived (never written)
+    // from the persisted portal_status + workflow state; null until converted.
+    casePortalStatus: caseId
+      ? deriveClientPortalStatus({
+          portalStatus: casePortalStatusRaw,
+          workflowStatus: caseWorkflow?.status ?? null,
+        })
+      : null,
   };
 }
 
@@ -716,6 +726,7 @@ router.get("/leads/by-id/:id", async (req, res) => {
       caseId: leadCasesTable.id,
       caseWorkflowKey: leadCasesTable.workflowKey,
       caseWorkflowStatus: leadCasesTable.workflowStatus,
+      casePortalStatus: leadCasesTable.portalStatus,
     })
     .from(prelaunchLeadsTable)
     .leftJoin(
@@ -730,10 +741,15 @@ router.get("/leads/by-id/:id", async (req, res) => {
   }
 
   return res.json(
-    serializeLead(rows[0].lead, rows[0].caseId, {
-      key: rows[0].caseWorkflowKey,
-      status: rows[0].caseWorkflowStatus,
-    }),
+    serializeLead(
+      rows[0].lead,
+      rows[0].caseId,
+      {
+        key: rows[0].caseWorkflowKey,
+        status: rows[0].caseWorkflowStatus,
+      },
+      rows[0].casePortalStatus,
+    ),
   );
 });
 

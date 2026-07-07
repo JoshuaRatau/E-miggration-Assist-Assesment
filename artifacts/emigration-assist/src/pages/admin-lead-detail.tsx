@@ -655,6 +655,100 @@ export function AdminLeadDetail() {
           </CardContent>
         </Card>
 
+        {/* Phase 13A — Client Portal (READ-ONLY preparation). Shown only for
+            converted leads. Surfaces whether the case is ready for a FUTURE
+            client-portal activation. No account, credentials, or notifications
+            exist yet — this is a status indicator only. */}
+        {lead.caseId ? (
+          <Card data-testid="card-client-portal">
+            <CardHeader>
+              <CardTitle>Client Portal</CardTitle>
+              <CardDescription>
+                Readiness for client portal activation. Preparation only — no
+                access is granted and the client is not contacted from here yet.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col gap-1">
+                <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Case reference
+                </span>
+                <span
+                  className="font-mono text-sm"
+                  data-testid="portal-reference"
+                >
+                  {lead.referenceNumber ?? lead.caseId}
+                </span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Portal status
+                </span>
+                <div data-testid="portal-status">
+                  {(() => {
+                    const status = lead.casePortalStatus;
+                    if (status === "activated")
+                      return (
+                        <Badge className="bg-emerald-600 text-white border-transparent">
+                          Activated
+                        </Badge>
+                      );
+                    if (status === "ready_to_activate")
+                      return (
+                        <Badge
+                          variant="outline"
+                          className="border-emerald-600 text-emerald-500"
+                        >
+                          Ready to activate
+                        </Badge>
+                      );
+                    if (status === "manual_review_required")
+                      return (
+                        <Badge
+                          variant="outline"
+                          className="border-amber-500 text-amber-500"
+                        >
+                          Manual review required
+                        </Badge>
+                      );
+                    return (
+                      <Badge
+                        variant="outline"
+                        className="text-muted-foreground"
+                      >
+                        Not prepared
+                      </Badge>
+                    );
+                  })()}
+                </div>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Workflow
+                </span>
+                <div data-testid="portal-workflow-state">
+                  {lead.caseWorkflowStatus === "assigned" ? (
+                    <Badge
+                      variant="outline"
+                      className="border-emerald-600 text-emerald-500"
+                    >
+                      Assigned
+                      {lead.caseWorkflowKey ? ` · ${lead.caseWorkflowKey}` : ""}
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="border-amber-500 text-amber-500"
+                    >
+                      Review required
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
         <Card>
           <CardHeader>
             <CardTitle>Documents</CardTitle>

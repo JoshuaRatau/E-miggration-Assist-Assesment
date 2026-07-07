@@ -30,6 +30,18 @@ import { pgTable, text, uuid, timestamp } from "drizzle-orm/pg-core";
 // created before this phase. Assignment is idempotent: it only transitions a
 // row OUT of 'unassigned' (see `assignWorkflowForCase` in lib/cases.ts), so
 // re-running conversion never overwrites an existing attachment.
+//
+// Milestone 4 Phase 13A — client portal ACTIVATION lifecycle (preparation
+// only). `portal_status` is the persisted activation state a FUTURE phase's
+// real actions will mutate:
+//   not_prepared          (default — no portal prep has happened yet)
+//   ready_to_activate     (a future "Prepare portal" action passed its checks)
+//   activated             (a future action granted client access — terminal)
+//   manual_review_required(prep found a blocker; a human must intervene)
+// This phase never writes it — it defaults to 'not_prepared' for every case and
+// the Lead Detail UI DERIVES a read-only readiness assessment from the case's
+// workflow state (see deriveClientPortalStatus in lib/clientPortal.ts). Plain
+// text so new states need no migration; the default covers legacy rows.
 export const leadCasesTable = pgTable("lead_cases", {
   id: uuid("id").primaryKey().defaultRandom(),
   leadId: uuid("lead_id").notNull().unique(),
@@ -37,6 +49,7 @@ export const leadCasesTable = pgTable("lead_cases", {
   status: text("status").notNull().default("initiated"),
   workflowKey: text("workflow_key"),
   workflowStatus: text("workflow_status").notNull().default("unassigned"),
+  portalStatus: text("portal_status").notNull().default("not_prepared"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
