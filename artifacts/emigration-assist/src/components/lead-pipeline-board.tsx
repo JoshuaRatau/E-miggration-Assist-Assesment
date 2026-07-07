@@ -285,6 +285,15 @@ function PipelineCard({
               lead={lead}
               testIdSuffix={`pipeline-${lead.id}`}
             />
+            {lead.activationEmailSentAt ? (
+              <Badge
+                className="text-[10px] py-0 px-1.5 bg-emerald-600 text-white border-transparent"
+                data-testid={`pill-activation-email-${lead.id}`}
+                title={`Activation email sent ${new Date(lead.activationEmailSentAt).toLocaleString()}`}
+              >
+                Email sent
+              </Badge>
+            ) : null}
             {lead.referenceNumber ? (
               <span className="text-[10px] text-muted-foreground tabular-nums">
                 {lead.referenceNumber}

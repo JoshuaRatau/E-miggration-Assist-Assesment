@@ -153,6 +153,12 @@ export const ListLeadsResponseItem = zod
     createdAt: zod.string(),
     nextStep: zod.string().nullish(),
     caseId: zod.string().nullish(),
+    activationEmailSentAt: zod
+      .string()
+      .nullish()
+      .describe(
+        "Milestone 5 Phase 14C — ISO timestamp of when the client portal activation email was sent for this lead's case. NULL when no case exists or the activation email has not been sent.",
+      ),
   })
   .describe(
     'Slim row shape returned by GET \/api\/leads for the admin dashboard.\nIntentionally a strict subset of `Lead` — omits internal \"rules\nengine\" fields (internalClassification, leadScore, leadCategory,\nadminNotes) and bulky funnel data the dashboard does not need.\n',
@@ -350,6 +356,12 @@ export const GetLeadByIdResponse = zod.object({
     .nullish()
     .describe(
       'Milestone 4 Phase 13A — READ-ONLY client-portal readiness of the linked case, DERIVED (never written this phase) from the case\'s persisted portal_status + workflow state: \"not_prepared\", \"ready_to_activate\", \"activated\", or \"manual_review_required\". null until the lead is converted. Preparation-only — no client account or login exists yet and nothing is activated or notified.',
+    ),
+  activationEmailSentAt: zod
+    .string()
+    .nullish()
+    .describe(
+      "Milestone 5 Phase 14C — ISO timestamp of when the client portal activation email was sent for this lead's case. NULL when no case exists or the activation email has not been sent.",
     ),
   adminNotes: zod.string().nullish(),
   hasWhatsapp: zod

@@ -128,6 +128,19 @@ function summariseAudit(entry: TimelineEntry): string {
     return "Client portal activation blocked";
   if (entry.title === "portal_activation_failed")
     return "Client portal activation failed";
+  // Phase 14B/14C — activation-email lifecycle rendered in plain language.
+  if (entry.title === "email_activation_sent")
+    return "Activation email sent to client";
+  if (entry.title === "email_activation_blocked") {
+    const reason = after && typeof after.reason === "string" ? after.reason : "";
+    if (reason === "already_sent")
+      return "Activation email not resent — already sent";
+    if (reason === "not_ready")
+      return "Activation email blocked — case not ready";
+    return "Activation email blocked";
+  }
+  if (entry.title === "email_activation_failed")
+    return "Activation email failed to send";
   if (entry.title === "manual_contact_click") {
     const channel = after && (after.channel as string | undefined);
     return channel ? `Manual contact via ${channel}` : "Manual contact opened";

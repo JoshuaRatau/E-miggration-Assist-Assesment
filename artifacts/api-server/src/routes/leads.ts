@@ -79,6 +79,7 @@ function serializeLead(
   caseId: string | null = null,
   caseWorkflow: { key: string | null; status: string | null } | null = null,
   casePortalStatusRaw: string | null = null,
+  activationEmailSentAt: Date | null = null,
 ) {
   return {
     ...row,
@@ -108,6 +109,11 @@ function serializeLead(
           workflowStatus: caseWorkflow?.status ?? null,
         })
       : null,
+    // Phase 14C — read-only projection of the case's activation-email send
+    // timestamp. Null when no case exists or this response did not load it.
+    activationEmailSentAt: activationEmailSentAt
+      ? activationEmailSentAt.toISOString()
+      : null,
   };
 }
 
@@ -119,6 +125,7 @@ function serializeLead(
 function serializeLeadAdminList(
   row: typeof prelaunchLeadsTable.$inferSelect,
   caseId: string | null = null,
+  activationEmailSentAt: Date | null = null,
 ) {
   return {
     id: row.id,
@@ -181,6 +188,13 @@ function serializeLeadAdminList(
     nextStep: deriveNextStep(row.leadStatus),
     // Lead → Case linkage; powers the "Open Case" quick-action in /admin.
     caseId,
+    // Milestone 5 Phase 14C — read-only projection of
+    // `lead_cases.activation_email_sent_at` so the dashboard can show a compact
+    // "Activation email sent" indicator without an N+1 detail fetch. Null when
+    // the lead has no case or the activation email was never sent.
+    activationEmailSentAt: activationEmailSentAt
+      ? activationEmailSentAt.toISOString()
+      : null,
   };
 }
 
@@ -635,6 +649,7 @@ router.get("/leads", async (req, res) => {
     .select({
       lead: prelaunchLeadsTable,
       caseId: leadCasesTable.id,
+      activationEmailSentAt: leadCasesTable.activationEmailSentAt,
     })
     .from(prelaunchLeadsTable)
     .leftJoin(
@@ -645,7 +660,11 @@ router.get("/leads", async (req, res) => {
     .orderBy(desc(prelaunchLeadsTable.createdAt))
     .limit(limit);
 
-  return res.json(rows.map((r) => serializeLeadAdminList(r.lead, r.caseId)));
+  return res.json(
+    rows.map((r) =>
+      serializeLeadAdminList(r.lead, r.caseId, r.activationEmailSentAt),
+    ),
+  );
 });
 
 router.get("/leads/export.csv", async (req, res) => {
@@ -727,6 +746,7 @@ router.get("/leads/by-id/:id", async (req, res) => {
       caseWorkflowKey: leadCasesTable.workflowKey,
       caseWorkflowStatus: leadCasesTable.workflowStatus,
       casePortalStatus: leadCasesTable.portalStatus,
+      activationEmailSentAt: leadCasesTable.activationEmailSentAt,
     })
     .from(prelaunchLeadsTable)
     .leftJoin(
@@ -749,6 +769,7 @@ router.get("/leads/by-id/:id", async (req, res) => {
         status: rows[0].caseWorkflowStatus,
       },
       rows[0].casePortalStatus,
+      rows[0].activationEmailSentAt,
     ),
   );
 });

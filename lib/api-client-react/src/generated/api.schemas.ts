@@ -223,6 +223,8 @@ export interface Lead {
   caseWorkflowStatus?: string | null;
   /** Milestone 4 Phase 13A — READ-ONLY client-portal readiness of the linked case, DERIVED (never written this phase) from the case's persisted portal_status + workflow state: "not_prepared", "ready_to_activate", "activated", or "manual_review_required". null until the lead is converted. Preparation-only — no client account or login exists yet and nothing is activated or notified. */
   casePortalStatus?: string | null;
+  /** Milestone 5 Phase 14C — ISO timestamp of when the client portal activation email was sent for this lead's case. NULL when no case exists or the activation email has not been sent. */
+  activationEmailSentAt?: string | null;
   adminNotes?: string | null;
   /** True if the lead has a stored canonical WhatsApp number. */
   hasWhatsapp?: boolean;
@@ -306,6 +308,8 @@ export interface AdminLeadListItem {
   createdAt: string;
   nextStep?: string | null;
   caseId?: string | null;
+  /** Milestone 5 Phase 14C — ISO timestamp of when the client portal activation email was sent for this lead's case. NULL when no case exists or the activation email has not been sent. */
+  activationEmailSentAt?: string | null;
 }
 
 export interface CategoryCount {

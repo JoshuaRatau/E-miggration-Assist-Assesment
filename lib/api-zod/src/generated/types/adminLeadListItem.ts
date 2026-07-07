@@ -52,4 +52,6 @@ export interface AdminLeadListItem {
   createdAt: string;
   nextStep?: string | null;
   caseId?: string | null;
+  /** Milestone 5 Phase 14C — ISO timestamp of when the client portal activation email was sent for this lead's case. NULL when no case exists or the activation email has not been sent. */
+  activationEmailSentAt?: string | null;
 }

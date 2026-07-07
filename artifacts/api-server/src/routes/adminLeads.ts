@@ -58,6 +58,7 @@ function serializeLead(
   caseId: string | null = null,
   caseWorkflow: { key: string | null; status: string | null } | null = null,
   casePortalStatusRaw: string | null = null,
+  activationEmailSentAt: Date | null = null,
 ) {
   return {
     ...row,
@@ -95,6 +96,11 @@ function serializeLead(
           portalStatus: casePortalStatusRaw,
           workflowStatus: caseWorkflow?.status ?? null,
         })
+      : null,
+    // Phase 14C — read-only projection of the case's activation-email send
+    // timestamp. Null when no case exists or this response did not load it.
+    activationEmailSentAt: activationEmailSentAt
+      ? activationEmailSentAt.toISOString()
       : null,
   };
 }
@@ -1936,6 +1942,7 @@ router.post("/admin/leads/:id/send-activation-email", async (req, res) => {
           status: existingCase.workflowStatus,
         },
         existingCase.portalStatus,
+        claimedAt ?? new Date(),
       ),
     });
   } catch (err) {

@@ -452,6 +452,27 @@ export function LeadDrawer({
                     {lead.assignedTo ? labelFor(lead.assignedTo) : "Unassigned"}
                   </Field>
                   {sla?.note && <Field label="Note">{sla.note}</Field>}
+                  {/* Phase 14C — compact activation-email indicator, styled
+                      to match existing status pills. Shown only once the
+                      portal activation email has been sent. */}
+                  {lead.activationEmailSentAt && (
+                    <Field label="Activation email">
+                      <span
+                        className="inline-flex items-center gap-1.5"
+                        data-testid="drawer-activation-email-sent"
+                      >
+                        <span className="inline-flex items-center rounded bg-emerald-600 px-1.5 py-0 text-[10px] font-semibold uppercase tracking-wide text-white">
+                          Sent
+                        </span>
+                        <span className="text-muted-foreground">
+                          {format(
+                            new Date(lead.activationEmailSentAt),
+                            "MMM d, yyyy HH:mm",
+                          )}
+                        </span>
+                      </span>
+                    </Field>
+                  )}
                 </dl>
               </section>
 

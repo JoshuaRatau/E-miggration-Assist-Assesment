@@ -646,6 +646,27 @@ export function AdminLeadDetail() {
     }
   };
 
+  // Phase 14C — optional, admin-only follow-up nudge shown after the activation
+  // email is sent. It ONLY prefills the existing follow-up draft (date +
+  // note) — it does NOT write anything; the admin still reviews and clicks
+  // Save in the Follow-up section (reusing the existing safe PATCH pattern).
+  const handleSuggestFollowUp = () => {
+    const due = new Date();
+    due.setDate(due.getDate() + 3);
+    setFollowUpDate(due.toISOString().slice(0, 10));
+    setFollowUpTime((t) => (t && t.length > 0 ? t : "09:00"));
+    setFollowUpNote((n) =>
+      n.trim().length > 0
+        ? n
+        : "Check the client has accessed their activation portal.",
+    );
+    toast({
+      title: "Follow-up prefilled",
+      description:
+        "Review the date and note in the Follow-up section below, then Save to schedule it.",
+    });
+  };
+
   if (isLoading) {
     return (
       <AdminLayout title="Lead" contentClassName="flex-1 max-w-5xl w-full mx-auto px-6 py-8">
@@ -1105,17 +1126,60 @@ export function AdminLeadDetail() {
                 </span>
                 {notification.activationEmailSentAt ? (
                   <div
-                    className="flex items-center gap-2"
+                    className="flex flex-col gap-1.5"
                     data-testid="notification-email-sent"
                   >
-                    <Badge className="bg-emerald-600 text-white border-transparent">
-                      Email sent
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(
-                        notification.activationEmailSentAt,
-                      ).toLocaleString()}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-emerald-600 text-white border-transparent">
+                        Email sent
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(
+                          notification.activationEmailSentAt,
+                        ).toLocaleString()}
+                      </span>
+                    </div>
+                    {notification.preview.summary.email.destination ? (
+                      <span className="text-xs text-muted-foreground break-all">
+                        Sent to{" "}
+                        {notification.preview.summary.email.destination}
+                      </span>
+                    ) : null}
+                    {/* Phase 14C — follow-up reminder state. Shows the
+                        scheduled follow-up if one exists, otherwise suggests
+                        one. The button only PREFILLS the existing follow-up
+                        draft below — nothing is written until the admin saves
+                        it in the Follow-up section. */}
+                    <div
+                      className="mt-1 rounded-md border border-border/60 bg-muted/30 px-2.5 py-2"
+                      data-testid="notification-followup-suggestion"
+                    >
+                      {lead.nextFollowUpAt ? (
+                        <span className="text-xs text-muted-foreground">
+                          Next step: follow-up scheduled for{" "}
+                          {new Date(
+                            lead.nextFollowUpAt,
+                          ).toLocaleDateString()}
+                          .
+                        </span>
+                      ) : (
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-xs text-muted-foreground">
+                            Suggested next step: schedule a follow-up to check
+                            the client has accessed their portal.
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-fit"
+                            onClick={handleSuggestFollowUp}
+                            data-testid="button-suggest-followup"
+                          >
+                            Prefill follow-up reminder
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ) : notification.preview.readiness === "ready" &&
                   notification.preview.summary.email.available ? (
