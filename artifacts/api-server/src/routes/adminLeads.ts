@@ -11,7 +11,7 @@ import {
   leadAuditTable,
   adminUsersTable,
 } from "@workspace/db";
-import { and, desc, eq, inArray, isNotNull, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
 import {
   LEAD_STATUS_VALUES,
   LEAD_PRIORITY_VALUES,
@@ -45,6 +45,7 @@ import {
 } from "../lib/cases";
 import { deriveClientPortalStatus } from "../lib/clientPortal";
 import { buildNotificationPreview } from "../lib/clientNotification";
+import { sendCustomEmail } from "../lib/email";
 import { buildConversionPreview } from "../lib/leadToApplication";
 import { writeAudit, actorTokenHash, type AuditAction } from "../lib/audit";
 import { recordLeadEvent } from "../lib/recordLeadEvent";
@@ -1669,7 +1670,296 @@ router.get("/admin/leads/:id/notification-preview", async (req, res) => {
     portalUrl: null,
   });
 
-  return res.json({ preview });
+  return res.json({
+    preview,
+    // Phase 14B — expose the persisted activation-email send timestamp (null
+    // when never sent) so the UI can render the "Email sent" state. This is a
+    // read-only projection of `lead_cases.activation_email_sent_at`.
+    activationEmailSentAt: existingCase.activationEmailSentAt
+      ? existingCase.activationEmailSentAt.toISOString()
+      : null,
+  });
+});
+
+/**
+ * Milestone 5 — Phase 14B — POST /api/admin/leads/:id/send-activation-email
+ *
+ * Sends the client portal ACTIVATION EMAIL (email only — WhatsApp is
+ * deliberately out of scope this phase). Built entirely on the Phase 14A
+ * PURE preview service: the same readiness/availability/compose logic that
+ * decides what WOULD be sent is the authoritative gate for actually sending.
+ *
+ * Sibling route (NOT in OpenAPI) — matches /prepare-portal, /activate-portal,
+ * /notification-preview, /convert.
+ *
+ * Allowed ONLY when the preview says so:
+ *   - lead is converted (a linked case exists),
+ *   - readiness === "ready" (which itself requires portal_status === activated
+ *     AND client name AND case reference AND a reachable channel),
+ *   - the EMAIL channel specifically is available (a WhatsApp-only case is not
+ *     enough — this phase sends email), and
+ *   - a subject + body were composed.
+ *
+ * Idempotency (default: BLOCK duplicates, no resend flag this phase): the send
+ * is claimed atomically via `UPDATE … SET activation_email_sent_at = now()
+ * WHERE id = $1 AND activation_email_sent_at IS NULL RETURNING …`. Only the
+ * first caller wins; a second attempt (or a lost race) is blocked. On a
+ * send-provider FAILURE the claim is rolled back to null so a retry is
+ * possible, and nothing is left marked as sent.
+ *
+ * Flow:
+ *   - lead missing ⇒ 404.
+ *   - no linked case (not converted) ⇒ 422.
+ *   - already sent ⇒ 409 (audited email_activation_blocked, reason already_sent).
+ *   - not allowed by preview ⇒ 422 (audited email_activation_blocked) + preview.
+ *   - lost the atomic claim ⇒ 409 (audited email_activation_blocked).
+ *   - send fails ⇒ claim rolled back, audited email_activation_failed, 500.
+ *   - success ⇒ audited email_activation_sent, 200 with { sent, activationEmailSentAt, lead }.
+ */
+router.post("/admin/leads/:id/send-activation-email", async (req, res) => {
+  if (!(await requireAdminToken(req, res))) return;
+
+  const { id } = req.params;
+  if (!id || typeof id !== "string") {
+    return res.status(400).json({ error: "Missing lead id" });
+  }
+
+  const [lead] = await db
+    .select()
+    .from(prelaunchLeadsTable)
+    .where(eq(prelaunchLeadsTable.id, id))
+    .limit(1);
+  if (!lead) return res.status(404).json({ error: "Lead not found" });
+
+  const [existingCase] = await db
+    .select()
+    .from(leadCasesQueryRef)
+    .where(eq(leadCasesQueryRef.leadId, id))
+    .limit(1);
+  if (!existingCase) {
+    return res.status(422).json({
+      error: "Lead is not converted — no case to notify about.",
+    });
+  }
+
+  // Duplicate guard (friendly path). The atomic claim below is the authoritative
+  // guard against races; this early check gives a clean 409 for the common case.
+  if (existingCase.activationEmailSentAt) {
+    void writeAudit({
+      req,
+      action: "email_activation_blocked",
+      leadId: id,
+      caseId: existingCase.id,
+      after: { channel: "email", reason: "already_sent" },
+    });
+    return res.status(409).json({
+      sent: false,
+      blocked: true,
+      reason: "already_sent",
+      error: "The activation email has already been sent for this case.",
+      activationEmailSentAt: existingCase.activationEmailSentAt.toISOString(),
+    });
+  }
+
+  // Resolve the assigned consultant (soft-ref admin_users) exactly like the
+  // preview route. Null when unassigned — never guessed.
+  let consultant: { id: string; name: string | null } | null = null;
+  if (lead.assignedTo) {
+    const [assignee] = await db
+      .select({
+        id: adminUsersTable.id,
+        email: adminUsersTable.email,
+        displayName: adminUsersTable.displayName,
+      })
+      .from(adminUsersTable)
+      .where(eq(adminUsersTable.id, lead.assignedTo))
+      .limit(1);
+    if (assignee) {
+      consultant = {
+        id: assignee.id,
+        name: assignee.displayName ?? assignee.email ?? null,
+      };
+    }
+  }
+
+  const portalStatus = deriveClientPortalStatus({
+    portalStatus: existingCase.portalStatus,
+    workflowStatus: existingCase.workflowStatus,
+  });
+
+  const preview = buildNotificationPreview({
+    leadId: lead.id,
+    clientName: lead.fullName ?? null,
+    email: lead.email ?? null,
+    whatsapp: lead.whatsapp ?? null,
+    preferredContactMethod: lead.preferredContactMethod ?? null,
+    caseReference: existingCase.referenceNumber ?? lead.referenceNumber ?? null,
+    portalStatus,
+    workflowKey: existingCase.workflowKey ?? null,
+    workflowStatus: existingCase.workflowStatus ?? null,
+    consultant,
+    portalUrl: null,
+  });
+
+  // Authoritative gate: the preview decides. Email specifically must be
+  // available and composable (a WhatsApp-only case cannot satisfy this phase).
+  const emailDestination = preview.summary.email.destination;
+  const emailSubject = preview.email.subject;
+  const emailBody = preview.email.body;
+  const allowed =
+    preview.readiness === "ready" &&
+    preview.summary.email.available &&
+    Boolean(emailDestination) &&
+    Boolean(emailSubject) &&
+    Boolean(emailBody);
+
+  if (!allowed || !emailDestination || !emailSubject || !emailBody) {
+    const reason =
+      preview.readiness !== "ready"
+        ? preview.blockedReasons[0] ??
+          preview.missingRequirements[0] ??
+          "Notification is not ready to send."
+        : "No valid email address on file for this client.";
+    void writeAudit({
+      req,
+      action: "email_activation_blocked",
+      leadId: id,
+      caseId: existingCase.id,
+      after: {
+        channel: "email",
+        reason: "not_ready",
+        readiness: preview.readiness,
+        blockedReasons: preview.blockedReasons,
+        missingRequirements: preview.missingRequirements,
+      },
+    });
+    return res.status(422).json({
+      sent: false,
+      blocked: true,
+      reason,
+      error: reason,
+      preview,
+    });
+  }
+
+  // Atomic idempotency claim: only the first caller flips the null column and
+  // gets a row back. This guards concurrent double-sends at the DB level.
+  const claimed = await db
+    .update(leadCasesQueryRef)
+    .set({ activationEmailSentAt: new Date(), updatedAt: new Date() })
+    .where(
+      and(
+        eq(leadCasesQueryRef.id, existingCase.id),
+        sql`${leadCasesQueryRef.activationEmailSentAt} is null`,
+      ),
+    )
+    .returning({ sentAt: leadCasesQueryRef.activationEmailSentAt });
+
+  if (claimed.length === 0) {
+    // Lost the race — another request already claimed the send.
+    void writeAudit({
+      req,
+      action: "email_activation_blocked",
+      leadId: id,
+      caseId: existingCase.id,
+      after: { channel: "email", reason: "already_sent" },
+    });
+    return res.status(409).json({
+      sent: false,
+      blocked: true,
+      reason: "already_sent",
+      error: "The activation email has already been sent for this case.",
+    });
+  }
+
+  const claimedAt = claimed[0]!.sentAt;
+
+  try {
+    const result = await sendCustomEmail({
+      to: emailDestination,
+      subject: emailSubject,
+      text: emailBody,
+    });
+
+    if (!result.ok) {
+      // Roll the claim back so the admin can retry — never leave a case marked
+      // as sent when the provider rejected the message.
+      await db
+        .update(leadCasesQueryRef)
+        .set({ activationEmailSentAt: null, updatedAt: new Date() })
+        .where(eq(leadCasesQueryRef.id, existingCase.id));
+      // Map to a controlled reason CODE for the audit row — the raw provider
+      // string can contain the recipient address / message context (PII), so
+      // it stays out of the persisted audit trail and only in structured logs.
+      const failureCode = result.reason.startsWith("forbidden_phrase")
+        ? "forbidden_phrase"
+        : "provider_error";
+      req.log.warn(
+        { leadId: id, failureCode, reason: result.reason },
+        "Activation email send rejected by provider",
+      );
+      void writeAudit({
+        req,
+        action: "email_activation_failed",
+        leadId: id,
+        caseId: existingCase.id,
+        after: { channel: "email", reason: failureCode },
+      });
+      return res.status(502).json({
+        sent: false,
+        error: "The email provider could not send the activation email.",
+        reason: failureCode,
+      });
+    }
+
+    const sentAtIso = (claimedAt ?? new Date()).toISOString();
+    void writeAudit({
+      req,
+      action: "email_activation_sent",
+      leadId: id,
+      caseId: existingCase.id,
+      after: {
+        channel: "email",
+        subject: emailSubject,
+        sentAt: sentAtIso,
+      },
+    });
+
+    return res.json({
+      sent: true,
+      activationEmailSentAt: sentAtIso,
+      lead: serializeLead(
+        lead,
+        existingCase.id,
+        {
+          key: existingCase.workflowKey,
+          status: existingCase.workflowStatus,
+        },
+        existingCase.portalStatus,
+      ),
+    });
+  } catch (err) {
+    // Defensive: sendCustomEmail is never-throw, but guard anyway. Roll the
+    // claim back and surface the failure honestly.
+    await db
+      .update(leadCasesQueryRef)
+      .set({ activationEmailSentAt: null, updatedAt: new Date() })
+      .where(eq(leadCasesQueryRef.id, existingCase.id));
+    req.log.error({ err, leadId: id }, "Activation email send failed");
+    // Controlled reason CODE only — the exception message can carry PII, so it
+    // is logged above (structured) but never persisted to the audit row.
+    void writeAudit({
+      req,
+      action: "email_activation_failed",
+      leadId: id,
+      caseId: existingCase.id,
+      after: { channel: "email", reason: "send_exception" },
+    });
+    return res.status(500).json({
+      sent: false,
+      error: "Sending the activation email failed.",
+    });
+  }
 });
 
 export default router;

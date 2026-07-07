@@ -115,6 +115,13 @@ interface NotificationPreview {
   missingRequirements: string[];
   blockedReasons: string[];
 }
+// Milestone 5 — Phase 14B. The notification-preview endpoint returns the
+// preview plus the persisted activation-email send timestamp (null when never
+// sent) so the UI can render the "Email sent" state.
+interface NotificationPreviewResponse {
+  preview: NotificationPreview;
+  activationEmailSentAt: string | null;
+}
 
 function priorityBadgeClass(priority: string | null | undefined): string {
   if (priority === "critical")
@@ -183,10 +190,11 @@ export function AdminLeadDetail() {
     },
   });
 
-  // Milestone 5 — Phase 14A. Read-only notification readiness preview. Fetched
-  // only for converted leads (a case must exist). Preparation only — surfaces
-  // what WOULD be sent on activation; there are no send actions.
-  const { data: notification } = useQuery<NotificationPreview, Error>({
+  // Milestone 5 — Phase 14A/14B. Notification readiness preview + the persisted
+  // activation-email send timestamp. Fetched only for converted leads (a case
+  // must exist). The preview itself is preparation-only; Phase 14B adds ONE
+  // send action (email only) gated by this same readiness.
+  const { data: notification } = useQuery<NotificationPreviewResponse, Error>({
     queryKey: ["admin", "lead", id, "notification-preview"],
     enabled: Boolean(id && lead?.caseId),
     queryFn: async () => {
@@ -201,8 +209,7 @@ export function AdminLeadDetail() {
         throw new Error("Invalid admin token");
       }
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
-      const body = (await res.json()) as { preview: NotificationPreview };
-      return body.preview;
+      return (await res.json()) as NotificationPreviewResponse;
     },
   });
 
@@ -234,6 +241,8 @@ export function AdminLeadDetail() {
   const [preparingPortal, setPreparingPortal] = useState(false);
   // Phase 13C — Activate Client Portal. Guards the "Activate Portal" button.
   const [activatingPortal, setActivatingPortal] = useState(false);
+  // Phase 14B — Send Portal Activation Email. Guards the send button.
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   const { activeUsers, labelFor } = useAssignableUsers();
 
@@ -567,6 +576,73 @@ export function AdminLeadDetail() {
       });
     } finally {
       setActivatingPortal(false);
+    }
+  };
+
+  // Phase 14B — Send the portal activation email (email only). Gated server-side
+  // by the same Phase 14A readiness; duplicate sends are blocked by default.
+  const handleSendActivationEmail = async () => {
+    if (!lead) return;
+    const token = getAdminToken();
+    if (!token) return;
+    setSendingEmail(true);
+    try {
+      const res = await fetch(
+        `${(import.meta.env.VITE_API_URL ?? import.meta.env.BASE_URL).replace(/\/$/, "")}/api/admin/leads/${id}/send-activation-email`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "x-admin-token": token },
+        },
+      );
+      if (res.status === 401) {
+        clearAdminToken();
+        throw new Error("Admin token rejected");
+      }
+      const body = (await res.json().catch(() => ({}))) as {
+        sent?: boolean;
+        blocked?: boolean;
+        reason?: string;
+        error?: string;
+        activationEmailSentAt?: string | null;
+      };
+      // 409 (already sent) and 422 (not ready) are expected, non-fatal states.
+      if (res.status === 409 || res.status === 422) {
+        // Refresh the preview so the card reflects the true server state.
+        qc.invalidateQueries({
+          queryKey: ["admin", "lead", id, "notification-preview"],
+        });
+        toast({
+          title:
+            res.status === 409
+              ? "Activation email already sent"
+              : "Cannot send activation email yet",
+          description:
+            body.error ??
+            "The case is not ready to send the activation email.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!res.ok || !body.sent) {
+        throw new Error(body.error ?? `Server returned ${res.status}`);
+      }
+      qc.invalidateQueries({
+        queryKey: ["admin", "lead", id, "notification-preview"],
+      });
+      qc.invalidateQueries({ queryKey: ["admin", "lead", id, "events"] });
+      toast({
+        title: "Activation email sent",
+        description: "The client has been emailed their portal activation.",
+      });
+    } catch (err) {
+      toast({
+        title: "Could not send activation email",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingEmail(false);
     }
   };
 
@@ -996,11 +1072,11 @@ export function AdminLeadDetail() {
                   Readiness
                 </span>
                 <div data-testid="notification-readiness">
-                  {notification.readiness === "ready" ? (
+                  {notification.preview.readiness === "ready" ? (
                     <Badge className="bg-emerald-600 text-white border-transparent">
                       Ready
                     </Badge>
-                  ) : notification.readiness === "blocked" ? (
+                  ) : notification.preview.readiness === "blocked" ? (
                     <Badge
                       variant="outline"
                       className="border-amber-500 text-amber-500"
@@ -1018,13 +1094,68 @@ export function AdminLeadDetail() {
                 </div>
               </div>
 
+              {/* Phase 14B — Send Portal Activation Email (email only). The
+                  four visible states: Email sent (terminal) / Ready to send /
+                  Not ready / Blocked. Duplicate sends are blocked by default,
+                  so once sent the button is replaced by a confirmation. No
+                  WhatsApp button this phase. */}
+              <div className="flex flex-col gap-2">
+                <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Activation email
+                </span>
+                {notification.activationEmailSentAt ? (
+                  <div
+                    className="flex items-center gap-2"
+                    data-testid="notification-email-sent"
+                  >
+                    <Badge className="bg-emerald-600 text-white border-transparent">
+                      Email sent
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(
+                        notification.activationEmailSentAt,
+                      ).toLocaleString()}
+                    </span>
+                  </div>
+                ) : notification.preview.readiness === "ready" &&
+                  notification.preview.summary.email.available ? (
+                  <>
+                    <Button
+                      size="sm"
+                      className="w-fit"
+                      disabled={sendingEmail}
+                      onClick={handleSendActivationEmail}
+                      data-testid="button-send-activation-email"
+                    >
+                      {sendingEmail ? "Sending…" : "Send Activation Email"}
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      Sends the portal activation email to{" "}
+                      {notification.preview.summary.email.destination}. It can
+                      only be sent once.
+                    </span>
+                  </>
+                ) : (
+                  <span
+                    className="text-xs text-muted-foreground"
+                    data-testid="notification-email-not-ready"
+                  >
+                    {notification.preview.readiness === "ready"
+                      ? "No valid email address on file — cannot send an activation email."
+                      : notification.preview.readiness === "blocked"
+                        ? "Activate the client portal before sending the activation email."
+                        : "Resolve the missing information before sending the activation email."}
+                  </span>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1">
                   <span className="text-xs uppercase tracking-wide text-muted-foreground">
                     Email
                   </span>
                   <div data-testid="notification-email-availability">
-                    {notification.summary.email.available ? (
+                    {notification.preview.summary.email.available ? (
                       <Badge
                         variant="outline"
                         className="border-emerald-600 text-emerald-500"
@@ -1041,8 +1172,8 @@ export function AdminLeadDetail() {
                     )}
                   </div>
                   <span className="text-xs text-muted-foreground break-all">
-                    {notification.summary.email.destination ??
-                      notification.summary.email.reason}
+                    {notification.preview.summary.email.destination ??
+                      notification.preview.summary.email.reason}
                   </span>
                 </div>
                 <div className="flex flex-col gap-1">
@@ -1050,7 +1181,7 @@ export function AdminLeadDetail() {
                     WhatsApp
                   </span>
                   <div data-testid="notification-whatsapp-availability">
-                    {notification.summary.whatsapp.available ? (
+                    {notification.preview.summary.whatsapp.available ? (
                       <Badge
                         variant="outline"
                         className="border-emerald-600 text-emerald-500"
@@ -1067,8 +1198,8 @@ export function AdminLeadDetail() {
                     )}
                   </div>
                   <span className="text-xs text-muted-foreground break-all">
-                    {notification.summary.whatsapp.destination ??
-                      notification.summary.whatsapp.reason}
+                    {notification.preview.summary.whatsapp.destination ??
+                      notification.preview.summary.whatsapp.reason}
                   </span>
                 </div>
               </div>
@@ -1078,13 +1209,13 @@ export function AdminLeadDetail() {
                   Assigned consultant
                 </span>
                 <span className="text-sm">
-                  {notification.summary.consultant?.name ?? (
+                  {notification.preview.summary.consultant?.name ?? (
                     <span className="text-muted-foreground">Unassigned</span>
                   )}
                 </span>
               </div>
 
-              {notification.blockedReasons.length > 0 ? (
+              {notification.preview.blockedReasons.length > 0 ? (
                 <div className="flex flex-col gap-1">
                   <span className="text-xs uppercase tracking-wide text-muted-foreground">
                     Blocked reasons
@@ -1093,14 +1224,14 @@ export function AdminLeadDetail() {
                     className="list-disc pl-5 text-sm text-amber-500"
                     data-testid="notification-blocked-reasons"
                   >
-                    {notification.blockedReasons.map((r, i) => (
+                    {notification.preview.blockedReasons.map((r, i) => (
                       <li key={i}>{r}</li>
                     ))}
                   </ul>
                 </div>
               ) : null}
 
-              {notification.missingRequirements.length > 0 ? (
+              {notification.preview.missingRequirements.length > 0 ? (
                 <div className="flex flex-col gap-1">
                   <span className="text-xs uppercase tracking-wide text-muted-foreground">
                     Missing requirements
@@ -1109,16 +1240,16 @@ export function AdminLeadDetail() {
                     className="list-disc pl-5 text-sm text-amber-500"
                     data-testid="notification-missing-requirements"
                   >
-                    {notification.missingRequirements.map((r, i) => (
+                    {notification.preview.missingRequirements.map((r, i) => (
                       <li key={i}>{r}</li>
                     ))}
                   </ul>
                 </div>
               ) : null}
 
-              {notification.readiness === "ready" ? (
+              {notification.preview.readiness === "ready" ? (
                 <div className="flex flex-col gap-3">
-                  {notification.email.available && notification.email.body ? (
+                  {notification.preview.email.available && notification.preview.email.body ? (
                     <div className="flex flex-col gap-1">
                       <span className="text-xs uppercase tracking-wide text-muted-foreground">
                         Email preview
@@ -1128,16 +1259,16 @@ export function AdminLeadDetail() {
                         data-testid="notification-email-preview"
                       >
                         <p className="text-sm font-medium">
-                          {notification.email.subject}
+                          {notification.preview.email.subject}
                         </p>
                         <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
-                          {notification.email.body}
+                          {notification.preview.email.body}
                         </p>
                       </div>
                     </div>
                   ) : null}
-                  {notification.whatsapp.available &&
-                  notification.whatsapp.body ? (
+                  {notification.preview.whatsapp.available &&
+                  notification.preview.whatsapp.body ? (
                     <div className="flex flex-col gap-1">
                       <span className="text-xs uppercase tracking-wide text-muted-foreground">
                         WhatsApp preview
@@ -1147,7 +1278,7 @@ export function AdminLeadDetail() {
                         data-testid="notification-whatsapp-preview"
                       >
                         <p className="whitespace-pre-wrap text-sm text-muted-foreground">
-                          {notification.whatsapp.body}
+                          {notification.preview.whatsapp.body}
                         </p>
                       </div>
                     </div>

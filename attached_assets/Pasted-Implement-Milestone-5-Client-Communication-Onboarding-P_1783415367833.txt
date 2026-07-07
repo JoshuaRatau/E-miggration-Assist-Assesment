@@ -1,0 +1,73 @@
+Implement Milestone 5 – Client Communication & Onboarding (Phase 14B).
+
+Goal:
+Allow an authorised admin to send the client portal activation email only, using the notification preview service from Phase 14A.
+
+IMPORTANT:
+Email only. Do not send WhatsApp in this phase.
+
+Reuse existing:
+- Phase 14A notification preview service
+- email infrastructure
+- lead_cases
+- portal_status
+- audit/history system
+- admin authentication
+- existing Lead Detail page patterns
+
+Do NOT:
+- Send WhatsApp
+- Create WhatsApp templates
+- Change Twilio logic
+- Create new client login credentials
+- Change public portal behaviour
+- Change questionnaires
+- Change lead submission
+- Change routing
+- Change dashboard layout
+- Change workflow logic
+
+Requirements:
+
+1. Add an admin-only action:
+
+Send Portal Activation Email
+
+2. Action is only allowed when:
+- Lead is converted
+- Case exists
+- Portal status == activated
+- Notification preview readiness == ready
+- Email channel is available
+- Email body/subject can be generated
+
+3. If not allowed:
+- Do not send anything
+- Return blocked reason
+- Audit email_activation_blocked
+
+4. If allowed:
+- Send email using the existing email provider/helper
+- Audit email_activation_sent
+- Store or expose the sent timestamp if an existing field/mechanism already exists
+- Do not create a new table unless absolutely necessary
+
+5. Idempotency / Safety:
+- If email was already sent, do not silently send duplicates.
+- Either block duplicate sending or require an explicit resend flag.
+- For this phase, default to blocking duplicates.
+
+6. UI:
+On the existing Notification Readiness card, add one button:
+Send Activation Email
+
+Show states:
+- Not ready
+- Ready to send
+- Email sent
+- Blocked
+
+7. Do not add any WhatsApp button yet.
+
+Success Criteria:
+An authorised admin can send the portal activation email once, only when the case is activated and the notification preview is ready. The action is audited, duplicate sends are prevented, and WhatsApp remains untouched.

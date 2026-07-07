@@ -42,6 +42,17 @@ import { pgTable, text, uuid, timestamp } from "drizzle-orm/pg-core";
 // the Lead Detail UI DERIVES a read-only readiness assessment from the case's
 // workflow state (see deriveClientPortalStatus in lib/clientPortal.ts). Plain
 // text so new states need no migration; the default covers legacy rows.
+//
+// Milestone 5 Phase 14B — client-portal ACTIVATION EMAIL send. When an admin
+// sends the one-off portal-activation email, `activation_email_sent_at` is
+// stamped with the send time. It is nullable (never sent yet = null) and is
+// the single source of truth for BOTH exposing the sent timestamp to the UI
+// AND enforcing idempotency: the send route claims the row atomically with
+// `UPDATE … SET activation_email_sent_at = now() WHERE id = $1 AND
+// activation_email_sent_at IS NULL RETURNING …`, so only the first caller can
+// win and duplicate sends are blocked by default. On a send-provider failure
+// the claim is rolled back to null so the admin can retry. No new table — a
+// single nullable column carries the whole lifecycle.
 export const leadCasesTable = pgTable("lead_cases", {
   id: uuid("id").primaryKey().defaultRandom(),
   leadId: uuid("lead_id").notNull().unique(),
@@ -50,6 +61,9 @@ export const leadCasesTable = pgTable("lead_cases", {
   workflowKey: text("workflow_key"),
   workflowStatus: text("workflow_status").notNull().default("unassigned"),
   portalStatus: text("portal_status").notNull().default("not_prepared"),
+  activationEmailSentAt: timestamp("activation_email_sent_at", {
+    withTimezone: true,
+  }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
