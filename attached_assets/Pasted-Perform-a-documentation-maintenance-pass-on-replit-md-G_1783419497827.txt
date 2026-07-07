@@ -1,0 +1,210 @@
+Perform a documentation maintenance pass on replit.md.
+
+Goal:
+Reduce the size of replit.md while preserving every important architectural decision, implementation outcome, and future development context.
+
+IMPORTANT
+
+This is a documentation-only task.
+
+Do NOT modify:
+- application code
+- database schema
+- APIs
+- routes
+- UI
+- workflow logic
+- tests
+- configuration
+- deployment
+- package files
+
+Only reorganise documentation.
+
+Do NOT introduce any new architectural decisions.
+
+Do NOT remove any durable decisions.
+
+If multiple entries describe the same architectural decision, keep only the newest and most authoritative version.
+
+----------------------------------------------------
+1. Keep Milestone 4 and Milestone 5 in full detail.
+----------------------------------------------------
+
+These are the active architecture and must remain fully documented.
+
+Only remove duplicated wording or repeated explanations.
+
+----------------------------------------------------
+2. Compress Milestones 1–3
+----------------------------------------------------
+
+Reduce each milestone to:
+
+• Objective
+
+• Major architectural decisions
+
+• Final implementation
+
+• Lessons learned
+
+Do NOT preserve implementation-by-implementation history.
+
+Keep only the final state.
+
+----------------------------------------------------
+3. Remove duplicated explanations
+----------------------------------------------------
+
+Many decisions are repeated across phases.
+
+Examples include:
+
+• Funnel context
+
+• Route intelligence
+
+• Audit strategy
+
+• Assignment model
+
+• Notification philosophy
+
+• Client Portal lifecycle
+
+Keep only one authoritative explanation for each.
+
+----------------------------------------------------
+4. Preserve all durable architecture
+----------------------------------------------------
+
+These MUST remain documented:
+
+• Funnel Foundation
+
+• Funnel Intelligence
+
+• Lead Operations
+
+• Lead → EMA conversion architecture
+
+• LeadToApplication mapper
+
+• Workflow assignment architecture
+
+• Client Portal lifecycle
+
+• Notification preparation philosophy
+
+• Email activation workflow
+
+• Audit strategy
+
+• Assignment model
+
+• Follow-up model
+
+• Existing-system reuse philosophy
+
+----------------------------------------------------
+5. Preserve chronological structure
+----------------------------------------------------
+
+Use:
+
+Milestone 1 (summary)
+
+Milestone 2 (summary)
+
+Milestone 3 (summary)
+
+Milestone 4 (full)
+
+Milestone 5 (full)
+
+----------------------------------------------------
+6. Remove obsolete operational notes
+----------------------------------------------------
+
+Remove:
+
+• temporary debugging notes
+
+• smoke-test commentary
+
+• restart notes
+
+• repeated typecheck confirmations
+
+• repeated "architect review passed"
+
+• housekeeping reminders
+
+• implementation exploration notes
+
+Retain only the final outcome of each phase.
+
+----------------------------------------------------
+7. Add a Current Platform State section
+----------------------------------------------------
+
+Include:
+
+Completed
+
+• Funnel Foundation
+
+• Funnel Intelligence
+
+• Lead Operations
+
+• EMA Integration
+
+• Client Portal Preparation
+
+• Portal Activation
+
+• Email Activation
+
+Paused
+
+• WhatsApp Integration (future milestone)
+
+Next
+
+• Client Portal Experience
+
+• Document Requests
+
+• Client Uploads
+
+• Ongoing Case Communication
+
+----------------------------------------------------
+8. Preserve future-agent usefulness
+----------------------------------------------------
+
+The resulting document should become the single source of truth for future Replit agents.
+
+It should describe the architecture as it exists today rather than the journey taken to build it.
+
+Future agents should be able to understand the system without reading git history.
+
+----------------------------------------------------
+Success Criteria
+----------------------------------------------------
+
+• Approximately 50–70% shorter.
+
+• Easier to navigate.
+
+• No loss of architectural knowledge.
+
+• No code changes.
+
+• No behavioural changes.
+
+• No invented documentation.
+
+• The latest architectural decisions always take precedence over older notes.
