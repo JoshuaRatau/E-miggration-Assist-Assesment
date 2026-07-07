@@ -1,0 +1,126 @@
+Implement Milestone 4 – EMA Platform Integration (Phase 12A).
+
+Goal:
+Create the conversion preparation layer that maps a qualified Lead into the EMA Application model without actually creating an EMA application yet.
+
+IMPORTANT
+
+This phase is preparation only.
+
+DO NOT:
+- Create an EMA application.
+- Create a workflow.
+- Create a client account.
+- Send emails.
+- Send WhatsApp.
+- Change questionnaires.
+- Change routing.
+- Change lead submission.
+- Change dashboard behaviour.
+- Change funnel_context.
+- Change APIs used by the public funnel.
+
+Reuse existing:
+- Lead model
+- EMA application model
+- Workflow engine
+- Shared services
+- Audit system
+
+Requirements
+
+1. Analyse the existing EMA Application schema.
+
+Identify every field that an EMA application requires.
+
+2. Create a reusable conversion mapping service.
+
+Example:
+
+Lead
+↓
+
+LeadToApplicationMapper
+
+↓
+
+ApplicationCreateRequest
+
+The mapper should be the single source of truth for all future lead conversions.
+
+3. Map the following where available:
+
+Lead identity
+- Name
+- Email
+- Phone
+
+Lead intelligence
+- route
+- theme
+- funnel_context
+- attribution
+
+Assessment data
+- questionnaire answers
+- urgency
+- nationality
+- destination
+- visa information
+
+Operational data
+- assigned consultant
+- lead status
+- internal notes (where appropriate)
+
+4. Produce a conversion summary object.
+
+Example:
+
+Application Preview
+
+✓ Applicant Details
+✓ Contact Details
+✓ Assessment Answers
+✓ Funnel Context
+✓ Route
+✓ Workflow Candidate
+✓ Missing Required Information
+
+5. Missing data detection
+
+The mapper should identify:
+
+- required fields available
+- required fields missing
+- optional fields
+- fields needing manual completion
+
+Do not guess values.
+
+6. Audit
+
+Every conversion preview generation should be capable of writing into the existing audit system later, but do not write audit records yet.
+
+7. No UI changes
+
+Do not add buttons.
+
+Do not add dashboard actions.
+
+Do not create conversion screens.
+
+This phase is backend architecture only.
+
+Success Criteria
+
+The codebase contains a reusable Lead-to-Application mapping service that can:
+
+- inspect a lead,
+- determine what can be transferred,
+- identify missing information,
+- produce a structured conversion preview,
+
+without creating any EMA application.
+
+This mapping service will become the foundation for the actual "Convert to EMA Application" feature in the next phase.
