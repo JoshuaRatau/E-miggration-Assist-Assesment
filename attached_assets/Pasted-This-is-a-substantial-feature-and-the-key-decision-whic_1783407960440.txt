@@ -1,0 +1,126 @@
+This is a substantial feature and the key decision — which existing "EMA-side integration point" creates the application — needs to be nailed down before I build, so I don't invent a second conversion path. Let me explore the existing conversion/referral/cases/audit machinery and read the mapper in parallel.
+
+
+4 actions
+Now I have the topology. The existing conversion path is ensureCaseForLead → lead_cases (the funnel's "application/case"), triggered today only as a side-effect of a status PATCH. Phase 12B wants a dedicated, mapper-validated "Convert to EMA Application" action reusing that same path. Let me read the remaining pieces I need to wire it correctly.
+
+
+5 actions
+Now let me read the rest of the routes file and locate the frontend files.
+
+
+9 actions
+Let me read the rest of the lead detail page and the activity feed component to see where to place the UI and how audit verbs are rendered.
+
+
+3 actions
+Let me quickly check whether the timeline endpoint filters audit actions by an allow-list (my new verbs need to pass through), and confirm the DB lead_audit.action column is free-text.
+
+
+8 actions
+Let me look at the PATCH handler's conversion logic and caseId resolution, plus the ensureCaseForLead signature.
+
+
+2 actions
+I have enough context on the surrounding code. Let me read the PATCH conversion gate block precisely so my new route mirrors its patterns.
+
+
+2 actions
+I have all the context I need. Let me check the mapper's export shape before writing the route.
+
+
+4 actions
+I now have complete context. Let me implement Phase 12B, starting with the backend audit verbs and the convert route.
+
+
+2 actions
+Now the imports and the convert route in adminLeads.ts.
+
+
+2 actions
+Now let me add the convert route before export default router;.
+
+
+Edited adminLeads.ts
+Backend is done. Now let me update the frontend — the activity feed for the three new verbs, and the Convert UI on the lead detail page.
+
+
+2 actions
+Now the Convert UI on the lead detail page. Let me check the available Dialog components first.
+
+
+3 actions
+Now let me add the Convert UI to the lead detail page — imports, state, handler, and the card.
+
+
+2 actions
+Now let me add the type definitions, state, and handler. First the types and state:
+
+
+4 actions
+Now the convert handler, after handleCompleteFollowUp:
+
+
+4 actions
+by-id returns caseId, so the converted state is available on load. Now let me add the Convert card (after InternalNotesPanel, before Documents) and the blocked-preview dialog.
+
+
+Edited admin-lead-detail.tsx
+Now let me add the blocked-preview dialog. Let me place it just before the closing </AdminLayout>.
+
+
+Opened admin-lead-detail.tsx
+Now let me add the blocked-preview dialog before the closing </AdminLayout>.
+
+
+Edited admin-lead-detail.tsx
+Now let me typecheck both packages to verify everything compiles.
+
+
+2 actions
+Both typecheck clean. Let me restart the API workflow and run a quick smoke test of the new route.
+
+
+3 actions
+Route behaves correctly (401 unauth, 404 bad id). Now the mandatory architect code review.
+
+Loaded code_review skill
+Let me run the mandatory architect review of the completed Phase 12B work.
+
+
+2 actions
+The architect flags a real point, but with an important caveat I need to weigh against requirement (9). Let me examine whether the existing PATCH→converted path is load-bearing for the Kanban/dashboard before touching it.
+
+
+2 actions
+The PATCH→converted path is load-bearing for the dashboard drawer, so ripping it out (architect's #1) would break dashboard functionality that requirement (9) protects. Both paths are duplicate-safe via ensureCaseForLead. The right, low-risk fix is architect's #2 scoped to the lead-detail page: disable the manual "converted" status option there so operators use the mapper-gated button. Let me make that targeted change.
+
+
+Edited admin-lead-detail.tsx
+Let me typecheck the web app after this change, then update replit.md.
+
+
+2 actions
+Both typecheck clean. Now let me document Phase 12B in replit.md under Milestone 4 (newest-first).
+
+
+3 actions
+Now let me add the Phase 12B entry above 12A and update the heading.
+
+
+2 actions
+Phase 12B is complete and verified. Here's what shipped:
+
+Backend — new sibling route POST /api/admin/leads/:id/convert (adminLeads.ts, admin-gated, not in OpenAPI):
+
+Loads the lead → 404 if missing; short-circuits to {alreadyConverted:true, case} if a case already exists (no side effect, no re-audit).
+Runs the Phase 12A mapper as the single source of truth. If canConvert is false it converts nothing, audits lead_conversion_blocked, and returns 422 with the full preview.
+If ready: audits lead_conversion_started, does an atomic status flip (touching only lead_status/updated_at, so assignment/notes/audit are preserved), creates the application via the existing ensureCaseForLead integration point, and audits lead_converted (with caseId/applicationId/workflow/actor) only when this call actually created the case. Any failure audits lead_conversion_failed + 500.
+Added lead_conversion_started/blocked/failed to the AuditAction union.
+Frontend — an "EMA Application" card on the lead detail page: a Convert button when unconverted, or a "Converted" badge + "View case" link once linked (button never re-appears). A 422 opens a blocked-preview dialog showing the workflow candidate, missing-required fields, manual-completion fields, and a per-section field summary. The activity feed renders the three new verbs.
+
+Architect review surfaced that the pre-existing PATCH → converted path (used by the dashboard lead-drawer) still converts without the mapper gate. I kept that path intact — ripping it out would break dashboard functionality that the task's "don't change" list protects, and both paths share the same idempotent ensureCaseForLead so no duplicate case can form. As the low-risk fix, I disabled the manual "converted" option in the lead-detail status dropdown so operators there go through the mapper-gated button.
+
+Typecheck passes on both packages; the route smoke-tested (401 unauth, 404 bad id). No schema/OpenAPI/db:push changes. Documented under Milestone 4 in replit.md.
+
+One housekeeping note: replit.md is getting long (~200 lines of architecture decisions). At some point it'd be worth compressing the older milestone blocks — happy to do that whenever you like.

@@ -113,6 +113,14 @@ function summariseAudit(entry: TimelineEntry): string {
   if (entry.title === "lead_conversion_failed")
     return "Conversion to EMA application failed";
   if (entry.title === "lead_converted") return "Converted to EMA application";
+  if (entry.title === "case_workflow_assigned") {
+    const key = after && (after.workflowLabel ?? after.workflowKey);
+    return typeof key === "string" && key.length > 0
+      ? `Workflow assigned — ${key}`
+      : "Workflow assigned to case";
+  }
+  if (entry.title === "case_workflow_review_required")
+    return "Workflow review required — no automatic match";
   if (entry.title === "manual_contact_click") {
     const channel = after && (after.channel as string | undefined);
     return channel ? `Manual contact via ${channel}` : "Manual contact opened";

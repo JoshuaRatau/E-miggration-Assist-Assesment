@@ -33,6 +33,8 @@ export type AuditAction =
   | "lead_conversion_blocked"
   | "lead_conversion_failed"
   | "lead_converted"
+  | "case_workflow_assigned"
+  | "case_workflow_review_required"
   | "case_status_changed"
   | "document_downloaded"
   | "manual_contact_click"

@@ -37,7 +37,7 @@ const INTENDED_TIER_VALUES = [
   "unknown",
 ] as const;
 import { requireAdminToken } from "../lib/adminAuth";
-import { ensureCaseForLead } from "../lib/cases";
+import { ensureCaseForLead, assignWorkflowForCase } from "../lib/cases";
 import { buildConversionPreview } from "../lib/leadToApplication";
 import { writeAudit, actorTokenHash, type AuditAction } from "../lib/audit";
 import { recordLeadEvent } from "../lib/recordLeadEvent";
@@ -48,6 +48,7 @@ const router: IRouter = Router();
 function serializeLead(
   row: typeof prelaunchLeadsTable.$inferSelect,
   caseId: string | null = null,
+  caseWorkflow: { key: string | null; status: string | null } | null = null,
 ) {
   return {
     ...row,
@@ -73,6 +74,11 @@ function serializeLead(
     // (see ensureCaseForLead) and on read by a LEFT JOIN with lead_cases.
     // null for leads that have not reached `converted` yet.
     caseId,
+    // Phase 12C — workflow attachment state on the linked case. null for
+    // unconverted leads; on the case it is 'assigned' (workflowKey set),
+    // 'review_required', or the legacy 'unassigned' default.
+    caseWorkflowKey: caseWorkflow?.key ?? null,
+    caseWorkflowStatus: caseWorkflow?.status ?? null,
   };
 }
 
@@ -387,6 +393,7 @@ router.patch("/admin/leads/:id", async (req, res) => {
   // no duplicate cases can ever be created.
   let caseId: string | null = null;
   let caseCreatedThisCall = false;
+  let caseWorkflow: { key: string | null; status: string | null } | null = null;
   if (updated.leadStatus === "converted") {
     try {
       // ensureCaseForLead's `created` flag is sourced from the atomic
@@ -400,6 +407,47 @@ router.patch("/admin/leads/:id", async (req, res) => {
       );
       caseId = result.row.id;
       caseCreatedThisCall = result.created;
+
+      // Phase 12C — the PATCH path is ALSO a conversion path (dashboard
+      // lead-drawer). Attach the resolved workflow ONLY on the call that
+      // actually created the case (`result.created`). This keeps every OTHER
+      // PATCH on an already-converted lead (a notes / follow-up / assignment
+      // edit) side-effect-free — it must NOT re-enter workflow assignment and
+      // risk transitioning a legacy `unassigned` case out from under an
+      // unrelated edit. That mirrors the POST /convert already-converted
+      // short-circuit. Uses the SAME mapper + idempotent assignment as
+      // /convert, so no duplicate workflow can ever form.
+      if (result.created) {
+        const candidate = buildConversionPreview(updated).workflowCandidate;
+        const workflow = await assignWorkflowForCase(caseId, candidate);
+        caseWorkflow = { key: workflow.workflowKey, status: workflow.outcome };
+        if (workflow.changed) {
+          void writeAudit({
+            req,
+            action:
+              workflow.outcome === "assigned"
+                ? "case_workflow_assigned"
+                : "case_workflow_review_required",
+            leadId: updated.id,
+            caseId,
+            before: { workflowStatus: "unassigned", workflowKey: null },
+            after: {
+              workflowStatus: workflow.outcome,
+              workflowKey: workflow.workflowKey,
+              workflowLabel: workflow.workflowLabel,
+              reason: workflow.reason,
+            },
+          });
+        }
+      } else {
+        // Already-converted lead being edited for an unrelated reason — surface
+        // the PERSISTED workflow state from the existing case row without any
+        // write, so the response stays consistent with GET.
+        caseWorkflow = {
+          key: result.row.workflowKey,
+          status: result.row.workflowStatus,
+        };
+      }
     } catch (err) {
       req.log.error(
         { err, leadId: updated.id },
@@ -608,7 +656,7 @@ router.patch("/admin/leads/:id", async (req, res) => {
       req.log.warn({ err }, "Failed to log admin.lead_updated event"),
     );
 
-  return res.json(serializeLead(updated, caseId));
+  return res.json(serializeLead(updated, caseId, caseWorkflow));
 });
 
 /**
@@ -1171,8 +1219,35 @@ router.post("/admin/leads/:id/convert", async (req, res) => {
       });
     }
 
+    // Phase 12C — attach the resolved workflow (or flag for manual review).
+    // Idempotent: only transitions a case out of 'unassigned', so a re-run or a
+    // race never double-attaches. Audit ONLY when this call actually changed the
+    // state, mirroring the `created` discipline above.
+    const workflow = await assignWorkflowForCase(
+      caseId,
+      preview.workflowCandidate,
+    );
+    if (workflow.changed) {
+      void writeAudit({
+        req,
+        action:
+          workflow.outcome === "assigned"
+            ? "case_workflow_assigned"
+            : "case_workflow_review_required",
+        leadId: id,
+        caseId,
+        before: { workflowStatus: "unassigned", workflowKey: null },
+        after: {
+          workflowStatus: workflow.outcome,
+          workflowKey: workflow.workflowKey,
+          workflowLabel: workflow.workflowLabel,
+          reason: workflow.reason,
+        },
+      });
+    }
+
     // Return the freshest lead so assignment / notes / status all reflect the
-    // post-conversion row, plus the linked case reference.
+    // post-conversion row, plus the linked case reference + workflow state.
     const [freshLead] = await db
       .select()
       .from(prelaunchLeadsTable)
@@ -1186,8 +1261,13 @@ router.post("/admin/leads/:id/convert", async (req, res) => {
         id: result.row.id,
         referenceNumber: result.row.referenceNumber,
         status: result.row.status,
+        workflowKey: workflow.workflowKey,
+        workflowStatus: workflow.outcome,
       },
-      lead: serializeLead(freshLead ?? effectiveLead, caseId),
+      lead: serializeLead(freshLead ?? effectiveLead, caseId, {
+        key: workflow.workflowKey,
+        status: workflow.outcome,
+      }),
     });
   } catch (err) {
     req.log.error({ err, leadId: id }, "Lead conversion failed");

@@ -1,0 +1,56 @@
+Implement Milestone 4 – EMA Platform Integration (Phase 12C).
+
+Goal:
+After a lead is converted into an EMA application/case, automatically attach or recommend the correct workflow using the existing workflow engine and the workflowCandidate from the Phase 12A mapper.
+
+IMPORTANT
+
+Reuse existing:
+- LeadToApplicationMapper
+- workflowCandidate
+- workflow engine / workflow resolver
+- lead_cases
+- audit/history system
+- conversion route from Phase 12B
+
+Do NOT:
+- Hard-code workflow IDs unless the existing system already uses stable keys
+- Create a duplicate workflow assignment system
+- Change questionnaires
+- Change lead submission
+- Change public routes
+- Change funnel_context
+- Change dashboard layout
+- Create client portal access yet
+- Send emails or WhatsApp yet
+
+Requirements:
+
+1. During conversion, after the case/application is created, use the mapper's workflowCandidate to determine the correct workflow.
+
+2. If a matching workflow exists:
+   - Attach it to the created case/application using the existing workflow assignment mechanism.
+   - Audit the workflow assignment.
+
+3. If no matching workflow exists:
+   - Do not guess.
+   - Mark the case/application as requiring manual workflow review.
+   - Audit that workflow assignment was skipped or requires review.
+
+4. Preserve idempotency:
+   - Re-running conversion must not create duplicate workflows or duplicate cases.
+
+5. Preserve existing conversion behaviour:
+   - Conversion must still be blocked when the mapper says canConvert=false.
+   - Existing already-converted leads must remain safe.
+   - Assignment, notes, follow-ups, audit history, and status must remain intact.
+
+6. Add a small read-only indicator on the Lead Detail conversion card:
+   - Workflow assigned
+   - Workflow review required
+   - Not converted yet
+
+Do not redesign the page.
+
+Success Criteria:
+A converted lead now produces an EMA case/application that either has the correct workflow attached automatically or is clearly flagged for manual workflow review, with all actions recorded in the existing audit timeline.

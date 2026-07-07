@@ -230,9 +230,21 @@ function splitNameHonest(fullName: string | null): {
   return { firstName: parts[0]!, lastName: parts.slice(1).join(" ") };
 }
 
-/** Matter type → candidate EMA workflow. Keys mirror funnel `inquiryType`. */
-const WORKFLOW_BY_MATTER: Record<string, { key: string; label: string }> = {
-  visa_inquiry: { key: "visa_application", label: "Visa Application" },
+/**
+ * Canonical registry of the EMA workflows this funnel can hand off to. This is
+ * the SINGLE SOURCE OF TRUTH for what counts as a "known" workflow — both the
+ * candidate derivation below and the Phase 12C attachment step
+ * (`resolveWorkflow`) read from it, so a candidate can never name a workflow
+ * that the attachment step then fails to recognise. Keys are stable strings
+ * (never hard-coded IDs) so they persist safely onto `lead_cases.workflow_key`.
+ */
+export interface WorkflowDefinition {
+  key: string;
+  label: string;
+}
+
+const WORKFLOW_DEFINITIONS: Record<string, WorkflowDefinition> = {
+  visa_application: { key: "visa_application", label: "Visa Application" },
   overstay_appeal: { key: "overstay_appeal", label: "Overstay / Appeal" },
   travel_entry_assistance: {
     key: "travel_entry_assistance",
@@ -240,10 +252,28 @@ const WORKFLOW_BY_MATTER: Record<string, { key: string; label: string }> = {
   },
 };
 
+/**
+ * Resolve a candidate workflow key against the canonical registry. Returns the
+ * definition when the key is recognised, or `null` when it is unknown / absent
+ * — the caller must then flag the case for manual review rather than guess.
+ * This is the "workflow resolver" Phase 12C attaches with.
+ */
+export function resolveWorkflow(key: string | null): WorkflowDefinition | null {
+  if (!key) return null;
+  return WORKFLOW_DEFINITIONS[key] ?? null;
+}
+
+/** Matter type → candidate EMA workflow. Keys mirror funnel `inquiryType`. */
+const WORKFLOW_BY_MATTER: Record<string, WorkflowDefinition> = {
+  visa_inquiry: WORKFLOW_DEFINITIONS.visa_application!,
+  overstay_appeal: WORKFLOW_DEFINITIONS.overstay_appeal!,
+  travel_entry_assistance: WORKFLOW_DEFINITIONS.travel_entry_assistance!,
+};
+
 /** Funnel route → fallback workflow when there is no explicit matter type. */
-const WORKFLOW_BY_ROUTE: Record<string, { key: string; label: string }> = {
-  traveller: { key: "travel_entry_assistance", label: "Travel & Entry Assistance" },
-  overstay_undesirable: { key: "overstay_appeal", label: "Overstay / Appeal" },
+const WORKFLOW_BY_ROUTE: Record<string, WorkflowDefinition> = {
+  traveller: WORKFLOW_DEFINITIONS.travel_entry_assistance!,
+  overstay_undesirable: WORKFLOW_DEFINITIONS.overstay_appeal!,
 };
 
 /**

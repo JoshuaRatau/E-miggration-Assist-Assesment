@@ -76,6 +76,7 @@ function normalizeCampaign(v: unknown): string | null {
 function serializeLead(
   row: typeof prelaunchLeadsTable.$inferSelect,
   caseId: string | null = null,
+  caseWorkflow: { key: string | null; status: string | null } | null = null,
 ) {
   return {
     ...row,
@@ -92,6 +93,11 @@ function serializeLead(
     // ensureCaseForLead in lib/cases.ts).  Read via LEFT JOIN so list and
     // detail responses stay a single round-trip.
     caseId,
+    // Phase 12C — workflow attachment state on the linked case, read via the
+    // same LEFT JOIN. null for unconverted leads; 'assigned' (workflowKey set),
+    // 'review_required', or legacy 'unassigned' once a case exists.
+    caseWorkflowKey: caseWorkflow?.key ?? null,
+    caseWorkflowStatus: caseWorkflow?.status ?? null,
   };
 }
 
@@ -708,6 +714,8 @@ router.get("/leads/by-id/:id", async (req, res) => {
     .select({
       lead: prelaunchLeadsTable,
       caseId: leadCasesTable.id,
+      caseWorkflowKey: leadCasesTable.workflowKey,
+      caseWorkflowStatus: leadCasesTable.workflowStatus,
     })
     .from(prelaunchLeadsTable)
     .leftJoin(
@@ -721,7 +729,12 @@ router.get("/leads/by-id/:id", async (req, res) => {
     return res.status(404).json({ error: "Lead not found" });
   }
 
-  return res.json(serializeLead(rows[0].lead, rows[0].caseId));
+  return res.json(
+    serializeLead(rows[0].lead, rows[0].caseId, {
+      key: rows[0].caseWorkflowKey,
+      status: rows[0].caseWorkflowStatus,
+    }),
+  );
 });
 
 // NOTE: PATCH /leads/by-id/:id (status/notes editor) was removed and replaced

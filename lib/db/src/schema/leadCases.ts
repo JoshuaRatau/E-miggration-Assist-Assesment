@@ -16,11 +16,27 @@ import { pgTable, text, uuid, timestamp } from "drizzle-orm/pg-core";
 //                          added in a later phase; the column is plain
 //                          text so adding values does not require a
 //                          migration.)
+//
+// Milestone 4 Phase 12C — workflow attachment. After a case is created the
+// conversion resolves the mapper's `workflowCandidate` against the canonical
+// workflow registry (see `resolveWorkflow` in leadToApplication.ts):
+//   - a recognised candidate ⇒ `workflow_key` is set and
+//     `workflow_status = 'assigned'`;
+//   - no recognised workflow ⇒ `workflow_key` stays null and
+//     `workflow_status = 'review_required'` (flagged for manual review — we
+//     never guess a workflow).
+// `workflow_status` is plain text (default 'unassigned') so new lifecycle
+// values need no migration; the 'unassigned' default also covers legacy rows
+// created before this phase. Assignment is idempotent: it only transitions a
+// row OUT of 'unassigned' (see `assignWorkflowForCase` in lib/cases.ts), so
+// re-running conversion never overwrites an existing attachment.
 export const leadCasesTable = pgTable("lead_cases", {
   id: uuid("id").primaryKey().defaultRandom(),
   leadId: uuid("lead_id").notNull().unique(),
   referenceNumber: text("reference_number").notNull(),
   status: text("status").notNull().default("initiated"),
+  workflowKey: text("workflow_key"),
+  workflowStatus: text("workflow_status").notNull().default("unassigned"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

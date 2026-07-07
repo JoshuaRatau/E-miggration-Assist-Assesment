@@ -570,34 +570,86 @@ export function AdminLeadDetail() {
           </CardHeader>
           <CardContent>
             {lead.caseId ? (
-              <div
-                className="flex flex-wrap items-center gap-3"
-                data-testid="convert-already-converted"
-              >
-                <Badge className="bg-emerald-600 text-white border-transparent">
-                  Converted
-                </Badge>
-                <span className="text-sm text-muted-foreground">
-                  Linked case
-                </span>
-                <Link href={`/admin/case/${lead.caseId}`}>
-                  <Button variant="outline" size="sm" data-testid="link-linked-case">
-                    View case →
-                  </Button>
-                </Link>
+              <div className="space-y-3">
+                <div
+                  className="flex flex-wrap items-center gap-3"
+                  data-testid="convert-already-converted"
+                >
+                  <Badge className="bg-emerald-600 text-white border-transparent">
+                    Converted
+                  </Badge>
+                  <span className="text-sm text-muted-foreground">
+                    Linked case
+                  </span>
+                  <Link href={`/admin/case/${lead.caseId}`}>
+                    <Button variant="outline" size="sm" data-testid="link-linked-case">
+                      View case →
+                    </Button>
+                  </Link>
+                </div>
+                {/* Phase 12C — read-only workflow attachment indicator. The
+                    EMA platform owns the actual workflow; here we only surface
+                    whether one was auto-attached or the case needs a manual
+                    workflow pick. */}
+                <div
+                  className="flex flex-wrap items-center gap-2"
+                  data-testid="convert-workflow-state"
+                >
+                  {lead.caseWorkflowStatus === "assigned" ? (
+                    <>
+                      <Badge
+                        variant="outline"
+                        className="border-emerald-600 text-emerald-500"
+                      >
+                        Workflow assigned
+                      </Badge>
+                      {lead.caseWorkflowKey ? (
+                        <span className="text-xs text-muted-foreground">
+                          {lead.caseWorkflowKey}
+                        </span>
+                      ) : null}
+                    </>
+                  ) : (
+                    <>
+                      <Badge
+                        variant="outline"
+                        className="border-amber-500 text-amber-500"
+                      >
+                        Workflow review required
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        No workflow matched automatically — select one in EMA.
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
             ) : (
-              <div className="flex flex-wrap items-center gap-3">
-                <Button
-                  onClick={handleConvert}
-                  disabled={converting}
-                  data-testid="button-convert-ema"
+              <div className="space-y-3">
+                <div
+                  className="flex flex-wrap items-center gap-2"
+                  data-testid="convert-workflow-state"
                 >
-                  {converting ? "Converting…" : "Convert to EMA Application"}
-                </Button>
-                <span className="text-xs text-muted-foreground">
-                  This action creates a case and marks the lead as converted.
-                </span>
+                  <Badge variant="outline" className="text-muted-foreground">
+                    Not converted yet
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    A workflow is attached automatically once this lead is
+                    converted.
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    onClick={handleConvert}
+                    disabled={converting}
+                    data-testid="button-convert-ema"
+                  >
+                    {converting ? "Converting…" : "Convert to EMA Application"}
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    This action creates a case and marks the lead as converted.
+                  </span>
+                </div>
               </div>
             )}
           </CardContent>

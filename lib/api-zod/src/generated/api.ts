@@ -333,6 +333,18 @@ export const GetLeadByIdResponse = zod.object({
     .describe(
       "UUID of the linked lead_cases row.  null until the lead reaches `converted` status.  PATCH \/admin\/leads\/{id} populates it as a side-effect of the converted-status transition; the GET list and detail endpoints surface it via LEFT JOIN.  The admin dashboard uses it to deep-link to \/admin\/case\/{caseId}.",
     ),
+  caseWorkflowKey: zod
+    .string()
+    .nullish()
+    .describe(
+      'Milestone 4 Phase 12C — stable key of the EMA workflow attached to the linked case (e.g. \"visa_application\"). null when the lead is not converted, or when the case is awaiting manual workflow review.',
+    ),
+  caseWorkflowStatus: zod
+    .string()
+    .nullish()
+    .describe(
+      'Milestone 4 Phase 12C — workflow attachment state of the linked case: \"assigned\" (caseWorkflowKey set), \"review_required\" (no recognised workflow — needs manual selection in EMA), or the legacy \"unassigned\" default. null until the lead is converted.',
+    ),
   adminNotes: zod.string().nullish(),
   hasWhatsapp: zod
     .boolean()
