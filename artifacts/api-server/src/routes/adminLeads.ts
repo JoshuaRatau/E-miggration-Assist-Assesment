@@ -37,7 +37,11 @@ const INTENDED_TIER_VALUES = [
   "unknown",
 ] as const;
 import { requireAdminToken } from "../lib/adminAuth";
-import { ensureCaseForLead, assignWorkflowForCase } from "../lib/cases";
+import {
+  ensureCaseForLead,
+  assignWorkflowForCase,
+  prepareCasePortal,
+} from "../lib/cases";
 import { deriveClientPortalStatus } from "../lib/clientPortal";
 import { buildConversionPreview } from "../lib/leadToApplication";
 import { writeAudit, actorTokenHash, type AuditAction } from "../lib/audit";
@@ -1312,6 +1316,134 @@ router.post("/admin/leads/:id/convert", async (req, res) => {
       },
     });
     return res.status(500).json({ error: "Conversion failed" });
+  }
+});
+
+/**
+ * POST /api/admin/leads/:id/prepare-portal
+ *
+ * Milestone 4 Phase 13B — admin-only "Prepare Client Portal" action. Marks a
+ * converted, workflow-assigned case as `ready_to_activate` for a FUTURE
+ * client-portal activation. PREPARATION ONLY: no client credentials, no email,
+ * no WhatsApp, nothing exposed publicly — it flips a single status column.
+ *
+ * Sibling route (NOT in OpenAPI — matches /notes, /archive, /convert,
+ * /follow-up/complete).
+ *
+ * Preconditions (all enforced server-side; the UI mirrors them):
+ *   - lead exists (404) and is converted (a linked case exists) — else 422.
+ *   - the case's workflow is `assigned` — else BLOCK (422), leave portal_status
+ *     untouched, audit `portal_activation_blocked`.
+ *
+ * Idempotency / no-downgrade (handled atomically in prepareCasePortal):
+ *   - already `ready_to_activate` ⇒ 200 success, NO duplicate audit.
+ *   - already `activated` ⇒ 200 success, never downgraded, NO audit.
+ *   - transition ⇒ 200, audit `portal_prepared` exactly once (guarded on the
+ *     atomic row transition, so concurrent callers audit at most once).
+ */
+router.post("/admin/leads/:id/prepare-portal", async (req, res) => {
+  if (!(await requireAdminToken(req, res))) return;
+
+  const { id } = req.params;
+  if (!id || typeof id !== "string") {
+    return res.status(400).json({ error: "Missing lead id" });
+  }
+
+  const [lead] = await db
+    .select()
+    .from(prelaunchLeadsTable)
+    .where(eq(prelaunchLeadsTable.id, id))
+    .limit(1);
+  if (!lead) return res.status(404).json({ error: "Lead not found" });
+
+  // Must be converted with a linked case — portal prep only applies to cases.
+  const [existingCase] = await db
+    .select()
+    .from(leadCasesQueryRef)
+    .where(eq(leadCasesQueryRef.leadId, id))
+    .limit(1);
+  if (!existingCase) {
+    return res.status(422).json({
+      error: "Lead is not converted — no case to prepare.",
+    });
+  }
+
+  try {
+    const result = await prepareCasePortal(existingCase.id);
+
+    // Workflow undecided — block, leave portal_status untouched, audit the block.
+    if (result.outcome === "blocked_review") {
+      void writeAudit({
+        req,
+        action: "portal_activation_blocked",
+        leadId: id,
+        caseId: existingCase.id,
+        before: { portalStatus: result.portalStatus },
+        after: {
+          portalStatus: result.portalStatus,
+          workflowStatus: result.workflowStatus,
+          reason: "workflow_not_assigned",
+        },
+      });
+      return res.status(422).json({
+        error:
+          "Case workflow requires review before the portal can be prepared.",
+        outcome: result.outcome,
+        lead: serializeLead(
+          lead,
+          existingCase.id,
+          {
+            key: existingCase.workflowKey,
+            status: result.workflowStatus,
+          },
+          result.portalStatus,
+        ),
+      });
+    }
+
+    // Audit ONLY the single call that actually transitioned the row — re-runs
+    // and already-activated cases are silent no-ops (no duplicate history).
+    if (result.changed) {
+      void writeAudit({
+        req,
+        action: "portal_prepared",
+        leadId: id,
+        caseId: existingCase.id,
+        before: { portalStatus: result.previousPortalStatus },
+        after: {
+          portalStatus: result.portalStatus,
+          workflowStatus: result.workflowStatus,
+        },
+      });
+    }
+
+    return res.json({
+      prepared: result.changed,
+      outcome: result.outcome,
+      lead: serializeLead(
+        lead,
+        existingCase.id,
+        {
+          key: existingCase.workflowKey,
+          status: result.workflowStatus,
+        },
+        result.portalStatus,
+      ),
+    });
+  } catch (err) {
+    req.log.error({ err, leadId: id }, "Portal preparation failed");
+    void writeAudit({
+      req,
+      action: "portal_activation_failed",
+      leadId: id,
+      caseId: existingCase.id,
+      before: { portalStatus: existingCase.portalStatus },
+      after: {
+        portalStatus: existingCase.portalStatus,
+        error: err instanceof Error ? err.message : "unknown",
+      },
+    });
+    return res.status(500).json({ error: "Portal preparation failed" });
   }
 });
 

@@ -172,6 +172,8 @@ export function AdminLeadDetail() {
   const [blockedPreview, setBlockedPreview] = useState<ConversionPreview | null>(
     null,
   );
+  // Phase 13B — Prepare Client Portal. Guards the "Prepare Portal" button.
+  const [preparingPortal, setPreparingPortal] = useState(false);
 
   const { activeUsers, labelFor } = useAssignableUsers();
 
@@ -383,6 +385,67 @@ export function AdminLeadDetail() {
       });
     } finally {
       setConverting(false);
+    }
+  };
+
+  // Phase 13B — Prepare Client Portal. Marks a converted, workflow-assigned
+  // case as ready_to_activate for a FUTURE activation. No credentials, no
+  // notifications, nothing client-facing — a 422 means the workflow still needs
+  // review; a 200 means the case is prepared (idempotent server-side).
+  const handlePreparePortal = async () => {
+    if (!lead) return;
+    const token = getAdminToken();
+    if (!token) return;
+    setPreparingPortal(true);
+    try {
+      const res = await fetch(
+        `${(import.meta.env.VITE_API_URL ?? import.meta.env.BASE_URL).replace(/\/$/, "")}/api/admin/leads/${id}/prepare-portal`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "x-admin-token": token },
+        },
+      );
+      if (res.status === 401) {
+        clearAdminToken();
+        throw new Error("Admin token rejected");
+      }
+      const body = (await res.json().catch(() => ({}))) as {
+        prepared?: boolean;
+        outcome?: string;
+        lead?: Lead;
+        error?: string;
+      };
+      if (res.status === 422) {
+        if (body.lead) qc.setQueryData(leadQueryKey, body.lead);
+        toast({
+          title: "Cannot prepare portal yet",
+          description:
+            body.error ??
+            "The case workflow needs review before the portal can be prepared.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!res.ok) {
+        throw new Error(body.error ?? `Server returned ${res.status}`);
+      }
+      if (body.lead) qc.setQueryData(leadQueryKey, body.lead);
+      qc.invalidateQueries({ queryKey: ["admin", "lead", id, "events"] });
+      toast({
+        title: body.prepared ? "Portal prepared" : "Already prepared",
+        description: body.prepared
+          ? "The case is now ready to activate for the client portal."
+          : "This case was already prepared — no changes made.",
+      });
+    } catch (err) {
+      toast({
+        title: "Could not prepare portal",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setPreparingPortal(false);
     }
   };
 
@@ -745,6 +808,37 @@ export function AdminLeadDetail() {
                   )}
                 </div>
               </div>
+              {/* Phase 13B — Prepare Portal action. Hidden once activated (no
+                  downgrade / re-prep). Disabled until the workflow is assigned;
+                  the server is the authoritative gate. No "Activate" button and
+                  no notifications this phase. */}
+              {lead.casePortalStatus !== "activated" ? (
+                <div className="flex flex-col gap-2 pt-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-fit"
+                    disabled={
+                      preparingPortal ||
+                      lead.caseWorkflowStatus !== "assigned" ||
+                      lead.casePortalStatus === "ready_to_activate"
+                    }
+                    onClick={handlePreparePortal}
+                    data-testid="button-prepare-portal"
+                  >
+                    {preparingPortal
+                      ? "Preparing…"
+                      : lead.casePortalStatus === "ready_to_activate"
+                        ? "Portal prepared"
+                        : "Prepare Portal"}
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    {lead.caseWorkflowStatus !== "assigned"
+                      ? "Assign a workflow before preparing the portal."
+                      : "Marks the case ready to activate. No access is granted and the client is not contacted."}
+                  </span>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         ) : null}

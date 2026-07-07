@@ -176,6 +176,115 @@ async function readWorkflowState(
   };
 }
 
+/**
+ * Milestone 4 Phase 13B — "Prepare Client Portal": the admin action that marks
+ * a converted, workflow-assigned case as `ready_to_activate` for a FUTURE
+ * client-portal activation. Preparation ONLY — it flips a single status column
+ * and grants NO access, creates NO credentials, and sends NO notifications.
+ *
+ * Gate (authoritative, server-side): a case may only be prepared once its
+ * workflow is `assigned`. A case still `review_required` / `unassigned` is
+ * BLOCKED — `portal_status` is left untouched so a human resolves the workflow
+ * first (we never prepare a case whose workflow is undecided).
+ *
+ * State machine (only forward transitions; never downgrades):
+ *   not_prepared / manual_review_required → ready_to_activate   (outcome 'prepared')
+ *   ready_to_activate  → no-op                                   (outcome 'already_ready')
+ *   activated          → no-op (terminal, never downgraded)      (outcome 'already_activated')
+ *
+ * IDEMPOTENT & race-safe: the whole read-decide-write runs in one transaction
+ * with `SELECT … FOR UPDATE` on the case row, and `changed` is true ONLY for the
+ * single call that actually transitions the row — so concurrent callers audit
+ * `portal_prepared` at most once and re-runs are silent no-ops.
+ */
+export type PortalPrepareOutcome =
+  | "prepared"
+  | "already_ready"
+  | "already_activated"
+  | "blocked_review";
+
+export interface PortalPrepareResult {
+  outcome: PortalPrepareOutcome;
+  /** True ONLY when THIS call transitioned portal_status → ready_to_activate. */
+  changed: boolean;
+  /** The persisted portal_status after this call (unchanged on block/no-op). */
+  portalStatus: string;
+  /** The persisted portal_status BEFORE this call (for accurate audit before). */
+  previousPortalStatus: string;
+  /** The case's workflow_status at decision time (drives the gate). */
+  workflowStatus: string;
+}
+
+export async function prepareCasePortal(
+  caseId: string,
+): Promise<PortalPrepareResult> {
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({
+        portalStatus: leadCasesTable.portalStatus,
+        workflowStatus: leadCasesTable.workflowStatus,
+      })
+      .from(leadCasesTable)
+      .where(eq(leadCasesTable.id, caseId))
+      .for("update")
+      .limit(1);
+
+    if (!row) {
+      throw new Error(`prepareCasePortal: case ${caseId} not found`);
+    }
+
+    const workflowStatus = row.workflowStatus;
+    const portalStatus = row.portalStatus;
+
+    // Gate: workflow must be assigned. Otherwise block, leaving state untouched.
+    if (workflowStatus !== "assigned") {
+      return {
+        outcome: "blocked_review",
+        changed: false,
+        portalStatus,
+        previousPortalStatus: portalStatus,
+        workflowStatus,
+      };
+    }
+
+    // Terminal — never downgrade an activated portal.
+    if (portalStatus === "activated") {
+      return {
+        outcome: "already_activated",
+        changed: false,
+        portalStatus,
+        previousPortalStatus: portalStatus,
+        workflowStatus,
+      };
+    }
+
+    // Idempotent — already prepared, no duplicate audit.
+    if (portalStatus === "ready_to_activate") {
+      return {
+        outcome: "already_ready",
+        changed: false,
+        portalStatus,
+        previousPortalStatus: portalStatus,
+        workflowStatus,
+      };
+    }
+
+    // Allowed transition: not_prepared / manual_review_required → ready_to_activate.
+    await tx
+      .update(leadCasesTable)
+      .set({ portalStatus: "ready_to_activate", updatedAt: sql`now()` })
+      .where(eq(leadCasesTable.id, caseId));
+
+    return {
+      outcome: "prepared",
+      changed: true,
+      portalStatus: "ready_to_activate",
+      previousPortalStatus: portalStatus,
+      workflowStatus,
+    };
+  });
+}
+
 /** Touch a case's updatedAt — kept here to centralise the column update. */
 export async function touchCaseUpdatedAt(caseId: string): Promise<void> {
   await db
