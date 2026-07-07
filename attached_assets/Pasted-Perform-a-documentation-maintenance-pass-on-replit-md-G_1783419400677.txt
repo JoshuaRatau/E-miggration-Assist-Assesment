@@ -1,0 +1,106 @@
+Perform a documentation maintenance pass on replit.md.
+
+Goal:
+Reduce the size of replit.md while preserving every important architectural decision and implementation outcome.
+
+IMPORTANT
+
+This is a documentation-only task.
+
+Do NOT modify:
+- application code
+- database schema
+- APIs
+- routes
+- UI
+- workflow logic
+- tests
+- configuration
+- deployment
+- package files
+
+Only reorganise documentation.
+
+Requirements
+
+1. Keep the newest milestones (Milestone 4 and Milestone 5) in full detail.
+
+2. Compress older milestones (Milestones 1–3) into concise summaries.
+
+Each milestone should contain:
+- Objective
+- Major decisions
+- Final implementation
+- Lessons learned
+
+Do not keep implementation-by-implementation history.
+
+3. Remove duplicated explanations.
+
+Many architectural decisions have been repeated across multiple phases.
+
+Keep only the latest, authoritative version.
+
+4. Preserve all durable architectural decisions, including:
+- Lead → EMA conversion architecture
+- Workflow assignment
+- Client Portal lifecycle
+- Funnel intelligence
+- Audit strategy
+- Assignment model
+- Follow-up model
+- Notification preparation philosophy
+- Existing system reuse decisions
+
+5. Keep chronological ordering.
+
+Use this structure:
+
+Milestone 1
+(summary)
+
+Milestone 2
+(summary)
+
+Milestone 3
+(summary)
+
+Milestone 4
+(full)
+
+Milestone 5
+(full)
+
+6. Remove obsolete implementation notes such as:
+- temporary debugging
+- smoke-test commentary
+- repeated typecheck confirmations
+- repeated "architect review passed"
+- repeated restart notes
+- repeated housekeeping notes
+
+Retain only the final outcome of each phase.
+
+7. End the document with a concise "Current Platform State" section summarising:
+
+Completed:
+- Funnel Foundation
+- Funnel Intelligence
+- Lead Operations
+- EMA Integration
+- Client Portal Preparation
+- Portal Activation
+- Email Activation
+
+Paused:
+- WhatsApp Integration (future milestone)
+
+Next:
+- Client Portal Experience
+- Document Requests
+- Client Uploads
+- Ongoing Case Communication
+
+Success Criteria
+
+The document should be approximately 50–70% shorter, easier to navigate, and remain the single source of truth for future development without losing any important architectural knowledge.
