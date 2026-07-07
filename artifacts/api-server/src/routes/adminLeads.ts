@@ -44,6 +44,7 @@ import {
   activateCasePortal,
 } from "../lib/cases";
 import { deriveClientPortalStatus } from "../lib/clientPortal";
+import { buildNotificationPreview } from "../lib/clientNotification";
 import { buildConversionPreview } from "../lib/leadToApplication";
 import { writeAudit, actorTokenHash, type AuditAction } from "../lib/audit";
 import { recordLeadEvent } from "../lib/recordLeadEvent";
@@ -1581,6 +1582,94 @@ router.post("/admin/leads/:id/activate-portal", async (req, res) => {
     });
     return res.status(500).json({ error: "Portal activation failed" });
   }
+});
+
+/**
+ * Milestone 5 — Phase 14A — GET /api/admin/leads/:id/notification-preview
+ *
+ * Read-only PREPARATION endpoint (sibling of /prepare-portal, /activate-portal,
+ * /convert — NOT in OpenAPI). Assembles the case + resolved consultant from the
+ * DB and hands them to the PURE `buildNotificationPreview` service, returning
+ * exactly what WOULD be sent to the client on portal activation.
+ *
+ * STRICTLY read-only / zero side effects: sends NO email/WhatsApp, enqueues
+ * nothing, writes NO audit rows, mutates nothing. The service's audit
+ * descriptor is returned for a FUTURE phase to consume — never written here.
+ *
+ * Flow:
+ *   - lead missing ⇒ 404.
+ *   - no linked case (not converted) ⇒ 422 (nothing to notify about yet).
+ *   - otherwise ⇒ 200 with { preview }.
+ */
+router.get("/admin/leads/:id/notification-preview", async (req, res) => {
+  if (!(await requireAdminToken(req, res))) return;
+
+  const { id } = req.params;
+  if (!id || typeof id !== "string") {
+    return res.status(400).json({ error: "Missing lead id" });
+  }
+
+  const [lead] = await db
+    .select()
+    .from(prelaunchLeadsTable)
+    .where(eq(prelaunchLeadsTable.id, id))
+    .limit(1);
+  if (!lead) return res.status(404).json({ error: "Lead not found" });
+
+  const [existingCase] = await db
+    .select()
+    .from(leadCasesQueryRef)
+    .where(eq(leadCasesQueryRef.leadId, id))
+    .limit(1);
+  if (!existingCase) {
+    return res.status(422).json({
+      error: "Lead is not converted — no case to notify about.",
+    });
+  }
+
+  // Resolve the assigned consultant (soft-ref to admin_users). Left null when
+  // the lead is unassigned — the preview never guesses a consultant.
+  let consultant: { id: string; name: string | null } | null = null;
+  if (lead.assignedTo) {
+    const [assignee] = await db
+      .select({
+        id: adminUsersTable.id,
+        email: adminUsersTable.email,
+        displayName: adminUsersTable.displayName,
+      })
+      .from(adminUsersTable)
+      .where(eq(adminUsersTable.id, lead.assignedTo))
+      .limit(1);
+    if (assignee) {
+      consultant = {
+        id: assignee.id,
+        name: assignee.displayName ?? assignee.email ?? null,
+      };
+    }
+  }
+
+  const portalStatus = deriveClientPortalStatus({
+    portalStatus: existingCase.portalStatus,
+    workflowStatus: existingCase.workflowStatus,
+  });
+
+  const preview = buildNotificationPreview({
+    leadId: lead.id,
+    clientName: lead.fullName ?? null,
+    email: lead.email ?? null,
+    whatsapp: lead.whatsapp ?? null,
+    preferredContactMethod: lead.preferredContactMethod ?? null,
+    caseReference: existingCase.referenceNumber ?? lead.referenceNumber ?? null,
+    portalStatus,
+    workflowKey: existingCase.workflowKey ?? null,
+    workflowStatus: existingCase.workflowStatus ?? null,
+    consultant,
+    // No real client-portal route exists yet, so the URL is not known.
+    // Per the honesty rule it stays null rather than being fabricated.
+    portalUrl: null,
+  });
+
+  return res.json({ preview });
 });
 
 export default router;

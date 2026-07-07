@@ -81,6 +81,41 @@ interface ConversionPreview {
   };
 }
 
+// Milestone 5 — Phase 14A. Shape of the read-only notification readiness
+// preview (GET /api/admin/leads/:id/notification-preview). Not in OpenAPI —
+// mirrors the server's NotificationPreview.
+interface NotificationChannelAvailability {
+  channel: "email" | "whatsapp";
+  available: boolean;
+  destination: string | null;
+  reason: string | null;
+}
+interface NotificationMessagePreview {
+  channel: "email" | "whatsapp";
+  available: boolean;
+  subject: string | null;
+  body: string | null;
+}
+interface NotificationPreview {
+  leadId: string;
+  generatedAt: string;
+  readiness: "ready" | "blocked" | "missing_information";
+  summary: {
+    clientName: string | null;
+    caseReference: string | null;
+    portalStatus: string;
+    workflow: { key: string | null; label: string | null; status: string | null };
+    consultant: { id: string; name: string | null } | null;
+    portalUrl: string | null;
+    email: NotificationChannelAvailability;
+    whatsapp: NotificationChannelAvailability;
+  };
+  email: NotificationMessagePreview;
+  whatsapp: NotificationMessagePreview;
+  missingRequirements: string[];
+  blockedReasons: string[];
+}
+
 function priorityBadgeClass(priority: string | null | undefined): string {
   if (priority === "critical")
     return "bg-pink-700 text-white border-transparent";
@@ -145,6 +180,29 @@ export function AdminLeadDetail() {
       }
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
       return (await res.json()) as Lead;
+    },
+  });
+
+  // Milestone 5 — Phase 14A. Read-only notification readiness preview. Fetched
+  // only for converted leads (a case must exist). Preparation only — surfaces
+  // what WOULD be sent on activation; there are no send actions.
+  const { data: notification } = useQuery<NotificationPreview, Error>({
+    queryKey: ["admin", "lead", id, "notification-preview"],
+    enabled: Boolean(id && lead?.caseId),
+    queryFn: async () => {
+      const token = getAdminToken();
+      if (!token) throw new Error("Admin token required");
+      const res = await fetch(
+        `${(import.meta.env.VITE_API_URL ?? import.meta.env.BASE_URL).replace(/\/$/, "")}/api/admin/leads/${id}/notification-preview`,
+        { credentials: "include", headers: { "x-admin-token": token } },
+      );
+      if (res.status === 401) {
+        clearAdminToken();
+        throw new Error("Invalid admin token");
+      }
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      const body = (await res.json()) as { preview: NotificationPreview };
+      return body.preview;
     },
   });
 
@@ -913,6 +971,187 @@ export function AdminLeadDetail() {
                         ? "Activates the case for future client use. No credentials are issued and nothing is exposed publicly yet."
                         : "Marks the case ready to activate. No access is granted and the client is not contacted."}
                   </span>
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {/* Milestone 5 — Phase 14A — Notification Readiness (READ-ONLY
+            preparation). Shown only for converted leads. Surfaces exactly what
+            WOULD be sent to the client when the portal is activated. There are
+            NO send buttons — no email/WhatsApp is dispatched from here. */}
+        {lead.caseId && notification ? (
+          <Card data-testid="card-notification-readiness">
+            <CardHeader>
+              <CardTitle>Notification Readiness</CardTitle>
+              <CardDescription>
+                What would be sent to the client on portal activation.
+                Preparation only — nothing is sent from here.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col gap-1">
+                <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Readiness
+                </span>
+                <div data-testid="notification-readiness">
+                  {notification.readiness === "ready" ? (
+                    <Badge className="bg-emerald-600 text-white border-transparent">
+                      Ready
+                    </Badge>
+                  ) : notification.readiness === "blocked" ? (
+                    <Badge
+                      variant="outline"
+                      className="border-amber-500 text-amber-500"
+                    >
+                      Blocked
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="border-amber-500 text-amber-500"
+                    >
+                      Missing information
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Email
+                  </span>
+                  <div data-testid="notification-email-availability">
+                    {notification.summary.email.available ? (
+                      <Badge
+                        variant="outline"
+                        className="border-emerald-600 text-emerald-500"
+                      >
+                        Reachable
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="text-muted-foreground"
+                      >
+                        Unavailable
+                      </Badge>
+                    )}
+                  </div>
+                  <span className="text-xs text-muted-foreground break-all">
+                    {notification.summary.email.destination ??
+                      notification.summary.email.reason}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                    WhatsApp
+                  </span>
+                  <div data-testid="notification-whatsapp-availability">
+                    {notification.summary.whatsapp.available ? (
+                      <Badge
+                        variant="outline"
+                        className="border-emerald-600 text-emerald-500"
+                      >
+                        Reachable
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="text-muted-foreground"
+                      >
+                        Unavailable
+                      </Badge>
+                    )}
+                  </div>
+                  <span className="text-xs text-muted-foreground break-all">
+                    {notification.summary.whatsapp.destination ??
+                      notification.summary.whatsapp.reason}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Assigned consultant
+                </span>
+                <span className="text-sm">
+                  {notification.summary.consultant?.name ?? (
+                    <span className="text-muted-foreground">Unassigned</span>
+                  )}
+                </span>
+              </div>
+
+              {notification.blockedReasons.length > 0 ? (
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Blocked reasons
+                  </span>
+                  <ul
+                    className="list-disc pl-5 text-sm text-amber-500"
+                    data-testid="notification-blocked-reasons"
+                  >
+                    {notification.blockedReasons.map((r, i) => (
+                      <li key={i}>{r}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {notification.missingRequirements.length > 0 ? (
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Missing requirements
+                  </span>
+                  <ul
+                    className="list-disc pl-5 text-sm text-amber-500"
+                    data-testid="notification-missing-requirements"
+                  >
+                    {notification.missingRequirements.map((r, i) => (
+                      <li key={i}>{r}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {notification.readiness === "ready" ? (
+                <div className="flex flex-col gap-3">
+                  {notification.email.available && notification.email.body ? (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                        Email preview
+                      </span>
+                      <div
+                        className="rounded-md border bg-muted/40 p-3"
+                        data-testid="notification-email-preview"
+                      >
+                        <p className="text-sm font-medium">
+                          {notification.email.subject}
+                        </p>
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
+                          {notification.email.body}
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
+                  {notification.whatsapp.available &&
+                  notification.whatsapp.body ? (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                        WhatsApp preview
+                      </span>
+                      <div
+                        className="rounded-md border bg-muted/40 p-3"
+                        data-testid="notification-whatsapp-preview"
+                      >
+                        <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+                          {notification.whatsapp.body}
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </CardContent>
