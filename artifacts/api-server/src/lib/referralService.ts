@@ -8,12 +8,15 @@ import {
 } from "@workspace/db";
 import { logger } from "./logger";
 import {
+  FUNNEL_PAYLOAD_VERSION,
   INTENDED_ACTION,
   getEmaAppUrl,
   getReferralSecret,
   signBody,
   signReferralToken,
   stableStringify,
+  toEmaReferralRoute,
+  type EmaReferralRoute,
   type ReferralTokenPayload,
 } from "./referralTunnel";
 
@@ -171,6 +174,19 @@ export interface ApplicantPushBody {
     passportNumber: string | null;
     dateOfBirth: string | null;
   };
+  // ── EMA route-aware metadata (all OPTIONAL) ────────────────────────────────
+  // A key is present ONLY when a value is available, so the legacy body shape is
+  // preserved for leads with no funnel context and an unrecognised route is
+  // omitted entirely. These fields ARE covered by the HMAC because signBody()
+  // signs the whole body via stableStringify. Never set a key to `undefined` —
+  // stableStringify would emit invalid JSON and break the signature.
+  route?: EmaReferralRoute;
+  theme?: string;
+  funnelContext?: NonNullable<PrelaunchLead["funnelContext"]>;
+  referenceNumber?: string;
+  leadId?: string;
+  leadReference?: string;
+  funnelVersion?: string;
 }
 
 /**
@@ -184,8 +200,9 @@ export function buildApplicantPushBody(args: {
   preview: ReferralPreview;
   lead: PrelaunchLead;
 }): ApplicantPushBody {
-  const { firstName, lastName } = splitName(args.lead.fullName);
-  return {
+  const lead = args.lead;
+  const { firstName, lastName } = splitName(lead.fullName);
+  const body: ApplicantPushBody = {
     referralId: args.referralId,
     funnelAssignmentId: args.assignmentId,
     funnelFirmId: args.funnelFirmId,
@@ -196,15 +213,43 @@ export function buildApplicantPushBody(args: {
     applicant: {
       firstName,
       lastName,
-      email: args.lead.email ?? null,
-      phone: args.lead.whatsapp ?? null,
-      nationality: args.lead.nationality ?? null,
+      email: lead.email ?? null,
+      phone: lead.whatsapp ?? null,
+      nationality: lead.nationality ?? null,
       // The funnel never collects a passport number or DOB — send null rather
       // than inventing values.
       passportNumber: null,
       dateOfBirth: null,
     },
   };
+
+  // ── EMA route-aware metadata (optional, additive) ──────────────────────────
+  // Assign each value CONDITIONALLY: an absent value leaves the key out entirely
+  // rather than setting `undefined` (which would make stableStringify emit
+  // invalid JSON and break the HMAC). An unrecognised funnel route is dropped so
+  // an invalid route is never sent.
+  const emaRoute = toEmaReferralRoute(lead.funnelContext?.route);
+  if (emaRoute) body.route = emaRoute;
+
+  const theme = lead.funnelContext?.theme?.trim();
+  if (theme) body.theme = theme;
+
+  if (lead.funnelContext && Object.keys(lead.funnelContext).length > 0) {
+    body.funnelContext = lead.funnelContext;
+  }
+
+  if (lead.referenceNumber) {
+    body.referenceNumber = lead.referenceNumber;
+    // The funnel keeps a single reference per lead; EMA accepts it under both
+    // the applicant-facing `referenceNumber` and the lead-scoped `leadReference`.
+    body.leadReference = lead.referenceNumber;
+  }
+
+  if (lead.id) body.leadId = lead.id;
+
+  body.funnelVersion = FUNNEL_PAYLOAD_VERSION;
+
+  return body;
 }
 
 export type PushResult =

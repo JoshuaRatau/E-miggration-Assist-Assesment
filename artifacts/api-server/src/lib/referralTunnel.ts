@@ -107,6 +107,59 @@ export function signBody(body: unknown, secret: string): string {
   return hmac(stableStringify(body), secret);
 }
 
+// ---------------------------------------------------------------------------
+// EMA route-aware referral metadata (SENDER → EMA applicant push body, §3.2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Funnel payload contract version stamped onto every applicant push body so EMA
+ * can tell which sender-side metadata contract produced the message. Bump this
+ * (in lockstep with EMA) whenever the shape of the route-aware metadata changes.
+ */
+export const FUNNEL_PAYLOAD_VERSION = "1" as const;
+
+/**
+ * The route vocabulary EMA accepts on the referral push body. The funnel's own
+ * funnel-context routes map onto these: three are identical and the funnel's
+ * `continue_reference` corresponds to EMA's `reference_resume`.
+ */
+export type EmaReferralRoute =
+  | "traveller"
+  | "overstay_undesirable"
+  | "firm_professional"
+  | "reference_resume";
+
+const EMA_REFERRAL_ROUTES = new Set<EmaReferralRoute>([
+  "traveller",
+  "overstay_undesirable",
+  "firm_professional",
+  "reference_resume",
+]);
+
+// Funnel-context route values that are not identical to an EMA route but map
+// onto one. Kept separate from the identity set so the mapping is explicit.
+const FUNNEL_ROUTE_ALIASES: Record<string, EmaReferralRoute> = {
+  continue_reference: "reference_resume",
+};
+
+/**
+ * Translate a funnel-context route into EMA's route vocabulary. Returns the
+ * matching EMA route, or `null` when the input is missing or not recognised —
+ * callers MUST omit the `route` field entirely rather than send an unknown
+ * value, so an invalid route is never sent.
+ */
+export function toEmaReferralRoute(
+  route: string | null | undefined,
+): EmaReferralRoute | null {
+  if (typeof route !== "string") return null;
+  const r = route.trim().toLowerCase();
+  if (!r) return null;
+  if (EMA_REFERRAL_ROUTES.has(r as EmaReferralRoute)) {
+    return r as EmaReferralRoute;
+  }
+  return FUNNEL_ROUTE_ALIASES[r] ?? null;
+}
+
 /**
  * Verify an incoming S2S signature. Fails closed when the secret or the
  * signature is missing. Uses a constant-time comparison.
