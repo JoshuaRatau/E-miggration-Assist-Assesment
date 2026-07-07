@@ -11,7 +11,7 @@ import {
   leadAuditTable,
   adminUsersTable,
 } from "@workspace/db";
-import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, ne } from "drizzle-orm";
 import {
   LEAD_STATUS_VALUES,
   LEAD_PRIORITY_VALUES,
@@ -38,6 +38,7 @@ const INTENDED_TIER_VALUES = [
 ] as const;
 import { requireAdminToken } from "../lib/adminAuth";
 import { ensureCaseForLead } from "../lib/cases";
+import { buildConversionPreview } from "../lib/leadToApplication";
 import { writeAudit, actorTokenHash, type AuditAction } from "../lib/audit";
 import { recordLeadEvent } from "../lib/recordLeadEvent";
 import { canAdvanceStatus } from "../lib/classification";
@@ -1025,6 +1026,183 @@ router.post("/admin/leads/:id/follow-up/complete", async (req, res) => {
   });
 
   return res.json(serializeLead(updated));
+});
+
+/**
+ * POST /api/admin/leads/:id/convert
+ *
+ * Milestone 4 Phase 12B — the authorised-staff "Convert to EMA Application"
+ * action, built on the Phase 12A conversion mapper. Unlike the funnel PATCH
+ * (which gates conversion on the `ready_for_case` predecessor status), THIS
+ * action is gated SOLELY by the mapper's readiness check:
+ *   - if the mapper reports `canConvert=false`, it converts NOTHING and returns
+ *     422 with the full preview (ready / missing / manual fields + workflow
+ *     candidate) so the operator can see exactly why it is blocked;
+ *   - if `canConvert=true`, it flips the lead to `converted` and creates the
+ *     EMA application via the EXISTING integration point (`ensureCaseForLead`
+ *     → `lead_cases`) — reusing the mapper's output, never re-deriving it.
+ *
+ * Duplicate-conversion prevention rides on the pre-existing UNIQUE(lead_id) on
+ * `lead_cases`: a lead already linked to a case short-circuits to
+ * `{ alreadyConverted: true, case }` with no side effect and no re-audit, so
+ * the UI can disable the button and show the reference.
+ *
+ * Assignment / notes / prior audit are preserved — the flip only touches
+ * `lead_status` + `updated_at`. Audit verbs: `lead_conversion_started`
+ * (attempt begins), `lead_conversion_blocked` (mapper said no), `lead_converted`
+ * (success, carries leadId + caseId/applicationId + workflow + actor),
+ * `lead_conversion_failed` (unexpected error). NOT in OpenAPI — sibling-route
+ * convention (matches /notes, /archive, /follow-up/complete).
+ */
+router.post("/admin/leads/:id/convert", async (req, res) => {
+  if (!(await requireAdminToken(req, res))) return;
+
+  const { id } = req.params;
+  if (!id || typeof id !== "string") {
+    return res.status(400).json({ error: "Missing lead id" });
+  }
+
+  // Load the full lead row — the mapper needs the complete PrelaunchLead.
+  const [lead] = await db
+    .select()
+    .from(prelaunchLeadsTable)
+    .where(eq(prelaunchLeadsTable.id, id))
+    .limit(1);
+  if (!lead) return res.status(404).json({ error: "Lead not found" });
+
+  // Duplicate-conversion guard. A lead already linked to a case is terminal:
+  // return the existing case reference with NO side effect / re-audit.
+  const [existingCase] = await db
+    .select()
+    .from(leadCasesQueryRef)
+    .where(eq(leadCasesQueryRef.leadId, id))
+    .limit(1);
+  if (existingCase) {
+    return res.json({
+      alreadyConverted: true,
+      converted: false,
+      case: {
+        id: existingCase.id,
+        referenceNumber: existingCase.referenceNumber,
+        status: existingCase.status,
+      },
+      lead: serializeLead(lead, existingCase.id),
+    });
+  }
+
+  // Single source of truth: the Phase 12A mapper decides both readiness AND the
+  // application payload. No duplicate conversion logic lives here.
+  const preview = buildConversionPreview(lead);
+  const workflowKey = preview.workflowCandidate.key;
+
+  // Blocked — one or more required fields are missing. Convert nothing; hand the
+  // operator the full preview so they can see the gaps and the workflow guess.
+  if (!preview.readiness.canConvert) {
+    void writeAudit({
+      req,
+      action: "lead_conversion_blocked",
+      leadId: id,
+      before: { leadStatus: lead.leadStatus, caseId: null },
+      after: {
+        canConvert: false,
+        requiredMissing: preview.readiness.requiredMissing,
+        manualCompletion: preview.readiness.manualCompletion,
+        workflowCandidate: workflowKey,
+      },
+    });
+    return res.status(422).json({
+      error: "Lead is not ready to convert — required fields are missing.",
+      preview,
+    });
+  }
+
+  // Ready — record the attempt, then perform the flip + case creation. Any
+  // unexpected failure past this point audits `lead_conversion_failed`.
+  void writeAudit({
+    req,
+    action: "lead_conversion_started",
+    leadId: id,
+    before: { leadStatus: lead.leadStatus, caseId: null },
+    after: { workflowCandidate: workflowKey },
+  });
+
+  try {
+    // Atomic flip guarded on NOT-already-converted so a concurrent convert
+    // can't double-run. The mapper (not the `ready_for_case` predecessor) is
+    // the gate, so there is no status precondition beyond "not converted yet".
+    const [updated] = await db
+      .update(prelaunchLeadsTable)
+      .set({ leadStatus: "converted", updatedAt: new Date() })
+      .where(
+        and(
+          eq(prelaunchLeadsTable.id, id),
+          ne(prelaunchLeadsTable.leadStatus, "converted"),
+        ),
+      )
+      .returning();
+
+    // Lost the race — a concurrent convert flipped it between our case check
+    // and this UPDATE. `ensureCaseForLead` is idempotent, so fall through and
+    // resolve the existing case rather than erroring.
+    const effectiveLead = updated ?? lead;
+
+    const result = await ensureCaseForLead(
+      effectiveLead.id,
+      effectiveLead.referenceNumber,
+    );
+    const caseId = result.row.id;
+
+    // Only audit the terminal success when THIS call created the case — the
+    // `created` flag is sourced from the atomic INSERT … ON CONFLICT RETURNING,
+    // so at most one of N racing callers logs `lead_converted`.
+    if (result.created) {
+      void writeAudit({
+        req,
+        action: "lead_converted",
+        leadId: id,
+        caseId,
+        before: { leadStatus: lead.leadStatus, caseId: null },
+        after: {
+          leadStatus: "converted",
+          caseId,
+          applicationId: caseId,
+          workflowCandidate: workflowKey,
+        },
+      });
+    }
+
+    // Return the freshest lead so assignment / notes / status all reflect the
+    // post-conversion row, plus the linked case reference.
+    const [freshLead] = await db
+      .select()
+      .from(prelaunchLeadsTable)
+      .where(eq(prelaunchLeadsTable.id, id))
+      .limit(1);
+
+    return res.json({
+      converted: result.created,
+      alreadyConverted: !result.created,
+      case: {
+        id: result.row.id,
+        referenceNumber: result.row.referenceNumber,
+        status: result.row.status,
+      },
+      lead: serializeLead(freshLead ?? effectiveLead, caseId),
+    });
+  } catch (err) {
+    req.log.error({ err, leadId: id }, "Lead conversion failed");
+    void writeAudit({
+      req,
+      action: "lead_conversion_failed",
+      leadId: id,
+      before: { leadStatus: lead.leadStatus, caseId: null },
+      after: {
+        workflowCandidate: workflowKey,
+        error: err instanceof Error ? err.message : "unknown",
+      },
+    });
+    return res.status(500).json({ error: "Conversion failed" });
+  }
 });
 
 export default router;

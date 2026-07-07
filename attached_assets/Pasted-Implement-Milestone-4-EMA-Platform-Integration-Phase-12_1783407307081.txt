@@ -1,0 +1,121 @@
+Implement Milestone 4 – EMA Platform Integration (Phase 12B).
+
+Goal:
+Implement the actual "Convert to EMA Application" workflow using the Lead-to-Application mapper created in Phase 12A.
+
+IMPORTANT
+
+Reuse the existing mapping service as the ONLY source of truth.
+
+Do NOT duplicate conversion logic anywhere else.
+
+Reuse existing:
+- LeadToApplicationMapper
+- lead_cases
+- referral service contracts
+- classification helpers
+- workflow candidate logic
+- audit/history system
+- assignment
+- status workflow
+
+Do NOT:
+- Change questionnaires.
+- Change routing.
+- Change lead submission.
+- Change dashboard filters.
+- Change funnel_context.
+- Change attribution.
+- Change public APIs.
+- Change client portal behaviour.
+
+Requirements
+
+1. Add a new admin action:
+
+Convert to EMA Application
+
+Available only for authorised staff.
+
+2. Before conversion:
+
+Run the existing LeadToApplicationMapper.
+
+If:
+canConvert == false
+
+Do NOT convert.
+
+Instead present the existing conversion preview showing:
+
+• Ready fields
+• Missing required fields
+• Manual completion fields
+• Workflow candidate
+• Why conversion cannot continue
+
+3. If:
+canConvert == true
+
+Perform the conversion using the existing mapper output.
+
+Do NOT rebuild any mapping manually.
+
+4. Create the new application using the existing EMA-side integration points already present in the project.
+
+Do not invent a second application creation path.
+
+5. Prevent duplicate conversions.
+
+If the lead has already been converted:
+
+- Disable the Convert button.
+- Show the existing application/case reference.
+
+6. Update the lead:
+
+- Status = Converted
+- Store linked application/case identifier
+- Preserve assignment
+- Preserve notes
+- Preserve audit history
+
+7. Audit
+
+Reuse the existing audit system.
+
+Record:
+
+Lead conversion started
+
+Lead converted
+
+Conversion blocked
+
+Conversion failed
+
+Include:
+
+Lead ID
+
+Application ID (when available)
+
+Workflow candidate
+
+Current user
+
+Timestamp
+
+8. UI
+
+Do not redesign the dashboard.
+
+Add the action naturally to the existing Lead Detail page (or wherever lead actions already exist).
+
+9. Preserve all existing functionality.
+
+Success Criteria
+
+An authorised consultant can convert a qualified lead into an EMA application using the existing mapping layer.
+
+Every conversion is validated first, audited, cannot be duplicated, and produces a linked EMA application/case while preserving the complete operational history.

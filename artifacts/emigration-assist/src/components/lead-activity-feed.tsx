@@ -99,7 +99,20 @@ function summariseAudit(entry: TimelineEntry): string {
     if (entry.title === "lead_followup_completed") return "Follow-up completed";
     return "Follow-up removed";
   }
-  if (entry.title === "lead_converted") return "Lead converted to case";
+  if (entry.title === "lead_conversion_started")
+    return "Conversion to EMA application started";
+  if (entry.title === "lead_conversion_blocked") {
+    const missing =
+      after && Array.isArray(after.requiredMissing)
+        ? (after.requiredMissing as unknown[]).length
+        : 0;
+    return missing > 0
+      ? `Conversion blocked — ${missing} required field${missing === 1 ? "" : "s"} missing`
+      : "Conversion blocked — required fields missing";
+  }
+  if (entry.title === "lead_conversion_failed")
+    return "Conversion to EMA application failed";
+  if (entry.title === "lead_converted") return "Converted to EMA application";
   if (entry.title === "manual_contact_click") {
     const channel = after && (after.channel as string | undefined);
     return channel ? `Manual contact via ${channel}` : "Manual contact opened";

@@ -21,6 +21,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { DocumentUploader } from "@/components/DocumentUploader";
 import { getAdminToken, clearAdminToken } from "@/lib/adminToken";
@@ -46,6 +53,33 @@ const STATUS_OPTIONS = [
 ] as const;
 
 const PRIORITY_OPTIONS = ["critical", "high", "medium", "low"] as const;
+
+// Phase 12B — subset of the conversion-preview payload the /convert route
+// returns (422) when a lead is not ready. Types mirror the server mapper
+// (lib/leadToApplication.ts); kept local since the route is outside OpenAPI.
+interface ConversionField {
+  key: string;
+  label: string;
+  requirement: "required" | "optional" | "manual";
+  availability: "available" | "missing";
+  value: string | null;
+}
+interface ConversionSection {
+  key: string;
+  title: string;
+  complete: boolean;
+  fields: ConversionField[];
+}
+interface ConversionPreview {
+  referenceNumber: string;
+  sections: ConversionSection[];
+  workflowCandidate: { key: string | null; label: string | null; reason: string };
+  readiness: {
+    canConvert: boolean;
+    requiredMissing: string[];
+    manualCompletion: string[];
+  };
+}
 
 function priorityBadgeClass(priority: string | null | undefined): string {
   if (priority === "critical")
@@ -132,6 +166,12 @@ export function AdminLeadDetail() {
   const [followUpNote, setFollowUpNote] = useState<string>("");
   const [completing, setCompleting] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Phase 12B — Convert to EMA Application. `converting` guards the button;
+  // `blockedPreview` holds the mapper preview surfaced on a 422 (not ready).
+  const [converting, setConverting] = useState(false);
+  const [blockedPreview, setBlockedPreview] = useState<ConversionPreview | null>(
+    null,
+  );
 
   const { activeUsers, labelFor } = useAssignableUsers();
 
@@ -272,6 +312,77 @@ export function AdminLeadDetail() {
       });
     } finally {
       setCompleting(false);
+    }
+  };
+
+  // Phase 12B — Convert to EMA Application. The server runs the mapper: a 422
+  // means "not ready" and carries the preview (shown in the blocked dialog), a
+  // 200 means the lead is now converted with a linked case. Duplicate calls are
+  // idempotent server-side (UNIQUE lead_id on the case).
+  const handleConvert = async () => {
+    if (!lead) return;
+    const token = getAdminToken();
+    if (!token) return;
+    setConverting(true);
+    try {
+      const res = await fetch(
+        `${(import.meta.env.VITE_API_URL ?? import.meta.env.BASE_URL).replace(/\/$/, "")}/api/admin/leads/${id}/convert`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "x-admin-token": token },
+        },
+      );
+      if (res.status === 401) {
+        clearAdminToken();
+        throw new Error("Admin token rejected");
+      }
+      if (res.status === 422) {
+        const body = (await res.json().catch(() => ({}))) as {
+          preview?: ConversionPreview;
+        };
+        if (body.preview) setBlockedPreview(body.preview);
+        toast({
+          title: "Not ready to convert",
+          description:
+            "Some required fields are missing. Review the details below.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(body.error ?? `Server returned ${res.status}`);
+      }
+      const body = (await res.json()) as {
+        converted?: boolean;
+        alreadyConverted?: boolean;
+        lead?: Lead;
+        case?: { referenceNumber?: string | null };
+      };
+      if (body.lead) qc.setQueryData(leadQueryKey, body.lead);
+      qc.invalidateQueries({ queryKey: ["/api/leads"] });
+      qc.invalidateQueries({ queryKey: ["admin", "leads"] });
+      qc.invalidateQueries({ queryKey: ["admin", "lead", id, "events"] });
+      const caseRef = body.case?.referenceNumber ?? null;
+      toast({
+        title: body.alreadyConverted
+          ? "Already converted"
+          : "Converted to EMA application",
+        description: caseRef
+          ? `Linked case ${caseRef}.`
+          : "The lead has been converted.",
+      });
+    } catch (err) {
+      toast({
+        title: "Conversion failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setConverting(false);
     }
   };
 
@@ -445,6 +556,53 @@ export function AdminLeadDetail() {
 
         <InternalNotesPanel leadId={id} />
 
+        {/* Phase 12B — Convert to EMA Application. Once a lead has a linked
+            case it is terminal: the button is replaced by the case reference
+            so the operator can't double-convert. */}
+        <Card data-testid="card-convert-ema">
+          <CardHeader>
+            <CardTitle>EMA Application</CardTitle>
+            <CardDescription>
+              Convert this qualified lead into an application on the E-Migration
+              Assist platform. We check the required details first — if anything
+              is missing you'll see exactly what before anything is created.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {lead.caseId ? (
+              <div
+                className="flex flex-wrap items-center gap-3"
+                data-testid="convert-already-converted"
+              >
+                <Badge className="bg-emerald-600 text-white border-transparent">
+                  Converted
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  Linked case
+                </span>
+                <Link href={`/admin/case/${lead.caseId}`}>
+                  <Button variant="outline" size="sm" data-testid="link-linked-case">
+                    View case →
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  onClick={handleConvert}
+                  disabled={converting}
+                  data-testid="button-convert-ema"
+                >
+                  {converting ? "Converting…" : "Convert to EMA Application"}
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  This action creates a case and marks the lead as converted.
+                </span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Documents</CardTitle>
@@ -489,15 +647,25 @@ export function AdminLeadDetail() {
                         lead?.leadStatus,
                         s,
                       );
+                      // Phase 12B — conversion is a mapper-gated handover, so
+                      // it must go through the "Convert to EMA Application"
+                      // button (which checks readiness) rather than a silent
+                      // status edit. "converted" stays in the list so an
+                      // already-converted lead still renders its value, but it
+                      // can never be *selected* here.
+                      const isConvertOption = s === "converted";
+                      const disabled = !allowed || isConvertOption;
                       return (
                         <SelectItem
                           key={s}
                           value={s}
-                          disabled={!allowed}
+                          disabled={disabled}
                           title={
-                            allowed
-                              ? undefined
-                              : "Forward-only funnel — cannot regress"
+                            isConvertOption
+                              ? "Use the “Convert to EMA Application” action below"
+                              : allowed
+                                ? undefined
+                                : "Forward-only funnel — cannot regress"
                           }
                           data-testid={`status-option-${s}`}
                         >
@@ -699,6 +867,128 @@ export function AdminLeadDetail() {
 
         <EngagementHistory leadId={id} />
       </div>
+
+      {/* Phase 12B — blocked-conversion preview. Shown when the mapper reports
+          the lead isn't ready: nothing was converted; this explains why. */}
+      <Dialog
+        open={blockedPreview !== null}
+        onOpenChange={(open) => {
+          if (!open) setBlockedPreview(null);
+        }}
+      >
+        <DialogContent
+          className="max-h-[85vh] overflow-y-auto sm:max-w-2xl"
+          data-testid="dialog-conversion-blocked"
+        >
+          <DialogHeader>
+            <DialogTitle>Not ready to convert</DialogTitle>
+            <DialogDescription>
+              This lead is missing details required to create an EMA
+              application. Nothing has been converted. Add the missing
+              information, then try again.
+            </DialogDescription>
+          </DialogHeader>
+          {blockedPreview && (
+            <div className="space-y-5">
+              <div className="rounded-md border bg-muted/30 p-3">
+                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Workflow candidate
+                </div>
+                <div className="mt-1 text-sm">
+                  {blockedPreview.workflowCandidate.label ??
+                    blockedPreview.workflowCandidate.key ??
+                    "Not determined"}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {blockedPreview.workflowCandidate.reason}
+                </div>
+              </div>
+
+              {blockedPreview.readiness.requiredMissing.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-sm font-medium text-red-600">
+                    Required fields missing
+                  </div>
+                  <ul className="list-disc space-y-1 pl-5 text-sm">
+                    {blockedPreview.readiness.requiredMissing.map((k) => {
+                      const field = blockedPreview.sections
+                        .flatMap((s) => s.fields)
+                        .find((f) => f.key === k);
+                      return (
+                        <li key={k} data-testid={`convert-missing-${k}`}>
+                          {field?.label ?? k}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+
+              {blockedPreview.readiness.manualCompletion.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-sm font-medium text-amber-600">
+                    Needs manual completion in EMA
+                  </div>
+                  <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                    {blockedPreview.readiness.manualCompletion.map((k) => {
+                      const field = blockedPreview.sections
+                        .flatMap((s) => s.fields)
+                        .find((f) => f.key === k);
+                      return <li key={k}>{field?.label ?? k}</li>;
+                    })}
+                  </ul>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <div className="text-sm font-medium">Field summary</div>
+                {blockedPreview.sections.map((section) => (
+                  <div key={section.key} className="rounded-md border p-3">
+                    <div className="mb-2 flex items-center gap-2">
+                      <span className="text-sm font-medium">
+                        {section.title}
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className={
+                          section.complete
+                            ? "border-emerald-300/40 bg-emerald-500/10 text-emerald-700"
+                            : "border-amber-300/40 bg-amber-500/10 text-amber-700"
+                        }
+                      >
+                        {section.complete ? "Complete" : "Incomplete"}
+                      </Badge>
+                    </div>
+                    <dl className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
+                      {section.fields.map((f) => (
+                        <div key={f.key} className="flex justify-between gap-2">
+                          <dt className="text-xs text-muted-foreground">
+                            {f.label}
+                            {f.requirement === "required" && (
+                              <span className="text-red-500"> *</span>
+                            )}
+                          </dt>
+                          <dd className="text-right text-xs">
+                            {f.availability === "available" ? (
+                              (f.value ?? "—")
+                            ) : (
+                              <span className="text-muted-foreground">
+                                {f.requirement === "manual"
+                                  ? "manual"
+                                  : "missing"}
+                              </span>
+                            )}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }
