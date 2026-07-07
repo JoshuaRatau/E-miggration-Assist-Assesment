@@ -285,6 +285,115 @@ export async function prepareCasePortal(
   });
 }
 
+/**
+ * Phase 13C — activate a PREPARED case's client portal.
+ *
+ * The controlled follow-up to prepareCasePortal: transitions a case whose
+ * portal is `ready_to_activate` (and whose workflow is `assigned`) to
+ * `activated`. STILL no client-facing side effects this phase — no credentials
+ * are issued, no email/WhatsApp is sent, and nothing is exposed publicly; this
+ * flips ONE status column so a FUTURE phase can wire up real client access.
+ *
+ * Forward-only & terminal: an `activated` case is NEVER downgraded (idempotent
+ * success). Activation is gated on BOTH the workflow being `assigned` AND the
+ * portal already being `ready_to_activate` — an unprepared case is blocked
+ * (`blocked_not_ready`), an undecided workflow is blocked (`blocked_review`);
+ * neither writes any state.
+ *
+ * IDEMPOTENT & race-safe: the whole read-decide-write runs in one transaction
+ * with `SELECT … FOR UPDATE` on the case row, and `changed` is true ONLY for the
+ * single call that actually transitions the row — so concurrent callers audit
+ * `portal_activated` at most once and re-runs are silent no-ops.
+ */
+export type PortalActivateOutcome =
+  | "activated"
+  | "already_activated"
+  | "blocked_review"
+  | "blocked_not_ready";
+
+export interface PortalActivateResult {
+  outcome: PortalActivateOutcome;
+  /** True ONLY when THIS call transitioned portal_status → activated. */
+  changed: boolean;
+  /** The persisted portal_status after this call (unchanged on block/no-op). */
+  portalStatus: string;
+  /** The persisted portal_status BEFORE this call (for accurate audit before). */
+  previousPortalStatus: string;
+  /** The case's workflow_status at decision time (drives the gate). */
+  workflowStatus: string;
+}
+
+export async function activateCasePortal(
+  caseId: string,
+): Promise<PortalActivateResult> {
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({
+        portalStatus: leadCasesTable.portalStatus,
+        workflowStatus: leadCasesTable.workflowStatus,
+      })
+      .from(leadCasesTable)
+      .where(eq(leadCasesTable.id, caseId))
+      .for("update")
+      .limit(1);
+
+    if (!row) {
+      throw new Error(`activateCasePortal: case ${caseId} not found`);
+    }
+
+    const workflowStatus = row.workflowStatus;
+    const portalStatus = row.portalStatus;
+
+    // Terminal — already activated, idempotent success, never downgraded and no
+    // duplicate audit. Checked FIRST so an activated case always succeeds.
+    if (portalStatus === "activated") {
+      return {
+        outcome: "already_activated",
+        changed: false,
+        portalStatus,
+        previousPortalStatus: portalStatus,
+        workflowStatus,
+      };
+    }
+
+    // Gate: workflow must be assigned. Otherwise block, leaving state untouched.
+    if (workflowStatus !== "assigned") {
+      return {
+        outcome: "blocked_review",
+        changed: false,
+        portalStatus,
+        previousPortalStatus: portalStatus,
+        workflowStatus,
+      };
+    }
+
+    // Gate: portal must be PREPARED first. Block anything not ready_to_activate.
+    if (portalStatus !== "ready_to_activate") {
+      return {
+        outcome: "blocked_not_ready",
+        changed: false,
+        portalStatus,
+        previousPortalStatus: portalStatus,
+        workflowStatus,
+      };
+    }
+
+    // Allowed transition: ready_to_activate → activated.
+    await tx
+      .update(leadCasesTable)
+      .set({ portalStatus: "activated", updatedAt: sql`now()` })
+      .where(eq(leadCasesTable.id, caseId));
+
+    return {
+      outcome: "activated",
+      changed: true,
+      portalStatus: "activated",
+      previousPortalStatus: portalStatus,
+      workflowStatus,
+    };
+  });
+}
+
 /** Touch a case's updatedAt — kept here to centralise the column update. */
 export async function touchCaseUpdatedAt(caseId: string): Promise<void> {
   await db

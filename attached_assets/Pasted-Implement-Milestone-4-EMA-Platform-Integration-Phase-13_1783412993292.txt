@@ -1,0 +1,133 @@
+Implement Milestone 4 – EMA Platform Integration (Phase 13C).
+
+Goal:
+Implement the controlled activation of the client portal for prepared EMA cases using the existing client portal architecture.
+
+IMPORTANT
+
+Reuse existing:
+- lead_cases
+- portal_status
+- client reference/status lookup
+- audit/history
+- workflow assignment
+- case linkage
+
+Do NOT:
+- Create duplicate authentication systems
+- Create duplicate client records
+- Change questionnaires
+- Change routing
+- Change dashboard layout
+- Change workflow assignment
+- Change lead submission
+- Change funnel_context
+- Redesign the public portal
+
+Requirements
+
+1. Add an admin-only action:
+
+Activate Client Portal
+
+2. Activation is only allowed when:
+- Lead is converted.
+- Case exists.
+- Workflow is assigned.
+- Portal status == ready_to_activate.
+
+3. On activation:
+
+Update:
+
+lead_cases.portal_status
+
+from
+
+ready_to_activate
+
+to
+
+activated
+
+Do not downgrade activated cases.
+
+4. Audit
+
+Reuse the existing audit system.
+
+Record:
+
+portal_activated
+
+Include:
+- Lead ID
+- Case ID
+- Current user
+- Timestamp
+
+5. Idempotency
+
+If already activated:
+
+Return success.
+
+Do not duplicate audit entries.
+
+6. Frontend
+
+Extend the existing Client Portal card.
+
+Show:
+
+Prepare Portal
+↓
+
+Ready to Activate
+↓
+
+Activate Portal
+↓
+
+Activated
+
+Use the existing badge styling.
+
+7. Public Behaviour
+
+Do not expose any new functionality publicly yet.
+
+The existing reference/status lookup must continue behaving exactly as before.
+
+Do not introduce login credentials.
+
+Do not expose documents.
+
+Do not expose workflow information.
+
+8. Preserve everything else
+
+No questionnaire changes.
+
+No routing changes.
+
+No dashboard redesign.
+
+No workflow changes.
+
+No analytics changes.
+
+No attribution changes.
+
+Success Criteria
+
+An authorised administrator can safely activate a prepared EMA case for future client use.
+
+The activation is:
+
+- audited,
+- idempotent,
+- state-safe,
+- forward-only,
+
+and integrates naturally into the existing client portal preparation workflow without altering any public functionality.

@@ -174,6 +174,8 @@ export function AdminLeadDetail() {
   );
   // Phase 13B — Prepare Client Portal. Guards the "Prepare Portal" button.
   const [preparingPortal, setPreparingPortal] = useState(false);
+  // Phase 13C — Activate Client Portal. Guards the "Activate Portal" button.
+  const [activatingPortal, setActivatingPortal] = useState(false);
 
   const { activeUsers, labelFor } = useAssignableUsers();
 
@@ -446,6 +448,67 @@ export function AdminLeadDetail() {
       });
     } finally {
       setPreparingPortal(false);
+    }
+  };
+
+  // Phase 13C — Activate Client Portal. Transitions a PREPARED case
+  // (ready_to_activate) to activated. Still no credentials, no notifications,
+  // nothing client-facing — a 422 means the case isn't prepared/assigned yet;
+  // a 200 means the case is activated (idempotent, forward-only server-side).
+  const handleActivatePortal = async () => {
+    if (!lead) return;
+    const token = getAdminToken();
+    if (!token) return;
+    setActivatingPortal(true);
+    try {
+      const res = await fetch(
+        `${(import.meta.env.VITE_API_URL ?? import.meta.env.BASE_URL).replace(/\/$/, "")}/api/admin/leads/${id}/activate-portal`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "x-admin-token": token },
+        },
+      );
+      if (res.status === 401) {
+        clearAdminToken();
+        throw new Error("Admin token rejected");
+      }
+      const body = (await res.json().catch(() => ({}))) as {
+        activated?: boolean;
+        outcome?: string;
+        lead?: Lead;
+        error?: string;
+      };
+      if (res.status === 422) {
+        if (body.lead) qc.setQueryData(leadQueryKey, body.lead);
+        toast({
+          title: "Cannot activate portal yet",
+          description:
+            body.error ??
+            "The case must be prepared and assigned before it can be activated.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!res.ok) {
+        throw new Error(body.error ?? `Server returned ${res.status}`);
+      }
+      if (body.lead) qc.setQueryData(leadQueryKey, body.lead);
+      qc.invalidateQueries({ queryKey: ["admin", "lead", id, "events"] });
+      toast({
+        title: body.activated ? "Portal activated" : "Already activated",
+        description: body.activated
+          ? "The case is now activated for future client use."
+          : "This case was already activated — no changes made.",
+      });
+    } catch (err) {
+      toast({
+        title: "Could not activate portal",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setActivatingPortal(false);
     }
   };
 
@@ -808,34 +871,47 @@ export function AdminLeadDetail() {
                   )}
                 </div>
               </div>
-              {/* Phase 13B — Prepare Portal action. Hidden once activated (no
-                  downgrade / re-prep). Disabled until the workflow is assigned;
-                  the server is the authoritative gate. No "Activate" button and
-                  no notifications this phase. */}
+              {/* Phase 13B/13C — Prepare → Activate flow. Hidden once activated
+                  (forward-only, no downgrade). The server is the authoritative
+                  gate; buttons are disabled until their preconditions hold. Once
+                  prepared (ready_to_activate) the Prepare button is replaced by
+                  the Activate button. No credentials/notifications this phase. */}
               {lead.casePortalStatus !== "activated" ? (
                 <div className="flex flex-col gap-2 pt-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-fit"
-                    disabled={
-                      preparingPortal ||
-                      lead.caseWorkflowStatus !== "assigned" ||
-                      lead.casePortalStatus === "ready_to_activate"
-                    }
-                    onClick={handlePreparePortal}
-                    data-testid="button-prepare-portal"
-                  >
-                    {preparingPortal
-                      ? "Preparing…"
-                      : lead.casePortalStatus === "ready_to_activate"
-                        ? "Portal prepared"
-                        : "Prepare Portal"}
-                  </Button>
+                  {lead.casePortalStatus === "ready_to_activate" ? (
+                    <Button
+                      size="sm"
+                      className="w-fit"
+                      disabled={
+                        activatingPortal ||
+                        lead.caseWorkflowStatus !== "assigned"
+                      }
+                      onClick={handleActivatePortal}
+                      data-testid="button-activate-portal"
+                    >
+                      {activatingPortal ? "Activating…" : "Activate Portal"}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-fit"
+                      disabled={
+                        preparingPortal ||
+                        lead.caseWorkflowStatus !== "assigned"
+                      }
+                      onClick={handlePreparePortal}
+                      data-testid="button-prepare-portal"
+                    >
+                      {preparingPortal ? "Preparing…" : "Prepare Portal"}
+                    </Button>
+                  )}
                   <span className="text-xs text-muted-foreground">
                     {lead.caseWorkflowStatus !== "assigned"
                       ? "Assign a workflow before preparing the portal."
-                      : "Marks the case ready to activate. No access is granted and the client is not contacted."}
+                      : lead.casePortalStatus === "ready_to_activate"
+                        ? "Activates the case for future client use. No credentials are issued and nothing is exposed publicly yet."
+                        : "Marks the case ready to activate. No access is granted and the client is not contacted."}
                   </span>
                 </div>
               ) : null}
