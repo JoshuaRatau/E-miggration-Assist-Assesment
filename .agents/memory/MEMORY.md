@@ -11,3 +11,4 @@
 - [Referral tunnel contract](referral-tunnel-contract.md) — sender-side funnel→EMA: two HMAC serializations (don't unify), fail-closed 503, referrals table stores NO PII, `converted` is terminal.
 - [Audit-row PII discipline](audit-row-pii.md) — lead_audit before/after JSON must hold only reason CODES/constants/timestamps; raw provider/exception strings + recipient PII go to req.log only.
 - [Adding a lead_status value](lead-status-enum-sites.md) — lead_status is a text col (no migration); the value is mirrored in ~9 hardcoded sites incl. a type-required kanban Record; OpenAPI has no enum (skip codegen).
+- [E2E suite gotchas](e2e-suite-gotchas.md) — dev bypass envs, fire-and-forget audit needs polling, /convert inquiryType gate, 50-row list cap, leadStatus field, chunked runs.

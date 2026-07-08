@@ -21,6 +21,16 @@ export interface RateBucket {
   hit(key: string): { ok: true } | { ok: false; retryAfterSec: number };
 }
 
+/**
+ * E2E test hook: when E2E_DISABLE_RATE_LIMIT=1 AND we are NOT in production,
+ * every bucket admits all hits. This exists so the automated Playwright
+ * suite can create dozens of leads without tripping the 10/hour IP bucket.
+ * Fails closed in production: the flag is ignored when NODE_ENV=production.
+ */
+const RATE_LIMITS_DISABLED =
+  process.env.E2E_DISABLE_RATE_LIMIT === "1" &&
+  process.env.NODE_ENV !== "production";
+
 export function createRateBucket(cfg: RateBucketConfig): RateBucket {
   const store = new Map<string, number[]>();
 
@@ -36,6 +46,7 @@ export function createRateBucket(cfg: RateBucketConfig): RateBucket {
 
   return {
     hit(key) {
+      if (RATE_LIMITS_DISABLED) return { ok: true };
       const now = Date.now();
       const cutoff = now - cfg.windowMs;
       const hits = (store.get(key) ?? []).filter((t) => t > cutoff);

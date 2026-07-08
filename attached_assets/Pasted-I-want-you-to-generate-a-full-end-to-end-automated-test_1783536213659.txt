@@ -1,0 +1,89 @@
+I want you to generate a full end-to-end automated test suite and documentation pack for the leads funnel in the E-Migration Assist platform.
+
+Context:
+- EMA is a cloud-based South African immigration case management platform with multiple portals and role-based access control.
+- The funnel I want tested is the B2B leads funnel used to capture, qualify, follow up, and convert firms into booked demos / pilot participants.
+- I need evidence that the funnel actually performs the way we want it to perform, and I need artifacts I can share back for review.
+
+What I need you to produce:
+1. A complete E2E test plan for the leads funnel.
+2. Automated E2E scripts using Playwright (preferred) or Cypress.
+3. Test data and environment assumptions in a README.
+4. Execution artifacts:
+   - screenshots on failure
+   - video recordings where available
+   - console/network error capture
+   - summary HTML or markdown report
+5. A defect log template and a test results summary template.
+6. Clear notes showing where tests are blocked by missing selectors, missing seed data, missing roles, or missing environments.
+
+Scope to cover:
+A. Lead capture
+- Create a new lead from the funnel entry point.
+- Validate required fields.
+- Validate invalid email / phone / missing company name.
+- Validate successful save and confirmation.
+- Validate duplicate lead handling.
+
+B. Lead qualification
+- Update lead status.
+- Assign owner.
+- Add notes.
+- Tag lead by source / city / segment.
+- Confirm changes persist after refresh / re-login.
+
+C. Outreach workflow
+- Trigger first outreach action.
+- Confirm template / message / email record is logged correctly.
+- Confirm follow-up reminder or task is created if applicable.
+- Confirm timeline or activity history shows the outreach event.
+
+D. Demo booking / conversion path
+- Move interested lead toward demo booking.
+- Validate status transitions allowed and disallowed.
+- Validate booking fields, date/time handling, and notes.
+- Confirm conversion state is reflected in pipeline / dashboard / lead record.
+
+E. Pipeline visibility
+- Confirm lead appears in the correct pipeline stage.
+- Confirm counts update when stage changes.
+- Confirm search / filter / sort works for lead owner, city, stage, and source.
+
+F. Negative and resilience scenarios
+- Submit incomplete forms.
+- Try invalid transitions.
+- Simulate duplicate submission or refresh during save.
+- Test browser back / forward behavior.
+- Test graceful behavior if email or notification dependency fails.
+
+G. RBAC / tenancy
+- Admin can view all relevant leads.
+- Standard user only sees allowed leads.
+- No cross-tenant data leakage.
+- Unauthorized users cannot perform restricted updates.
+
+H. Auditability
+- Confirm important funnel actions create traceable activity logs or audit entries where expected.
+
+Required deliverables:
+- /tests/e2e folder with structured specs
+- /docs/leads-funnel-test-plan.md
+- /docs/leads-funnel-test-cases.md
+- /docs/leads-funnel-test-data.md
+- /docs/leads-funnel-defect-log-template.md
+- /docs/leads-funnel-results-template.md
+- README with setup, env vars, how to run, and assumptions
+
+Execution requirements:
+- Use stable selectors (prefer data-testid). If they do not exist, list where they are needed.
+- Do not fake success. Mark blocked tests explicitly.
+- Add comments showing expected business outcome for each test.
+- Separate smoke tests from full regression tests.
+- Include a final coverage matrix showing:
+  - covered
+  - partially covered
+  - blocked
+  - not automatable yet
+
+Important:
+I will send the generated scripts, reports, screenshots, and support files back for independent analysis. Structure everything cleanly so it can be reviewed quickly.
