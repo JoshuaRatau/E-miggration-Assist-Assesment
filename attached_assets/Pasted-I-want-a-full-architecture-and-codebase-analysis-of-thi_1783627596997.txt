@@ -1,0 +1,196 @@
+I want a full architecture and codebase analysis of this repository: EMA Leads Funnel.
+
+Goal:
+Give me a complete understanding of this application as a system — its architecture, all workflows, all routes, all major code modules, and the relevance/purpose of each part of the code.
+
+Important context:
+- This repository is NOT the main EMA application.
+- It is the separate leads funnel and admin CRM that feeds the main E-Migration Assist platform.
+- It includes public lead capture, admin CRM, outreach/campaigns, conversion/case preparation, and the referral tunnel.
+- I want a technical but structured analysis I can read as an operator/founder, not just as a developer.
+
+What I need you to do:
+
+1. FULL REPOSITORY WALKTHROUGH
+Inspect the repo and map out:
+- top-level folders
+- app folders
+- shared libraries
+- config files
+- test folders
+- docs folders
+- any scripts, workers, background jobs, or queue handlers
+
+For each major folder or module, explain:
+- what it does
+- why it exists
+- what other parts of the app depend on it
+
+2. FULL ARCHITECTURE ANALYSIS
+Document the architecture clearly:
+- frontend architecture
+- backend architecture
+- database architecture
+- shared code / contract architecture
+- background job architecture
+- deployment architecture
+- environment separation (dev vs production)
+- cross-origin / cookie / auth behavior
+- integration points with external services
+- integration boundary with the main EMA platform
+
+3. ALL USER-FACING WORKFLOWS
+Map every major workflow end to end, including:
+A. Public assessment funnel
+B. Segment landing pages
+C. OTP verification flow
+D. Submission / finalize flow
+E. Thank-you / reference flow
+F. Public status lookup
+G. Admin login / auth flow
+H. Lead management flow
+I. Lead qualification / pipeline movement
+J. Notes, ownership, follow-ups, archive, delete
+K. Dashboard and saved views / kanban
+L. Scoring / events / audit trail
+M. Campaign and outreach flow
+N. Templates and merge tokens
+O. Lead-to-case conversion
+P. Client portal preparation status flow
+Q. Referral tunnel / consent / matched partner handoff
+R. Any known blocked, partial, future-phase, or placeholder flows
+
+For each workflow, explain:
+- trigger
+- steps
+- frontend pages/components involved
+- backend routes involved
+- database tables involved
+- business rules / invariants
+- side effects (email, WhatsApp, jobs, audit rows, etc.)
+- failure cases / edge cases
+
+4. ALL FRONTEND ROUTES
+Find and list all frontend routes/pages in the SPA.
+For each route, document:
+- path
+- purpose
+- which user it serves
+- main components used
+- which API calls it makes
+- what business process it supports
+
+5. ALL BACKEND API ROUTES
+Find and list all backend routes/endpoints.
+For each endpoint, document:
+- method
+- path
+- purpose
+- auth requirement
+- request/response purpose
+- which service/function handles it
+- which tables/entities it touches
+- what workflow it belongs to
+
+6. DATABASE AND DOMAIN MODEL
+Inspect the Drizzle schema and document:
+- all tables/entities
+- what each table represents
+- key relationships
+- lifecycle significance
+- which tables are core vs support
+- audit/event tables
+- referral-related tables
+- campaign-related tables
+- auth/session-related tables
+
+Also explain:
+- what data belongs purely to the funnel
+- what data is handoff/integration related
+- what data should never come from the main EMA application
+
+7. BUSINESS RULES / INVARIANTS
+Extract and document all important invariants or rules, for example:
+- when a lead can be finalized
+- when reference numbers are revealed
+- what status transitions are allowed/disallowed
+- when conversion is allowed
+- what is idempotent
+- when audit rows are written
+- what is consent-gated
+- what is fail-closed
+- what dev-only bypasses exist
+- any security-sensitive rules
+
+8. SERVICES, JOBS, AND INTEGRATIONS
+Identify and document:
+- email sending flow
+- WhatsApp / SMS flow
+- OTP flow
+- pg-boss jobs and schedulers
+- template rendering
+- audience building
+- unsubscribe flow
+- file/document upload flow
+- referral tunnel mechanics
+- any external APIs called
+- any webhooks received
+
+For each, explain:
+- what triggers it
+- what code handles it
+- what could break it
+- how important it is to the funnel
+
+9. TESTING ASSESSMENT
+Inspect the tests folder and explain:
+- what tests exist
+- what scopes A-H cover
+- which workflows are covered
+- what is smoke vs regression
+- what is blocked/fixme
+- what expected failures exist
+- what this tells us about current maturity
+
+10. CODE RELEVANCE MAP
+Create a “code relevance” view:
+- Which files are mission-critical to core funnel behavior
+- Which files support admin CRM only
+- Which files support outreach/campaigns only
+- Which files support conversion/referral only
+- Which files are configuration/scaffolding
+- Which files are likely safe to ignore for business understanding
+- Which files should be reviewed first by a founder/product owner
+
+11. OUTPUT FILES
+Create these files:
+- /docs/full-funnel-architecture-analysis.md
+- /docs/full-funnel-workflows.md
+- /docs/frontend-routes-map.md
+- /docs/backend-routes-map.md
+- /docs/database-domain-map.md
+- /docs/business-rules-and-invariants.md
+- /docs/services-jobs-and-integrations.md
+- /docs/testing-maturity-analysis.md
+- /docs/code-relevance-map.md
+- /docs/executive-understanding-of-the-funnel.md
+
+12. OUTPUT STYLE
+The docs must be:
+- structured
+- evidence-based from the actual code
+- easy for a non-engineer founder to understand
+- detailed enough for engineering follow-up
+- explicit where something is inferred vs directly confirmed in code
+
+13. RULES
+- Do not guess if code can be inspected.
+- Trace actual files, routes, components, and tables.
+- If something is unclear or dead code, say so.
+- If a feature is partial, call it partial.
+- If there are mismatches between docs and code, highlight them.
+- If there are routes/functions that appear unused, flag them.
+- If there are risky couplings to the main EMA platform, identify them precisely.
+
+Final deliverable question to answer:
+“If I had to explain this funnel as a full operating system for lead capture, qualification, conversion preparation, outreach, and referral, how exactly does it work end to end, and which code matters most?”
