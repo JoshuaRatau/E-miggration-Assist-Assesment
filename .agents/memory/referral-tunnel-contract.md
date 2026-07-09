@@ -35,7 +35,9 @@ E-Migration Assist platform — never build the receiving side here.
 ## Firm matching (EMA is the sole matcher)
 - The funnel does NO local firm matching and stores NO firm data. On POPIA consent it POSTs a signed NON-PII request to `{EMA_APP_URL}/api/referrals/match` (`x-referral-signature` = base64url HMAC over `stableStringify(body)`, NOT hex).
 - Body: `leadReference, matterType, region, urgency` + optional `route/theme` (keys omitted when absent — never undefined/null in the signed body).
-- A `matched:true` response MUST carry `firmId + firmName + acceptUrl` or the funnel treats it as unavailable — the offer email must never go out without EMA's signed accept URL (no funnel-minted fallback link).
+- A `matched:true` response MUST carry `firmId + firm name + acceptUrl` or the funnel treats it as unavailable — the offer email must never go out without EMA's signed accept URL (no funnel-minted fallback link).
+- LIVE EMA response shape drifts from the doc: `firmDisplayName` (not `firmName`) + structured `preview` object (not `redactedPreview` string). The funnel parser accepts BOTH shapes; keep it dual-shape — don't "clean it up" to one.
+- Verified live 2026-07-09: signed match returns 200 matched:true end-to-end once secrets are byte-identical. EMA sends no `firmContactEmail` and its fallback contact endpoint doesn't exist yet ⇒ offer email is skipped and honestly audited (`ema_firm_contact_unavailable`) — that's the expected state until EMA ships the contact endpoint.
 - No match / EMA down ⇒ referral created UNMATCHED (`ema_firm_id` null), audited `no_available_firm_match` / `ema_unavailable`, NO email (user-confirmed fail-closed). Only `referrals.ema_firm_id` is persisted; firm name/tier go to audit detail; `acceptUrl` is never persisted.
 - Offer email recipient = `firmContactEmail` from the match response, else signed fallback `GET /api/referral-tunnel/firms/:firmId/contact`. Full EMA-side contract in `docs/recommended-fix-or-clarification.md`.
 

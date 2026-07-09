@@ -62,13 +62,25 @@ Body (non-PII; keys present only when a value exists):
 {
   "matched": true,
   "firmId": "<EMA firm uuid>",
-  "firmName": "IOS Immigration Consultants",
-  "redactedPreview": "<short non-PII enquiry summary>",   // optional
+  "firmDisplayName": "IOS Immigration Consultants",       // live shape ("firmName" also accepted)
+  "preview": {                                            // live shape; a "redactedPreview" string also accepted
+    "displayName": "IOS Immigration Consultants",
+    "region": "Gauteng",
+    "specialties": "Critical Skills,General Work",
+    "verified": true
+  },
   "matchTier": "specialty_region",                        // optional
-  "acceptUrl": "https://<ema>/referrals/accept?...signed...", // optional, signed
-  "firmContactEmail": "admin@firm.example"                // optional
+  "acceptUrl": "https://<ema>/api/referrals/match/accept?token=...", // REQUIRED on matched:true, signed + expiring
+  "acceptToken": "...",                                   // optional (funnel ignores; uses acceptUrl verbatim)
+  "expiresAt": 1783849382463,                             // optional
+  "firmContactEmail": "admin@firm.example"                // optional — if absent the funnel uses the fallback contact lookup below
 }
 ```
+
+> The funnel accepts BOTH the documented shape (`firmName` + `redactedPreview`
+> string) and the live-observed shape (`firmDisplayName` + `preview` object).
+> A `matched:true` response WITHOUT `acceptUrl` is treated as unavailable and
+> no offer email is sent.
 
 - No available firm → **200** `{ "matched": false }` (NOT a 404 — the funnel
   treats non-2xx as "EMA unavailable").
