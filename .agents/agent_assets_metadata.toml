@@ -54,3 +54,9 @@ id = "P3HKpAzq49DiAny7PoqA4"
 uri = "file://docs/end-to-end-architecture.txt"
 type = "text"
 title = "End-to-End Architecture (Plain Text)"
+
+[[outputs]]
+id = "i9bosfsQYhl01aVugJqbg"
+uri = "file://docs/end-to-end-architecture.pdf"
+type = "pdf"
+title = "End-to-End Architecture (PDF)"
