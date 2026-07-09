@@ -48,3 +48,9 @@ id = "TclVZNqmtGsx0otBSKp8F"
 uri = "file://reports/EMA-Funnel-Report-2026-07-04.pdf"
 type = "pdf"
 title = "EMA Leads Funnel — Change Report (24h)"
+
+[[outputs]]
+id = "P3HKpAzq49DiAny7PoqA4"
+uri = "file://docs/end-to-end-architecture.txt"
+type = "text"
+title = "End-to-End Architecture (Plain Text)"
