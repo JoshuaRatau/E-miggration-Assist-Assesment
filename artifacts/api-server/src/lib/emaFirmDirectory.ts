@@ -40,10 +40,10 @@ export interface EmaMatchRequest {
  */
 const emaPreviewObjectSchema = z
   .object({
-    displayName: z.string().optional(),
-    region: z.string().optional(),
-    specialties: z.string().optional(),
-    verified: z.boolean().optional(),
+    displayName: z.string().nullable().optional(),
+    region: z.string().nullable().optional(),
+    specialties: z.string().nullable().optional(),
+    verified: z.boolean().nullable().optional(),
   })
   .passthrough();
 
