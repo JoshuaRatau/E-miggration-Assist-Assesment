@@ -187,6 +187,8 @@ export interface ApplicantPushBody {
   leadId?: string;
   leadReference?: string;
   funnelVersion?: string;
+  /** EMA's OWN firm id (live directory match) — additive, present only when matched. */
+  emaFirmId?: string;
 }
 
 /**
@@ -197,6 +199,7 @@ export function buildApplicantPushBody(args: {
   referralId: string;
   assignmentId: string | null;
   funnelFirmId: string | null;
+  emaFirmId?: string | null;
   preview: ReferralPreview;
   lead: PrelaunchLead;
 }): ApplicantPushBody {
@@ -246,6 +249,8 @@ export function buildApplicantPushBody(args: {
   }
 
   if (lead.id) body.leadId = lead.id;
+
+  if (args.emaFirmId) body.emaFirmId = args.emaFirmId;
 
   body.funnelVersion = FUNNEL_PAYLOAD_VERSION;
 
@@ -314,6 +319,7 @@ export function mintRedirectToken(args: {
   referralId: string;
   assignmentId?: string | null;
   funnelFirmId?: string | null;
+  emaFirmId?: string | null;
 }): MintedToken | null {
   const secret = getReferralSecret();
   const emaUrl = getEmaAppUrl();
@@ -332,6 +338,7 @@ export function mintRedirectToken(args: {
   };
   if (args.assignmentId) payload.assignmentId = args.assignmentId;
   if (args.funnelFirmId) payload.funnelFirmId = args.funnelFirmId;
+  if (args.emaFirmId) payload.emaFirmId = args.emaFirmId;
 
   const token = signReferralToken(payload, secret);
   const redirectUrl = `${emaUrl}/referral-gate?token=${encodeURIComponent(token)}`;

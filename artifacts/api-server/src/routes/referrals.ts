@@ -11,7 +11,12 @@ import {
 } from "@workspace/db";
 import { requireAdminAuth } from "../lib/adminAuth";
 import { writeReferralAudit } from "../lib/referralAudit";
-import { deriveReferralPreview, matchPartnerFirm } from "../lib/referralService";
+import { deriveReferralPreview } from "../lib/referralService";
+import {
+  fetchEmaFirmAdminEmail,
+  fetchEmaFirms,
+  matchEmaFirm,
+} from "../lib/emaFirmDirectory";
 import { sendInternalNotificationEmail } from "../lib/email";
 import { isTunnelConfigured } from "../lib/referralTunnel";
 
@@ -61,6 +66,12 @@ router.post("/referrals/consent", async (req, res) => {
     consentSourcePage,
   } = parsed.data;
 
+  // LIVE firm lookup against the main EMA platform (single source of truth
+  // for partner firms). Fetched BEFORE the transaction — never hold a row
+  // lock across an external HTTP call. `null` = directory unavailable
+  // (EMA down / EMA_APP_URL unset) → the referral is created UNMATCHED.
+  const emaFirms = await fetchEmaFirms();
+
   // Serialise concurrent consent calls for the same lead: lock the lead row
   // FOR UPDATE inside a transaction, re-check for an existing referral under
   // the lock, then create. This closes the read-then-insert race that could
@@ -94,10 +105,12 @@ router.post("/referrals/consent", async (req, res) => {
     }
 
     const preview = deriveReferralPreview(lead);
-    const firm = await matchPartnerFirm({
-      matterType: preview.matterType,
-      region: preview.region,
-    });
+    const firm = emaFirms
+      ? matchEmaFirm(
+          { matterType: preview.matterType, region: preview.region },
+          emaFirms,
+        )
+      : null;
 
     const now = new Date();
     const referralId = generateReferralId();
@@ -105,7 +118,9 @@ router.post("/referrals/consent", async (req, res) => {
     await tx.insert(referralsTable).values({
       referralId,
       leadId: lead.id,
-      funnelFirmId: firm?.id ?? null,
+      // Matched firm now lives in the MAIN EMA platform — store its EMA id.
+      // funnelFirmId (legacy local partner_firms match) stays null.
+      emaFirmId: firm?.id ?? null,
       status: "offered",
       matterType: preview.matterType,
       urgency: preview.urgency,
@@ -125,7 +140,7 @@ router.post("/referrals/consent", async (req, res) => {
       referralId,
       matched: Boolean(firm),
       firmId: firm?.id ?? null,
-      firmContactEmail: firm?.contactEmail ?? null,
+      firmName: firm?.name ?? null,
       preview,
     };
   });
@@ -144,36 +159,52 @@ router.post("/referrals/consent", async (req, res) => {
   await writeReferralAudit(outcome.referralId, "consent_recorded", {
     consentTextVersion: consentTextVersion ?? "v1",
     matched: outcome.matched,
+    firmDirectory: emaFirms === null ? "unavailable" : "ema_live",
   });
   await writeReferralAudit(outcome.referralId, "offered", {
-    funnelFirmId: outcome.firmId,
+    emaFirmId: outcome.firmId,
   });
 
-  // Fire-and-forget offer email to the matched firm — secure preview link
-  // only, NO applicant PII.
-  if (outcome.firmContactEmail) {
-    const base = funnelBaseUrl();
-    const previewLink = base
-      ? `${base}/referral-preview/${outcome.referralId}`
-      : `(configure PUBLIC_BASE_URL) /referral-preview/${outcome.referralId}`;
-    void sendInternalNotificationEmail({
-      to: outcome.firmContactEmail,
-      subject: `New referral preview — ${outcome.preview.matterType} [${outcome.referralId}]`,
-      text: [
-        `A new immigration referral matching your firm is available.`,
-        ``,
-        `Matter type: ${outcome.preview.matterType}`,
-        `Urgency: ${outcome.preview.urgency}`,
-        `Region: ${outcome.preview.region}`,
-        ``,
-        `View the secure referral preview (no personal details are shown until you accept and open it in EMA):`,
-        previewLink,
-        ``,
-        `Reference: ${outcome.referralId}`,
-        ``,
-        `— E-Migration Assist`,
-      ].join("\n"),
-    });
+  // Fire-and-forget offer email to the matched firm's ADMIN address. The
+  // admin email lives in the MAIN EMA platform (set at firm registration) —
+  // resolved via a signed server-to-server lookup. Secure preview link only,
+  // NO applicant PII.
+  if (outcome.firmId) {
+    const firmId = outcome.firmId;
+    const { referralId, preview } = outcome;
+    void (async () => {
+      const adminEmail = await fetchEmaFirmAdminEmail(firmId);
+      if (!adminEmail) {
+        await writeReferralAudit(referralId, "failed", {
+          stage: "offer_email",
+          reason: "ema_firm_contact_unavailable",
+          emaFirmId: firmId,
+        });
+        return;
+      }
+      const base = funnelBaseUrl();
+      const previewLink = base
+        ? `${base}/referral-preview/${referralId}`
+        : `(configure PUBLIC_BASE_URL) /referral-preview/${referralId}`;
+      await sendInternalNotificationEmail({
+        to: adminEmail,
+        subject: `New referral preview — ${preview.matterType} [${referralId}]`,
+        text: [
+          `A new immigration referral matching your firm is available.`,
+          ``,
+          `Matter type: ${preview.matterType}`,
+          `Urgency: ${preview.urgency}`,
+          `Region: ${preview.region}`,
+          ``,
+          `View the secure referral preview (no personal details are shown until you accept and open it in EMA):`,
+          previewLink,
+          ``,
+          `Reference: ${referralId}`,
+          ``,
+          `— E-Migration Assist`,
+        ].join("\n"),
+      });
+    })();
   }
 
   return res.status(201).json({

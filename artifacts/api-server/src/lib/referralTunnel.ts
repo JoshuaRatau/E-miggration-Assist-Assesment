@@ -77,6 +77,8 @@ export interface ReferralTokenPayload {
   referralId: string;
   assignmentId?: string;
   funnelFirmId?: string;
+  /** EMA's own firm id (live-directory match) — additive/optional. */
+  emaFirmId?: string;
   intendedAction: typeof INTENDED_ACTION;
   /** epoch MILLISECONDS */
   issuedAt: number;

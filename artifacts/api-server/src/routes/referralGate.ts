@@ -77,6 +77,7 @@ router.get("/referral-gate/redirect/:referralId", async (req, res) => {
     referralId,
     assignmentId: referral.assignmentId ?? null,
     funnelFirmId: referral.funnelFirmId ?? null,
+    emaFirmId: referral.emaFirmId ?? null,
     preview,
     lead,
   });
@@ -104,6 +105,7 @@ router.get("/referral-gate/redirect/:referralId", async (req, res) => {
     referralId,
     assignmentId: referral.assignmentId ?? null,
     funnelFirmId: referral.funnelFirmId ?? null,
+    emaFirmId: referral.emaFirmId ?? null,
   });
   if (!minted) {
     await writeReferralAudit(referralId, "failed", {
