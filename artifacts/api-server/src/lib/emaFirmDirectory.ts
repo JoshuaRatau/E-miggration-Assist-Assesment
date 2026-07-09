@@ -33,11 +33,27 @@ export interface EmaMatchRequest {
   theme?: string;
 }
 
+/**
+ * EMA's live response uses `firmDisplayName` + a structured `preview` object;
+ * the documented contract said `firmName` + `redactedPreview` string. Accept
+ * BOTH shapes (live-observed shape takes precedence when both present).
+ */
+const emaPreviewObjectSchema = z
+  .object({
+    displayName: z.string().optional(),
+    region: z.string().optional(),
+    specialties: z.string().optional(),
+    verified: z.boolean().optional(),
+  })
+  .passthrough();
+
 const emaMatchResponseSchema = z.object({
   matched: z.boolean(),
   firmId: z.string().min(1).nullable().optional(),
   firmName: z.string().min(1).nullable().optional(),
+  firmDisplayName: z.string().min(1).nullable().optional(),
   redactedPreview: z.string().nullable().optional(),
+  preview: emaPreviewObjectSchema.nullable().optional(),
   matchTier: z.string().nullable().optional(),
   // REQUIRED on matched:true (enforced below) — the offer email must carry
   // EMA's signed accept URL, never a funnel-minted fallback.
@@ -130,7 +146,25 @@ export async function requestEmaFirmMatch(
     if (!data.matched) {
       return { kind: "no_match" };
     }
-    if (!data.firmId || !data.firmName || !data.acceptUrl) {
+    const firmName = data.firmDisplayName ?? data.firmName ?? null;
+    // Prefer an explicit redactedPreview string; otherwise render EMA's
+    // structured preview object into safe display lines (all non-PII).
+    const redactedPreview =
+      data.redactedPreview ??
+      (data.preview
+        ? [
+            data.preview.displayName ? `Firm: ${data.preview.displayName}` : null,
+            data.preview.region ? `Region: ${data.preview.region}` : null,
+            data.preview.specialties
+              ? `Specialties: ${data.preview.specialties}`
+              : null,
+            data.preview.verified ? `Verified partner firm` : null,
+          ]
+            .filter(Boolean)
+            .join("\n")
+        : null) ??
+      null;
+    if (!data.firmId || !firmName || !data.acceptUrl) {
       // A matched response MUST carry the firm identity AND the signed
       // accept URL — anything less is a malformed/incomplete EMA response.
       // Treat as unavailable (never send an offer email without a signed
@@ -138,7 +172,7 @@ export async function requestEmaFirmMatch(
       logger.warn(
         {
           hasFirmId: Boolean(data.firmId),
-          hasFirmName: Boolean(data.firmName),
+          hasFirmName: Boolean(firmName),
           hasAcceptUrl: Boolean(data.acceptUrl),
         },
         "EMA match response marked matched but missing required fields",
@@ -149,8 +183,8 @@ export async function requestEmaFirmMatch(
       kind: "matched",
       match: {
         firmId: data.firmId,
-        firmName: data.firmName,
-        redactedPreview: data.redactedPreview ?? null,
+        firmName,
+        redactedPreview,
         matchTier: data.matchTier ?? null,
         acceptUrl: data.acceptUrl,
         firmContactEmail: data.firmContactEmail ?? null,
