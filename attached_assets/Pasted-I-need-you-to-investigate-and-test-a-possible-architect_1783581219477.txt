@@ -1,0 +1,106 @@
+I need you to investigate and test a possible architecture / workflow miscommunication in the EMA Leads Funnel application.
+
+Important context:
+- The EMA Leads Funnel is a separate application from the main E-Migration Assist platform.
+- The funnel has its own frontend, backend, API, and PostgreSQL database.
+- The funnel is the sender system: it captures leads, qualifies them, manages them in the admin CRM, and only hands them off onward through the referral / conversion boundary.
+- It is NOT supposed to behave as if it is the main EMA application.
+- The main EMA application is a separate system and should only become relevant at the correct integration point.
+
+Architecture expectations we are working from:
+1. Funnel owns:
+   - public lead capture
+   - assessment flow
+   - OTP verification
+   - finalize flow
+   - thank-you / reference generation
+   - admin CRM lead visibility
+   - lead qualification and pipeline movement
+   - conversion readiness logic
+   - referral preparation
+2. Main EMA platform should only be involved at the referral / conversion boundary where that is explicitly intended.
+3. We suspect the current test or implementation may be incorrectly trying to “find the company” in the main EMA application database during funnel behavior where it should instead rely on the funnel’s own data.
+
+Your task:
+I want you to inspect the codebase and determine whether the funnel is incorrectly depending on the main EMA application database or main-app company lookup too early in the flow.
+
+Please do ALL of the following:
+
+A. Architecture inspection
+- Trace where company lookup, firm lookup, organization lookup, matched partner lookup, or referral lookup happens in this repo.
+- Identify whether those lookups are:
+  1. purely local to the funnel database,
+  2. internal CRM logic,
+  3. referral-boundary logic,
+  4. external/main-EMA integration logic.
+- Produce a simple dependency map showing:
+  - which screens/actions trigger the lookup,
+  - which backend route handles it,
+  - which service/function runs it,
+  - which database table or external endpoint it depends on.
+
+B. Miscommunication diagnosis
+- Determine whether the current behavior of “looking for the company in the main application database” is:
+  1. expected by design,
+  2. only expected at conversion/referral stage,
+  3. a bug,
+  4. a test misunderstanding,
+  5. an environment/configuration issue.
+- Be explicit and evidence-based. Do not guess.
+
+C. Funnel-only test
+- Run or prepare a funnel-only validation path that proves whether the funnel can complete its own normal flow without needing the main EMA app:
+  - public entry
+  - assessment
+  - OTP path or test-safe bypass if available in non-production
+  - finalize
+  - thank-you / reference generation
+  - admin CRM visibility of the lead
+  - basic lead pipeline progression
+- If this cannot run fully, explain exactly what blocks it.
+
+D. Integration-boundary test
+- Identify the exact point where the funnel is legitimately supposed to interact with the main EMA platform.
+- Verify whether that interaction is:
+  - consent-gated,
+  - status-gated,
+  - API-driven,
+  - callback-driven,
+  - database-driven,
+  - or not yet implemented.
+- Confirm whether company matching is supposed to happen:
+  - before finalize,
+  - after finalize,
+  - during qualification,
+  - at ready_for_case,
+  - at converted,
+  - at referral dispatch,
+  - or only in the main EMA platform after handoff.
+
+E. Outputs I need
+Please create the following files:
+1. /docs/funnel-main-app-miscommunication-analysis.md
+2. /docs/funnel-dependency-map.md
+3. /docs/funnel-only-test-findings.md
+4. /docs/integration-boundary-findings.md
+5. /docs/recommended-fix-or-clarification.md
+
+In those docs, include:
+- findings
+- exact routes/functions/files involved
+- screenshots or logs where useful
+- whether this is a code defect, architecture misunderstanding, or test scope problem
+- recommended next step
+
+Rules:
+- Do not fake success.
+- If something is blocked, say exactly what is blocked and why.
+- If environment variables or secrets are needed, list them.
+- If the issue is caused by dev vs production differences, explain that clearly.
+- If the funnel is correctly isolated and the test expectation is wrong, say that plainly.
+- If the funnel is wrongly coupled to the main EMA platform, identify the coupling precisely.
+
+Final question to answer in the output:
+“Should the funnel need the main EMA company database in order to perform this flow, or is that a misconfiguration / misunderstanding?”
+
+Please keep the final answer crisp, technical, and evidence-based.
