@@ -32,5 +32,12 @@ E-Migration Assist platform — never build the receiving side here.
 - `leadReference` = `lead.referenceNumber` (funnel has ONE reference per lead; sent under both keys). `funnelVersion` = constant `FUNNEL_PAYLOAD_VERSION` (`"1"`) — a contract stamp; bump in lockstep with EMA when the metadata shape changes.
 - Adding a route value ⇒ update the funnel `ALLOWED_ROUTES` (funnelContext.ts) AND the EMA set/alias in `referralTunnel.ts`.
 
+## Firm matching (EMA is the sole matcher)
+- The funnel does NO local firm matching and stores NO firm data. On POPIA consent it POSTs a signed NON-PII request to `{EMA_APP_URL}/api/referrals/match` (`x-referral-signature` = base64url HMAC over `stableStringify(body)`, NOT hex).
+- Body: `leadReference, matterType, region, urgency` + optional `route/theme` (keys omitted when absent — never undefined/null in the signed body).
+- A `matched:true` response MUST carry `firmId + firmName + acceptUrl` or the funnel treats it as unavailable — the offer email must never go out without EMA's signed accept URL (no funnel-minted fallback link).
+- No match / EMA down ⇒ referral created UNMATCHED (`ema_firm_id` null), audited `no_available_firm_match` / `ema_unavailable`, NO email (user-confirmed fail-closed). Only `referrals.ema_firm_id` is persisted; firm name/tier go to audit detail; `acceptUrl` is never persisted.
+- Offer email recipient = `firmContactEmail` from the match response, else signed fallback `GET /api/referral-tunnel/firms/:firmId/contact`. Full EMA-side contract in `docs/recommended-fix-or-clarification.md`.
+
 ## Config
 - `EMA_APP_URL` = base URL of the main EMA app (redirect target). Dev uses a janeway `.replit.dev` URL (dev-scoped env); live needs the PUBLISHED EMA URL. `EMA_APP_URL` is not sensitive (plain env var ok); `REFERRAL_TUNNEL_SECRET` is sensitive (Replit Secret, identical on both sides).

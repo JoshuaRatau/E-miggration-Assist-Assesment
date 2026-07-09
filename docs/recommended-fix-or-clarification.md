@@ -13,29 +13,75 @@ unreachable the referral is created UNMATCHED, never matched against stale data)
 
 ## What the funnel now does (implemented)
 
-1. **Live directory fetch** — `GET {EMA_APP_URL}/api/public/firms` (5s timeout,
-   verified firms only). On failure → referral created unmatched, audit
-   `firmDirectory: "unavailable"`.
-2. **In-memory match** — specialty+region → region → specialty → any verified firm
-   ("South Africa" region matches all). Matched firm's EMA id is stored in
+1. **Server-side match by EMA** — on POPIA consent the funnel sends a signed,
+   NON-PII match request to `POST {EMA_APP_URL}/api/referrals/match` (5s
+   timeout). EMA decides the firm using its own knowledge of active, vetted
+   firms, regions, specialties, and capacity. The funnel performs NO local
+   matching and stores NO firm data.
+2. **Storage** — only the matched firm's EMA id is stored, in the existing
    `referrals.ema_firm_id` (text); the legacy `funnel_firm_id` stays NULL.
-3. **Firm offer notification** — the funnel needs the firm's admin email (set at
-   EMA registration). It calls a **signed EMA endpoint that does not exist yet**
-   (see contract below). Until EMA ships it, the miss is audited as
-   `failed / offer_email / ema_firm_contact_unavailable` and the flow continues.
-4. **Referral tunnel payloads** — the redirect token and the signed applicant push
-   body now carry an additive optional `emaFirmId` field so EMA can route the
+   Firm name / match tier land in the append-only `referral_audit` detail.
+3. **No match / EMA unavailable** — the referral is created UNMATCHED, audited
+   as `no_available_firm_match` / `ema_unavailable`; no preview email is sent
+   and no internal firm data is exposed to the applicant.
+4. **Firm offer notification** — a redacted-preview email (firm display name,
+   redacted preview, signed accept URL, NO applicant PII) goes to the firm's
+   admin email. The address comes from the match response
+   (`firmContactEmail`) when EMA provides it, else via the signed contact
+   lookup below. A miss is audited as
+   `failed / offer_email / ema_firm_contact_unavailable`.
+5. **Referral tunnel payloads** — the redirect token and the signed applicant
+   push body carry an additive optional `emaFirmId` field so EMA can route the
    accepted referral to the right firm. Existing fields are unchanged.
 
 ## REQUIRED on the EMA platform side
 
-### New endpoint: firm admin contact lookup
+### New endpoint: firm matching (PRIMARY)
+
+```
+POST /api/referrals/match
+Headers:
+  content-type: application/json
+  x-referral-signature: <base64url HMAC-SHA256 (unpadded), NOT hex>
+Body (non-PII; keys present only when a value exists):
+  {
+    "leadReference": "EMA-XXXXXXXX-XXXX",
+    "matterType": "Visa application",
+    "region": "Gauteng",
+    "urgency": "urgent",
+    "route": "overstay",          // optional (funnel route)
+    "theme": "dark"               // optional (funnel theme)
+  }
+```
+
+- Signature: `HMAC_SHA256(REFERRAL_TUNNEL_SECRET, stableStringify(body))` —
+  key-sorted JSON serialization, identical to the applicant-push convention.
+- EMA must verify the signature and respond **200** with:
+
+```
+{
+  "matched": true,
+  "firmId": "<EMA firm uuid>",
+  "firmName": "IOS Immigration Consultants",
+  "redactedPreview": "<short non-PII enquiry summary>",   // optional
+  "matchTier": "specialty_region",                        // optional
+  "acceptUrl": "https://<ema>/referrals/accept?...signed...", // optional, signed
+  "firmContactEmail": "admin@firm.example"                // optional
+}
+```
+
+- No available firm → **200** `{ "matched": false }` (NOT a 404 — the funnel
+  treats non-2xx as "EMA unavailable").
+- `acceptUrl` must be a signed, expiring URL minted by EMA; the funnel embeds
+  it verbatim in the firm offer email.
+
+### Fallback endpoint: firm admin contact lookup
 
 ```
 GET /api/referral-tunnel/firms/:firmId/contact
 Headers:
   x-funnel-timestamp: <epoch ms>
-  x-funnel-signature: <hex HMAC-SHA256>
+  x-funnel-signature: <base64url HMAC-SHA256 (unpadded), NOT hex>
 ```
 
 - Signature: `HMAC_SHA256(REFERRAL_TUNNEL_SECRET, stableStringify({ firmId, timestamp }))`

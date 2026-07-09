@@ -7,168 +7,173 @@ import {
 } from "./referralTunnel";
 
 /**
- * EMA firm directory — LIVE lookup against the main EMA platform.
+ * EMA firm matching — the MAIN EMA platform is the single source of truth
+ * for active, vetted firms, regions, specialties, and capacity.
  *
- * The main EMA platform is the single source of truth for partner firms.
- * At consent time the funnel fetches the verified-firm directory from
- * `{EMA_APP_URL}/api/public/firms` and matches in-memory. If EMA is
- * unreachable or the tunnel is unconfigured, matching honestly yields
- * NO firm (the referral is still recorded, unmatched) — we never fall
- * back to guessing.
+ * The funnel performs NO local firm matching. At consent time it sends a
+ * signed, NON-PII match request to `POST {EMA_APP_URL}/api/referrals/match`
+ * and EMA decides the firm. If EMA is unreachable, unconfigured, or returns
+ * no match, the referral is honestly recorded UNMATCHED — we never fall back
+ * to guessing or local data.
  *
- * PII discipline: matching uses ONLY non-identifying enquiry attributes
- * (matter type + general region). No applicant data leaves the funnel here —
- * the directory fetch is a plain read.
+ * PII discipline: the match request carries ONLY non-identifying enquiry
+ * attributes (lead reference, matter type, region, urgency, route, theme).
+ * No applicant name/email/phone leaves the funnel at matching stage.
  */
-
-const emaFirmSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1),
-  city: z.string().nullable().optional(),
-  province: z.string().nullable().optional(),
-  // Comma-separated specialization labels, e.g. "Critical Skills,Business Visas".
-  specializations: z.string().nullable().optional(),
-  verificationStatus: z.string().nullable().optional(),
-  firmType: z.string().nullable().optional(),
-});
-
-export interface EmaFirm {
-  id: string;
-  name: string;
-  city: string | null;
-  province: string | null;
-  specializations: string[];
-  firmType: string | null;
-}
 
 const FETCH_TIMEOUT_MS = 5_000;
 
+/** Non-PII match request sent to Main EMA. */
+export interface EmaMatchRequest {
+  leadReference: string;
+  matterType: string;
+  region: string;
+  urgency: string;
+  route?: string;
+  theme?: string;
+}
+
+const emaMatchResponseSchema = z.object({
+  matched: z.boolean(),
+  firmId: z.string().min(1).nullable().optional(),
+  firmName: z.string().min(1).nullable().optional(),
+  redactedPreview: z.string().nullable().optional(),
+  matchTier: z.string().nullable().optional(),
+  // REQUIRED on matched:true (enforced below) — the offer email must carry
+  // EMA's signed accept URL, never a funnel-minted fallback.
+  acceptUrl: z.string().url().nullable().optional(),
+  // Optional firm-admin contact for the offer email; EMA may omit it, in
+  // which case the funnel falls back to the signed contact lookup below.
+  firmContactEmail: z.string().email().nullable().optional(),
+});
+
+export interface EmaFirmMatch {
+  firmId: string;
+  firmName: string;
+  redactedPreview: string | null;
+  matchTier: string | null;
+  /** Signed, expiring accept URL minted by EMA — always present on a match. */
+  acceptUrl: string;
+  firmContactEmail: string | null;
+}
+
+export type EmaMatchOutcome =
+  | { kind: "matched"; match: EmaFirmMatch }
+  | { kind: "no_match" }
+  | { kind: "unavailable" };
+
 /**
- * Fetch the verified firm directory from the main EMA platform.
- * Returns `null` (not `[]`) when the directory is UNAVAILABLE — callers must
- * distinguish "EMA down / unconfigured" from "no verified firms exist".
+ * Ask Main EMA to match a firm for this enquiry.
+ *
+ * `POST {EMA_APP_URL}/api/referrals/match` with the standard S2S signing
+ * convention: `x-referral-signature` = HMAC-SHA256 over `stableStringify(body)`
+ * using `REFERRAL_TUNNEL_SECRET`.
+ *
+ * Never throws. `unavailable` = EMA down/unconfigured/unexpected response;
+ * `no_match` = EMA answered but has no available firm.
  */
-export async function fetchEmaFirms(): Promise<EmaFirm[] | null> {
+export async function requestEmaFirmMatch(
+  request: EmaMatchRequest,
+): Promise<EmaMatchOutcome> {
   const base = getEmaAppUrl();
-  if (!base) {
+  const secret = getReferralSecret();
+  if (!base || !secret) {
     logger.warn(
-      { reason: "ema_app_url_unset" },
-      "EMA firm directory unavailable — EMA_APP_URL not configured",
+      { reason: !base ? "ema_app_url_unset" : "tunnel_secret_unset" },
+      "EMA firm matching unavailable — tunnel not configured",
     );
-    return null;
+    return { kind: "unavailable" };
   }
 
+  // Build the body with keys present ONLY when a value exists — the HMAC
+  // covers the exact serialized body, so absent keys must be omitted, never
+  // set to undefined/null.
+  const body: Record<string, string> = {
+    leadReference: request.leadReference,
+    matterType: request.matterType,
+    region: request.region,
+    urgency: request.urgency,
+  };
+  if (request.route) body.route = request.route;
+  if (request.theme) body.theme = request.theme;
+
   try {
-    const res = await fetch(`${base}/api/public/firms`, {
+    const res = await fetch(`${base}/api/referrals/match`, {
+      method: "POST",
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      headers: { accept: "application/json" },
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json",
+        "x-referral-signature": signBody(body, secret),
+      },
+      body: JSON.stringify(body),
     });
     if (!res.ok) {
+      // A 404 body-level "no match" should come back as 200 {matched:false};
+      // any non-2xx means the endpoint failed or does not exist yet.
       logger.warn(
         { status: res.status },
-        "EMA firm directory fetch failed (non-2xx)",
+        "EMA firm match call failed (non-2xx)",
       );
-      return null;
+      return { kind: "unavailable" };
     }
     const raw: unknown = await res.json();
-    const parsed = z.array(emaFirmSchema).safeParse(raw);
+    const parsed = emaMatchResponseSchema.safeParse(raw);
     if (!parsed.success) {
       logger.warn(
         { issues: parsed.error.issues.length },
-        "EMA firm directory response did not match expected shape",
+        "EMA firm match response did not match expected shape",
       );
-      return null;
+      return { kind: "unavailable" };
     }
-    return parsed.data
-      .filter((f) => (f.verificationStatus ?? "").toLowerCase() === "verified")
-      .map((f) => ({
-        id: f.id,
-        name: f.name,
-        city: f.city?.trim() || null,
-        province: f.province?.trim() || null,
-        specializations: (f.specializations ?? "")
-          .split(",")
-          .map((s) => s.trim())
-          .filter((s) => s.length > 0),
-        firmType: f.firmType?.trim() || null,
-      }));
+    const data = parsed.data;
+    if (!data.matched) {
+      return { kind: "no_match" };
+    }
+    if (!data.firmId || !data.firmName || !data.acceptUrl) {
+      // A matched response MUST carry the firm identity AND the signed
+      // accept URL — anything less is a malformed/incomplete EMA response.
+      // Treat as unavailable (never send an offer email without a signed
+      // accept URL).
+      logger.warn(
+        {
+          hasFirmId: Boolean(data.firmId),
+          hasFirmName: Boolean(data.firmName),
+          hasAcceptUrl: Boolean(data.acceptUrl),
+        },
+        "EMA match response marked matched but missing required fields",
+      );
+      return { kind: "unavailable" };
+    }
+    return {
+      kind: "matched",
+      match: {
+        firmId: data.firmId,
+        firmName: data.firmName,
+        redactedPreview: data.redactedPreview ?? null,
+        matchTier: data.matchTier ?? null,
+        acceptUrl: data.acceptUrl,
+        firmContactEmail: data.firmContactEmail ?? null,
+      },
+    };
   } catch (err) {
     logger.warn(
       { err: err instanceof Error ? err.message : "unknown" },
-      "EMA firm directory fetch failed",
+      "EMA firm match call failed",
     );
-    return null;
+    return { kind: "unavailable" };
   }
 }
 
-export interface EmaMatchCriteria {
-  matterType: string;
-  region: string;
-}
-
-function specialtyMatches(firm: EmaFirm, matterType: string): boolean {
-  const matter = matterType.toLowerCase();
-  return firm.specializations.some((s) => {
-    const spec = s.toLowerCase();
-    return matter.includes(spec) || spec.includes(matter) ||
-      // Loose token overlap: "Visa application" ↔ "Business Visas".
-      spec.split(/\s+/).some((tok) => tok.length > 3 && matter.includes(tok));
-  });
-}
-
-function regionMatches(firm: EmaFirm, region: string): boolean {
-  const r = region.toLowerCase();
-  // Firms are all South-African; a country-level region of South Africa
-  // matches every firm. Otherwise compare against province/city.
-  if (r.includes("south africa")) return true;
-  const fields = [firm.province, firm.city].filter(
-    (v): v is string => !!v,
-  );
-  return fields.some(
-    (f) => f.toLowerCase().includes(r) || r.includes(f.toLowerCase()),
-  );
-}
-
-/**
- * Pick the best verified EMA firm for the enquiry.
- * Preference order (mirrors the legacy local matcher):
- *   1. specialty AND region overlap
- *   2. region overlap
- *   3. specialty overlap
- *   4. any verified firm
- */
-export function matchEmaFirm(
-  criteria: EmaMatchCriteria,
-  firms: EmaFirm[],
-): EmaFirm | null {
-  if (firms.length === 0) return null;
-
-  const both = firms.find(
-    (f) =>
-      specialtyMatches(f, criteria.matterType) &&
-      regionMatches(f, criteria.region),
-  );
-  if (both) return both;
-
-  const regionOnly = firms.find((f) => regionMatches(f, criteria.region));
-  if (regionOnly) return regionOnly;
-
-  const specialtyOnly = firms.find((f) =>
-    specialtyMatches(f, criteria.matterType),
-  );
-  if (specialtyOnly) return specialtyOnly;
-
-  return firms[0] ?? null;
-}
-
 // ---------------------------------------------------------------------------
-// Firm admin contact lookup (signed, server-to-server)
+// Firm admin contact lookup (signed, server-to-server) — FALLBACK only, used
+// when the match response does not include `firmContactEmail`.
 // ---------------------------------------------------------------------------
 
 /**
- * Every EMA firm has an admin email set at registration; the public firms
- * endpoint deliberately omits it. The funnel requests it via a SIGNED
- * server-to-server call so the offer email can reach the firm admin.
+ * Every EMA firm has an admin email set at registration. The funnel requests
+ * it via a SIGNED server-to-server call so the offer email can reach the
+ * firm admin.
  *
  * Expected EMA-side endpoint (documented in
  * docs/recommended-fix-or-clarification.md):

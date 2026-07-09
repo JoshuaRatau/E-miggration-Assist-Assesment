@@ -14,8 +14,8 @@ import { writeReferralAudit } from "../lib/referralAudit";
 import { deriveReferralPreview } from "../lib/referralService";
 import {
   fetchEmaFirmAdminEmail,
-  fetchEmaFirms,
-  matchEmaFirm,
+  requestEmaFirmMatch,
+  type EmaFirmMatch,
 } from "../lib/emaFirmDirectory";
 import { sendInternalNotificationEmail } from "../lib/email";
 import { isTunnelConfigured } from "../lib/referralTunnel";
@@ -27,15 +27,6 @@ function generateReferralId(): string {
   const year = new Date().getUTCFullYear();
   const rand = crypto.randomBytes(5).toString("hex").toUpperCase();
   return `EMA-REF-${year}-${rand}`;
-}
-
-/** Public base URL of THIS funnel (for building the secure preview link). */
-function funnelBaseUrl(): string | null {
-  const explicit = process.env.PUBLIC_BASE_URL?.trim().replace(/\/+$/, "");
-  if (explicit) return explicit;
-  const dev = process.env.REPLIT_DEV_DOMAIN?.trim();
-  if (dev) return `https://${dev}`;
-  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -66,11 +57,32 @@ router.post("/referrals/consent", async (req, res) => {
     consentSourcePage,
   } = parsed.data;
 
-  // LIVE firm lookup against the main EMA platform (single source of truth
-  // for partner firms). Fetched BEFORE the transaction — never hold a row
-  // lock across an external HTTP call. `null` = directory unavailable
-  // (EMA down / EMA_APP_URL unset) → the referral is created UNMATCHED.
-  const emaFirms = await fetchEmaFirms();
+  // Pre-read the lead WITHOUT a lock to build the NON-PII match request —
+  // the external EMA match call must never run while holding a row lock.
+  // Existence/idempotency are re-checked under the lock inside the tx.
+  const [leadPeek] = await db
+    .select()
+    .from(prelaunchLeadsTable)
+    .where(eq(prelaunchLeadsTable.referenceNumber, referenceNumber))
+    .limit(1);
+  if (!leadPeek) {
+    return res.status(404).json({ error: "lead_not_found" });
+  }
+
+  // LIVE firm matching by the main EMA platform (single source of truth for
+  // active, vetted firms, regions, specialties, and capacity). The request
+  // carries ONLY non-identifying enquiry attributes — no applicant PII.
+  const peekPreview = deriveReferralPreview(leadPeek);
+  const matchOutcome = await requestEmaFirmMatch({
+    leadReference: leadPeek.referenceNumber,
+    matterType: peekPreview.matterType,
+    region: peekPreview.region,
+    urgency: peekPreview.urgency,
+    route: leadPeek.funnelContext?.route ?? undefined,
+    theme: leadPeek.funnelContext?.theme ?? undefined,
+  });
+  const emaMatch: EmaFirmMatch | null =
+    matchOutcome.kind === "matched" ? matchOutcome.match : null;
 
   // Serialise concurrent consent calls for the same lead: lock the lead row
   // FOR UPDATE inside a transaction, re-check for an existing referral under
@@ -105,12 +117,6 @@ router.post("/referrals/consent", async (req, res) => {
     }
 
     const preview = deriveReferralPreview(lead);
-    const firm = emaFirms
-      ? matchEmaFirm(
-          { matterType: preview.matterType, region: preview.region },
-          emaFirms,
-        )
-      : null;
 
     const now = new Date();
     const referralId = generateReferralId();
@@ -118,9 +124,10 @@ router.post("/referrals/consent", async (req, res) => {
     await tx.insert(referralsTable).values({
       referralId,
       leadId: lead.id,
-      // Matched firm now lives in the MAIN EMA platform — store its EMA id.
-      // funnelFirmId (legacy local partner_firms match) stays null.
-      emaFirmId: firm?.id ?? null,
+      // Matched firm lives in the MAIN EMA platform — store its EMA id only.
+      // funnelFirmId (legacy local partner_firms match) stays null; no
+      // duplicate local firm storage.
+      emaFirmId: emaMatch?.firmId ?? null,
       status: "offered",
       matterType: preview.matterType,
       urgency: preview.urgency,
@@ -138,9 +145,7 @@ router.post("/referrals/consent", async (req, res) => {
     return {
       kind: "created" as const,
       referralId,
-      matched: Boolean(firm),
-      firmId: firm?.id ?? null,
-      firmName: firm?.name ?? null,
+      matched: Boolean(emaMatch),
       preview,
     };
   });
@@ -159,45 +164,64 @@ router.post("/referrals/consent", async (req, res) => {
   await writeReferralAudit(outcome.referralId, "consent_recorded", {
     consentTextVersion: consentTextVersion ?? "v1",
     matched: outcome.matched,
-    firmDirectory: emaFirms === null ? "unavailable" : "ema_live",
+    firmMatching:
+      matchOutcome.kind === "unavailable" ? "unavailable" : "ema_match_api",
   });
-  await writeReferralAudit(outcome.referralId, "offered", {
-    emaFirmId: outcome.firmId,
-  });
+  if (emaMatch) {
+    await writeReferralAudit(outcome.referralId, "offered", {
+      emaFirmId: emaMatch.firmId,
+      matchTier: emaMatch.matchTier,
+    });
+  } else {
+    // No available firm match (or EMA unavailable) — recorded honestly;
+    // NO preview email is sent and no internal firm data is exposed.
+    await writeReferralAudit(outcome.referralId, "offered", {
+      emaFirmId: null,
+      reason:
+        matchOutcome.kind === "unavailable"
+          ? "ema_unavailable"
+          : "no_available_firm_match",
+    });
+  }
 
-  // Fire-and-forget offer email to the matched firm's ADMIN address. The
-  // admin email lives in the MAIN EMA platform (set at firm registration) —
-  // resolved via a signed server-to-server lookup. Secure preview link only,
-  // NO applicant PII.
-  if (outcome.firmId) {
-    const firmId = outcome.firmId;
+  // Fire-and-forget redacted-preview offer email to the matched firm's
+  // ADMIN address (set at firm registration in the MAIN EMA platform).
+  // Contact comes from the match response when provided, else via the
+  // signed server-to-server lookup. Redacted preview + signed accept URL
+  // only — NO applicant PII.
+  if (emaMatch) {
+    const match = emaMatch;
     const { referralId, preview } = outcome;
     void (async () => {
-      const adminEmail = await fetchEmaFirmAdminEmail(firmId);
+      const adminEmail =
+        match.firmContactEmail ?? (await fetchEmaFirmAdminEmail(match.firmId));
       if (!adminEmail) {
         await writeReferralAudit(referralId, "failed", {
           stage: "offer_email",
           reason: "ema_firm_contact_unavailable",
-          emaFirmId: firmId,
+          emaFirmId: match.firmId,
         });
         return;
       }
-      const base = funnelBaseUrl();
-      const previewLink = base
-        ? `${base}/referral-preview/${referralId}`
-        : `(configure PUBLIC_BASE_URL) /referral-preview/${referralId}`;
+      const redactedPreview =
+        match.redactedPreview ??
+        [
+          `Matter type: ${preview.matterType}`,
+          `Urgency: ${preview.urgency}`,
+          `Region: ${preview.region}`,
+        ].join("\n");
       await sendInternalNotificationEmail({
         to: adminEmail,
         subject: `New referral preview — ${preview.matterType} [${referralId}]`,
         text: [
+          `Dear ${match.firmName},`,
+          ``,
           `A new immigration referral matching your firm is available.`,
           ``,
-          `Matter type: ${preview.matterType}`,
-          `Urgency: ${preview.urgency}`,
-          `Region: ${preview.region}`,
+          redactedPreview,
           ``,
-          `View the secure referral preview (no personal details are shown until you accept and open it in EMA):`,
-          previewLink,
+          `Accept this referral in E-Migration Assist (no personal details are shown until you accept):`,
+          match.acceptUrl,
           ``,
           `Reference: ${referralId}`,
           ``,
