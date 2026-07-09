@@ -47,10 +47,10 @@ externalPort = 80
 
 [userenv.shared]
 TWILIO_WHATSAPP_TEMPLATE_SID = "HX6ba65d89397a629d701450a27c40afed"
+EMA_APP_URL = "https://data-migration-assist-backup.replit.app"
 
 [userenv.development]
 EMAIL_FROM = "noreply@emigration-assist.com"
 RESEND_API_KEY = "re_4Ez643oH_N4xXRcZX4kC3dGVA5iegW6mC"
-EMA_APP_URL = "https://831ea573-ae21-4d66-961a-bc34f1ca5ddd-00-d6572qj5r8sb.janeway.replit.dev"
 E2E_DISABLE_RATE_LIMIT = "1"
 DISABLE_OTP_VERIFICATION = "1"
