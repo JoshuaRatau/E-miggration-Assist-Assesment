@@ -1,0 +1,110 @@
+Delete all user-generated and customer-related data from the application, including email addresses and submitted assessments, while preserving all administrator accounts.
+
+Requirements:
+
+1. Delete all non-admin users and all data associated with them, including:
+
+   * Email addresses
+   * Names and contact information
+   * Phone numbers
+   * User profiles
+   * Login sessions
+   * Authentication tokens
+   * Password reset tokens
+   * Email verification records
+   * Assessment submissions
+   * Assessment answers
+   * Assessment results
+   * Leads
+   * Enquiries
+   * Contact-form submissions
+   * Uploaded documents
+   * Generated documents
+   * Notifications
+   * Email logs
+   * Email queue records
+   * Audit records linked specifically to deleted non-admin users
+   * Referrals
+   * Cases created from assessments
+   * Any related child or dependent records
+
+2. Preserve all administrator accounts.
+
+3. Determine administrator accounts using the existing role or permission system, such as:
+
+   * role = "admin"
+   * role = "super_admin"
+   * is_admin = true
+   * users assigned an administrative role through role or permission tables
+
+4. Do not identify administrators only by email address unless the application has no proper role system.
+
+5. Preserve data belonging to administrators, including:
+
+   * Administrator email addresses
+   * Administrator profiles
+   * Administrator authentication records
+   * Administrator permissions
+   * Administrator roles
+
+6. Preserve the following system data:
+
+   * Database schema
+   * Migrations
+   * System settings
+   * Application configuration
+   * Visa rules
+   * Workflow configuration
+   * Seeded reference data
+   * Template library
+   * Knowledge-base configuration
+   * Role and permission definitions
+   * Admin dashboard configuration
+
+7. Delete records in the correct dependency order to avoid foreign-key violations.
+
+8. Use a database transaction so that the entire operation rolls back if any deletion fails.
+
+9. Before deleting anything:
+
+   * Create a database backup or export.
+   * Produce a dry-run report showing what will be deleted.
+   * Display the number of administrators that will be preserved.
+   * Display the number of non-admin users and related records that will be deleted.
+
+10. Do not execute the final deletion until the dry-run confirms that no administrator account will be removed.
+
+11. Remove files belonging to deleted users from local storage, S3, or any configured object-storage service.
+
+12. Do not delete shared system files or files used by administrator accounts.
+
+13. Remove orphaned records after the cleanup.
+
+14. Reset dashboard statistics, cached counts, queues, and counters that depend on the deleted data.
+
+15. After deletion, verify that:
+
+* All administrator accounts can still log in.
+* Administrator roles and permissions remain intact.
+* No non-admin email addresses remain in the database.
+* No submitted assessments remain.
+* No customer or lead records remain.
+* No orphaned records remain.
+* No foreign-key violations exist.
+* A new user can register and submit a new assessment successfully.
+
+16. Provide a final cleanup report containing:
+
+* Administrators preserved
+* Non-admin users deleted
+* Email records deleted
+* Assessments deleted
+* Leads deleted
+* Cases deleted
+* Documents deleted
+* Storage files deleted
+* Related records deleted
+* Records skipped
+* Errors encountered
+
+Do not drop tables, alter the database schema, remove migrations, delete administrator accounts, or remove system configuration.
