@@ -286,7 +286,7 @@ export default function OverstayAssessment() {
   // primary anchor on the screen, instead of melting into the bg.
   const isIntro = step === STEP_INTRO;
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-300 via-slate-400 to-slate-500 text-foreground">
+    <div className="min-h-screen bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 text-foreground">
       <BrandHeader variant="compact" homeHref="/overstay-assessment" />
 
       {/* Ambient brand glow — softened so the lighter page bg keeps focus on the card */}
