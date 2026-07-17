@@ -282,11 +282,10 @@ export default function OverstayAssessment() {
   const personalisedName = form.firstName.trim() || "there";
   const progressPct = (displayedStep(step) / TOTAL_QUESTION_STEPS) * 100;
 
-  // Lighter slate page surround so the dark form card reads as the
-  // primary anchor on the screen, instead of melting into the bg.
+  // Original dark navy page background (app theme) behind the form card.
   const isIntro = step === STEP_INTRO;
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 text-foreground">
+    <div className="min-h-screen bg-background text-foreground">
       <BrandHeader variant="compact" homeHref="/overstay-assessment" />
 
       {/* Ambient brand glow — softened so the lighter page bg keeps focus on the card */}
