@@ -474,26 +474,7 @@ export function Home() {
   const { data: stats, isLoading } = useGetStatsSummary();
 
   return (
-    <div
-      className="min-h-screen bg-gradient-to-b from-slate-500 via-slate-600 to-slate-700 text-foreground flex flex-col items-center px-4 sm:px-6 lg:px-12 py-6 lg:py-10"
-      style={{
-        "--background": "214 32% 82%",
-        "--foreground": "215 40% 17%",
-        "--card": "210 40% 99%",
-        "--card-foreground": "215 40% 17%",
-        "--card-border": "214 25% 80%",
-        "--border": "214 25% 78%",
-        "--popover": "210 40% 99%",
-        "--popover-foreground": "215 40% 17%",
-        "--muted": "214 28% 88%",
-        "--muted-foreground": "215 22% 30%",
-        "--secondary": "214 28% 88%",
-        "--secondary-foreground": "215 40% 17%",
-        "--accent": "214 32% 90%",
-        "--accent-foreground": "215 40% 17%",
-        "--input": "214 28% 82%",
-      } as any}
-    >
+    <div className="min-h-screen bg-background text-foreground flex flex-col items-center px-4 sm:px-6 lg:px-12 py-6 lg:py-10">
       <div className="w-full max-w-6xl mx-auto space-y-16 sm:space-y-20 lg:space-y-24">
         <BrandHeader
           rightSlot={
