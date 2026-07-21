@@ -186,18 +186,6 @@ function priorityRank(p: string | null | undefined): number {
   return p && p in PRIORITY_RANK ? PRIORITY_RANK[p]! : 99;
 }
 
-// Subtle row highlight for actionable statuses.  "new" leads need triage,
-// "reviewing" leads are mid-triage and need to be contacted next — both
-// represent inbox work the operator should clear.  We use a very light
-// blue tint so it reads as "needs your attention" without overpowering the
-// table's color cues (priority badges still pop).
-function rowHighlightClass(status: string | null | undefined): string {
-  if (status === "new" || status === "reviewing") {
-    return "bg-blue-50/60 hover:bg-blue-100/60";
-  }
-  return "";
-}
-
 // Segment pill label + colour for the "Segment & Scenario" column.
 function segmentLabel(
   s: "individual" | "overstay" | "business",
@@ -1464,7 +1452,7 @@ export function Admin() {
                           data-testid={`row-lead-${lead.referenceNumber}`}
                           data-has-whatsapp={hasWhatsapp ? "true" : "false"}
                           data-status={lead.leadStatus}
-                          className={`even:bg-muted/10 hover:bg-muted/20 transition-colors [&>td]:py-3 ${rowHighlightClass(lead.leadStatus)}`}
+                          className="hover:bg-muted/20 transition-colors [&>td]:py-3"
                         >
                           <TableCell>
                             <div className="font-medium flex items-center gap-2 flex-wrap">
