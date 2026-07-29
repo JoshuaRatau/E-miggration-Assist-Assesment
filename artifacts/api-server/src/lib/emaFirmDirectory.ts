@@ -4,6 +4,7 @@ import {
   getEmaAppUrl,
   getReferralSecret,
   signBody,
+  stableStringify,
 } from "./referralTunnel";
 
 /**
@@ -122,7 +123,10 @@ export async function requestEmaFirmMatch(
         accept: "application/json",
         "x-referral-signature": signBody(body, secret),
       },
-      body: JSON.stringify(body),
+      // Send the exact stable serialization we signed. `JSON.stringify` emits
+      // insertion order, which diverges from the key-sorted bytes the HMAC
+      // covers as soon as `route` or `theme` is present.
+      body: stableStringify(body),
     });
     if (!res.ok) {
       // A 404 body-level "no match" should come back as 200 {matched:false};
