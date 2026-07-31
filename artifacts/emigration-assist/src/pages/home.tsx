@@ -266,7 +266,7 @@ const FUNNEL_ROUTES: FunnelRoute[] = [
       "Regularisation guidance",
     ],
     cta: "Start",
-    href: "https://immigrationassist.replit.app/overstay-assessment?route=overstay_undesirable",
+    href: "https://www.emigration-assist.com/assessment/overstay-assessment?route=overstay_undesirable",
     external: true,
     featured: true,
     testid: "route-overstay",

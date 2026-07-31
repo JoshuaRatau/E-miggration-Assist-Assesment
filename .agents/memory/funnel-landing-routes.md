@@ -17,7 +17,7 @@ Two premium-priority "urgent pillars" sit above the route grid: overstay and
 stuck/delayed applications.
 
 ## Decision 1 — overstay route uses a hardcoded ABSOLUTE URL on purpose
-The overstay CTA links to `https://immigrationassist.replit.app/overstay-assessment`
+The overstay CTA links to `https://www.emigration-assist.com/assessment/overstay-assessment` (branded domain, switched from the old replit.app absolute URL in Jul 2026 at the user's request)
 (an absolute `<a>`), NOT a Wouter `<Link href="/overstay-assessment">`, even though
 `/overstay-assessment` is a valid client route in `App.tsx`.
 **Why:** this is the pre-existing production routing behaviour; the split Vercel/Replit
