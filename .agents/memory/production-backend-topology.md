@@ -30,6 +30,18 @@ problem, not a code bug. Fix by either (a) setting Vercel `VITE_API_URL` to
 `api.emigration-assist.com` as a verified custom domain on THIS Repl's deployment so it
 serves current code.
 
+## Status update (2026-07-31)
+`api.emigration-assist.com` currently serves CURRENT code (`/api/overstay-intake` validates and
+creates leads there) — but it still writes to a DIFFERENT database than this Repl's production DB
+(prod read-replica queries here won't find leads created via that host). Verify live leads via the
+live API's public endpoints (`/api/public/status/:ref`, `/api/leads/:ref`), not this Repl's prod DB.
+
+## Marketing site routing + TLS (2026-07-31)
+`www.emigration-assist.com/*` 307-redirects to apex `emigration-assist.com` with path+query preserved;
+the `/assessment/*` rewrite passes deep paths through to the SPA shell (client routing handles them).
+Gotcha observed: the **www** cert expired 2026-07-30 while the apex cert was valid — a www-only TLS
+outage looks like "the button broke" but is a marketing-host cert renewal issue, not app code.
+
 ## Autoscale vs pg-boss (separate reliability issue)
 `.replit` sets `deploymentTarget = "autoscale"`, but the api-server runs pg-boss (durable
 queue) + always-on single-replica workers (score worker 60s tick, campaign scheduler 30s
