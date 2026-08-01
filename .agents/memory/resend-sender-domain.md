@@ -41,3 +41,6 @@ domain), which is why prod OTP works while Replit dev did not.
 **How to apply:** to send Replit test emails to arbitrary recipients, the real
 domain must be verified at resend.com/domains; the test-sender route is owner-inbox
 only.
+
+## Key rotation (Aug 2026)
+Production OTP email broke with Resend 401 "API key is invalid" — the deployed backend had a stale/revoked RESEND_API_KEY baked in. Fix: user creates a new key, save it as the RESEND_API_KEY Replit Secret (delete any same-key plain env var to avoid the collision gotcha), then REPUBLISH — deployments only pick up secrets at publish time. Verified in dev via POST /api/otp/request (201 + no "Resend send returned error" warn).

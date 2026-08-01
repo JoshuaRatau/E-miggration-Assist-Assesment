@@ -51,6 +51,5 @@ EMA_APP_URL = "https://data-migration-assist-backup.replit.app"
 
 [userenv.development]
 EMAIL_FROM = "noreply@emigration-assist.com"
-RESEND_API_KEY = "re_4Ez643oH_N4xXRcZX4kC3dGVA5iegW6mC"
 E2E_DISABLE_RATE_LIMIT = "1"
 DISABLE_OTP_VERIFICATION = "1"
