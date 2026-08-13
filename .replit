@@ -48,6 +48,7 @@ externalPort = 80
 [userenv.shared]
 TWILIO_WHATSAPP_TEMPLATE_SID = "HX6ba65d89397a629d701450a27c40afed"
 EMA_APP_URL = "https://data-migration-assist-backup.replit.app"
+META_WEBHOOK_VERIFY_TOKEN = "8f0d4c013786311b873c86e79cbe932feacd6de5735711fc"
 
 [userenv.development]
 EMAIL_FROM = "noreply@emigration-assist.com"
