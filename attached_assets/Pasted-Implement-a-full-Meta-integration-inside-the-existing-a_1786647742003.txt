@@ -1,0 +1,2012 @@
+Implement a **full Meta integration** inside the existing application. The goal is to create a completely separate **Meta Analytics** page that connects to Meta/Facebook/Instagram and automatically pulls reporting, lead, campaign, audience, content, messaging, and performance data from Meta APIs.
+
+Do **not** redesign the existing Leads Centre or Exports pages unless integration hooks are required. Create a dedicated Meta reporting module/page that follows the same existing application UI, navigation, authentication, role permissions, dark-blue branding, spacing, cards, typography, and responsive behaviour.
+
+## PRIMARY GOAL
+
+Create a new navigation item called:
+
+**Meta Analytics**
+
+This page must act as an internal Meta Business Suite-style reporting dashboard.
+
+The page must pull real data from connected Meta assets through the appropriate official Meta APIs and display the available reporting metrics inside our own application.
+
+The system must support:
+
+* Facebook Pages
+* Instagram Professional/Business accounts
+* Meta Lead Ads
+* Meta campaigns
+* Ad Sets
+* Ads
+* Instant Forms
+* Facebook/Instagram insights
+* Video/Reels insights where available
+* Messaging/conversation metrics where Meta exposes them
+* Lead reporting
+* Campaign reporting
+* Date-range reporting
+* CSV exports
+* Historical metric storage
+* Period comparisons
+
+Do not use mock data once a Meta account has been connected.
+
+If a specific metric is not available through the current Meta API or required permissions have not been granted, clearly show:
+
+**Metric unavailable through Meta API**
+
+instead of inventing a value.
+
+---
+
+# 1. CREATE NEW META ANALYTICS PAGE
+
+Add a dedicated route such as:
+
+```text
+/meta-analytics
+```
+
+Add **Meta Analytics** to the authenticated application's main navigation.
+
+The page should have its own header:
+
+**Meta Analytics**
+
+Subtitle:
+
+**Facebook, Instagram, campaign, lead and engagement performance from your connected Meta accounts.**
+
+At the top right provide:
+
+* Meta account connection status
+* Connected Facebook Page
+* Connected Instagram account
+* Last synchronised time
+* Refresh data button
+* Settings / Manage connection button
+
+Example:
+
+```text
+Meta Analytics
+
+Facebook, Instagram, campaign, lead and engagement performance.
+
+[ Facebook: Connected ]
+[ Instagram: Connected ]
+
+Last synced: 13 Aug 2026, 15:45
+
+[ Refresh data ] [ Manage Meta Connection ]
+```
+
+---
+
+# 2. META OAUTH / ACCOUNT CONNECTION
+
+Implement secure Meta OAuth.
+
+Do not expose Meta access tokens in the frontend.
+
+All Meta API communication must happen through the backend.
+
+Create a setup flow:
+
+```text
+Meta Analytics
+    ↓
+Connect Meta
+    ↓
+Login with Facebook / Meta
+    ↓
+Select Business/Page
+    ↓
+Select Instagram account
+    ↓
+Grant permissions
+    ↓
+Connection saved securely
+```
+
+Add a connection card when no Meta account is connected:
+
+```text
+Connect Meta
+
+Connect your Facebook Page and Instagram Business account to automatically import insights, campaigns and leads.
+
+[ Connect Meta Account ]
+```
+
+Store Meta credentials/tokens securely server-side.
+
+Never save secrets or long-lived access tokens in browser localStorage.
+
+Use the existing environment-variable/configuration system.
+
+Suggested environment variables:
+
+```text
+META_APP_ID=
+META_APP_SECRET=
+META_REDIRECT_URI=
+META_WEBHOOK_VERIFY_TOKEN=
+META_GRAPH_API_VERSION=
+```
+
+Where appropriate, persist long-lived Page/business tokens securely in encrypted server-side storage.
+
+---
+
+# 3. DATABASE STRUCTURE
+
+Inspect the existing database schema and ORM before implementing.
+
+Reuse current application patterns.
+
+Add tables equivalent to:
+
+```text
+meta_connections
+meta_pages
+meta_instagram_accounts
+meta_campaigns
+meta_ad_sets
+meta_ads
+meta_lead_forms
+meta_leads
+meta_insights_daily
+meta_content_insights
+meta_video_insights
+meta_conversation_metrics
+meta_webhook_events
+meta_sync_runs
+```
+
+Suggested `meta_connections` fields:
+
+```text
+id
+organisation_id
+meta_user_id
+business_id
+facebook_page_id
+instagram_account_id
+access_token_encrypted
+token_expires_at
+connected_by_user_id
+status
+created_at
+updated_at
+last_synced_at
+```
+
+Suggested `meta_insights_daily`:
+
+```text
+id
+organisation_id
+account_type
+account_id
+metric_name
+metric_value
+metric_breakdown
+metric_date
+period
+created_at
+updated_at
+```
+
+Ensure uniqueness prevents the same metric/day from being duplicated during repeated sync operations.
+
+---
+
+# 4. PAGE NAVIGATION / REPORT TABS
+
+Inside Meta Analytics create these tabs:
+
+```text
+Overview
+Performance
+Audience
+Content
+Campaigns
+Leads
+Conversations
+Conversions
+Exports
+```
+
+Do not load every API dataset at once.
+
+Use lazy loading or individual API requests per tab where appropriate.
+
+---
+
+# 5. OVERVIEW DASHBOARD
+
+The Overview tab should show headline KPI cards.
+
+Based on what Meta exposes, include metrics such as:
+
+```text
+Views
+Viewers / Reach
+Follows
+Unfollows
+Net Follows
+Facebook Visits
+Instagram Profile Visits
+Content Interactions
+3-Second Video Views
+Watch Time
+Conversations Started
+New Contacts
+Response Rate
+Leads
+Orders / Conversions
+Appointments
+```
+
+Use the reporting structure from Meta Business Suite as inspiration.
+
+For example:
+
+```text
+Performance
+
+16 July 2026 – 12 August 2026
+
+Views
+186.2K
+↑ 72.6%
+
+Viewers
+86,815
+↑ 67.7%
+
+Follows
+41
+↑ 41.4%
+
+Facebook visits
+900
+↑ 10.7%
+
+Content interactions
+554
+↑ 25.6%
+
+3-second views
+13.6K
+↑ 28%
+
+Watch time
+3d 2h
+↑ 15.8%
+
+Conversations started
+16
+↑ 45.5%
+
+New contacts
+16
+↑ 45.5%
+```
+
+These values must come from Meta or our stored synced Meta data.
+
+Do not hard-code these example numbers.
+
+---
+
+# 6. DATE RANGE CONTROL
+
+Provide a global date filter at the top of Meta Analytics:
+
+```text
+Today
+Yesterday
+Last 7 days
+Last 28 days
+Last 30 days
+Last 90 days
+This month
+Last month
+Custom
+```
+
+Custom range must allow:
+
+```text
+From
+To
+```
+
+Changing the date range should update all relevant cards/charts/tables.
+
+Persist the selected range in the URL query string where practical.
+
+Example:
+
+```text
+/meta-analytics?from=2026-07-16&to=2026-08-12
+```
+
+---
+
+# 7. PERIOD COMPARISON
+
+For each KPI display comparison against the previous equivalent period.
+
+Example:
+
+```text
+Views
+
+186,200
++72.6%
+
+Previous period:
+107,879
+```
+
+Use:
+
+```text
+current_period_value
+previous_period_value
+percentage_change
+```
+
+Handle zero previous values safely.
+
+Do not divide by zero.
+
+---
+
+# 8. PERFORMANCE TAB
+
+Create a full Performance reporting page.
+
+Add KPI cards and a time-series chart.
+
+Allow selecting the metric:
+
+```text
+Views
+Reach
+Interactions
+Follows
+Visits
+Video Views
+Watch Time
+Conversations
+Leads
+```
+
+The graph should show daily values.
+
+Example:
+
+```text
+Performance over time
+
+[ Views ▼ ]
+
+16 Jul ───────────────────────── 12 Aug
+```
+
+Allow multiple channel filtering:
+
+```text
+All
+Facebook
+Instagram
+```
+
+Where breakdown data is supported, allow:
+
+```text
+Organic
+Paid
+```
+
+---
+
+# 9. FOLLOWER VS NON-FOLLOWER BREAKDOWN
+
+Where supported by Meta, display audience contribution cards.
+
+Example:
+
+```text
+Views
+
+From followers
+0.8%
+
+From non-followers
+99.2%
+```
+
+For interactions:
+
+```text
+Content Interactions
+
+Followers
+5
+
+Non-followers
+549
+```
+
+Render this using progress bars, doughnut charts, or percentage bars while keeping the application design consistent.
+
+If Meta does not expose the breakdown for a particular account/metric/API version, show:
+
+```text
+Breakdown unavailable
+```
+
+---
+
+# 10. AUDIENCE TAB
+
+Create an Audience page that displays every audience metric Meta allows us to retrieve.
+
+Where available include:
+
+* Total followers
+* New followers
+* Unfollows
+* Net follows
+* Reach
+* Viewer count
+* Follower/non-follower split
+* Country
+* City
+* Age
+* Gender
+* Active times
+* Platform/source
+
+Only display demographic breakdowns Meta actually provides through the API.
+
+Do not attempt to infer demographics.
+
+---
+
+# 11. CONTENT TAB
+
+Create a Content Insights section.
+
+Fetch Facebook and Instagram posts/media where permitted.
+
+Display:
+
+```text
+Thumbnail
+Platform
+Content Type
+Published Date
+Caption
+Views
+Reach
+Likes
+Comments
+Shares
+Saves
+Interactions
+Video Views
+Watch Time
+Engagement Rate
+```
+
+Add filters:
+
+```text
+Facebook
+Instagram
+All
+
+Post
+Image
+Video
+Reel
+Story
+```
+
+Allow sorting by:
+
+```text
+Most viewed
+Most engaged
+Most liked
+Most shared
+Newest
+Oldest
+```
+
+Clicking an item should open a detail panel/page showing all available metrics for that content item.
+
+---
+
+# 12. VIDEOS AND REELS REPORTING
+
+Where Meta exposes these metrics, display:
+
+```text
+3-second video views
+Video views
+Average watch time
+Total watch time
+Reach
+Views
+Replays
+Interactions
+Likes
+Comments
+Shares
+Saves
+```
+
+Create a Video/Reels performance table.
+
+Do not create fake values for unsupported metrics.
+
+---
+
+# 13. CAMPAIGNS TAB
+
+Integrate Meta Marketing API campaign reporting.
+
+Display campaigns in a table:
+
+```text
+Campaign
+Status
+Objective
+Start Date
+End Date
+Amount Spent
+Impressions
+Reach
+Clicks
+CTR
+CPC
+CPM
+Leads
+Cost per Lead
+Conversions
+Cost per Conversion
+```
+
+Where possible also include:
+
+```text
+Results
+Frequency
+Link Clicks
+Landing Page Views
+```
+
+Create expandable hierarchy:
+
+```text
+Campaign
+    ↓
+Ad Sets
+        ↓
+Ads
+```
+
+When clicking a campaign, show associated ad sets and ads.
+
+---
+
+# 14. CAMPAIGN PERFORMANCE SUMMARY
+
+At the top of Campaigns show:
+
+```text
+Total Spend
+Total Impressions
+Total Reach
+Total Clicks
+Average CTR
+Average CPC
+Leads
+Average CPL
+Conversions
+```
+
+Allow campaign search.
+
+Allow filtering by:
+
+```text
+Active
+Paused
+Completed
+Draft
+
+Facebook
+Instagram
+
+Campaign objective
+Date
+```
+
+---
+
+# 15. LEAD ADS INTEGRATION
+
+Integrate Meta Lead Ads.
+
+Pull available Lead Forms.
+
+Create or update leads automatically when a lead is submitted.
+
+Use Meta Webhooks where supported for near-real-time ingestion.
+
+Create webhook endpoint:
+
+```text
+GET /api/meta/webhook
+POST /api/meta/webhook
+```
+
+GET should handle webhook verification.
+
+POST should process incoming Meta webhook events.
+
+Validate all webhook requests according to Meta requirements.
+
+Store webhook events so they are idempotent.
+
+Do not create duplicate leads.
+
+---
+
+# 16. META LEADS TAB
+
+Create a dedicated Leads tab inside Meta Analytics.
+
+Columns:
+
+```text
+Lead
+Email
+Phone
+Facebook Page
+Instagram Account
+Campaign
+Ad Set
+Ad
+Form
+Source
+Created At
+CRM Status
+Assigned To
+Converted
+```
+
+Include source badges:
+
+```text
+Facebook Lead Ad
+Instagram Lead Ad
+Messenger
+```
+
+When Meta supplies lead form answers, store/display those answers safely.
+
+Provide:
+
+```text
+View Lead
+Open in CRM
+```
+
+If the Meta lead already exists in our Leads Centre, link to the existing CRM record instead of creating a parallel duplicate.
+
+---
+
+# 17. INTEGRATE META LEADS INTO EXISTING LEADS CENTRE
+
+Meta Analytics should have its own Leads reporting page, but actual CRM leads must still flow into the existing Leads Centre.
+
+Expected workflow:
+
+```text
+Person submits Meta Instant Form
+        ↓
+Meta sends webhook
+        ↓
+Backend retrieves complete lead details
+        ↓
+Lead is stored
+        ↓
+CRM lead created/updated
+        ↓
+Appears under:
+
+Leads Centre → Intake
+```
+
+Set:
+
+```text
+source = Meta
+platform = Facebook or Instagram
+campaign_id
+campaign_name
+form_id
+form_name
+meta_lead_id
+```
+
+Do not create duplicate CRM entries if the webhook is retried.
+
+---
+
+# 18. CONVERSATIONS TAB
+
+Where Meta's current APIs and permissions allow, create reporting for messaging.
+
+Display:
+
+```text
+Conversations Started
+New Contacts
+Response Rate
+Total Conversations
+```
+
+If additional supported data is available, include it.
+
+Do not attempt to scrape Meta Business Suite.
+
+Only use official Meta APIs.
+
+If a specific messaging insight is unavailable via API, show an informative unavailable state.
+
+---
+
+# 19. CONVERSIONS TAB
+
+This tab should combine Meta acquisition data with our own CRM/business outcomes.
+
+Display:
+
+```text
+Meta Leads
+Qualified Leads
+Converted Leads
+Orders Created
+Appointments Created
+Revenue
+Conversion Rate
+Cost per Lead
+Cost per Conversion
+Return on Ad Spend
+```
+
+This must distinguish between:
+
+```text
+Meta-reported conversions
+```
+
+and
+
+```text
+Internal CRM conversions
+```
+
+Do not mix them silently.
+
+Example funnel:
+
+```text
+Impressions
+120,000
+    ↓
+Clicks
+6,800
+    ↓
+Meta Leads
+215
+    ↓
+Qualified Leads
+89
+    ↓
+Converted
+31
+```
+
+---
+
+# 20. ATTRIBUTION
+
+Store Meta attribution identifiers wherever possible.
+
+For Meta-generated leads store:
+
+```text
+meta_lead_id
+page_id
+instagram_account_id
+campaign_id
+adset_id
+ad_id
+form_id
+```
+
+This must allow reporting like:
+
+```text
+Campaign A
+R2,800 spend
+76 leads
+29 qualified
+12 converted
+R18,400 internal revenue
+```
+
+Where revenue exists in our internal application, calculate:
+
+```text
+ROAS = Revenue / Advertising Spend
+```
+
+Clearly label internal calculations.
+
+---
+
+# 21. EXPORTS TAB
+
+Create an Exports tab inside Meta Analytics.
+
+Allow exporting:
+
+```text
+Overview
+Daily Performance
+Audience
+Content
+Campaigns
+Ad Sets
+Ads
+Leads
+Conversions
+```
+
+CSV files should respect:
+
+* selected date range
+* selected Facebook Page
+* selected Instagram account
+* selected campaign
+* selected filters
+
+Provide buttons such as:
+
+```text
+Download Overview CSV
+Download Campaign CSV
+Download Leads CSV
+Download Content CSV
+Download Full Meta Report
+```
+
+CSV generation must happen through the backend.
+
+---
+
+# 22. FULL REPORT EXPORT
+
+Add:
+
+```text
+Download Full Meta Report
+```
+
+The full CSV/export should include sections or separate CSV files for:
+
+```text
+Summary
+Daily metrics
+Campaigns
+Ads
+Content
+Lead Ads
+Leads
+Conversions
+```
+
+If the application already has a ZIP export utility, reuse it.
+
+Otherwise generate multiple CSV files packaged into one downloadable ZIP where practical.
+
+---
+
+# 23. SYNC STRATEGY
+
+Do not depend exclusively on real-time API requests when loading the dashboard.
+
+Implement a sync/cache architecture.
+
+Recommended:
+
+```text
+Meta API
+    ↓
+Backend sync service
+    ↓
+Database
+    ↓
+Dashboard
+```
+
+The dashboard should primarily read reporting data from our database.
+
+Create sync functions such as:
+
+```text
+syncMetaPages()
+syncInstagramAccounts()
+syncMetaCampaigns()
+syncMetaAds()
+syncMetaForms()
+syncMetaInsights()
+syncMetaContentInsights()
+syncMetaLeads()
+```
+
+Store:
+
+```text
+last_synced_at
+sync_status
+error_message
+```
+
+---
+
+# 24. MANUAL REFRESH
+
+Provide:
+
+```text
+Refresh Meta Data
+```
+
+When clicked:
+
+1. Trigger backend sync.
+2. Disable the button while syncing.
+3. Display:
+
+```text
+Syncing Meta data...
+```
+
+4. Refresh dashboard data when complete.
+5. Display:
+
+```text
+Meta data updated successfully.
+```
+
+Prevent users from triggering multiple simultaneous sync jobs.
+
+---
+
+# 25. AUTOMATIC SYNC
+
+Implement scheduled sync capability using the application's existing job infrastructure.
+
+Suggested frequency:
+
+```text
+Every 30–60 minutes
+```
+
+Do not introduce an external scheduler unless the project already uses one or it is necessary.
+
+Use the existing backend job/scheduler patterns if available.
+
+Lead webhooks should remain near-real-time regardless of analytics sync interval.
+
+---
+
+# 26. META GRAPH API ABSTRACTION
+
+Do not scatter direct Meta fetch calls throughout controllers/components.
+
+Create a reusable service layer.
+
+For example:
+
+```text
+server/services/meta/
+    meta-client.ts
+    meta-auth.ts
+    meta-pages.ts
+    meta-instagram.ts
+    meta-insights.ts
+    meta-marketing.ts
+    meta-leads.ts
+    meta-webhooks.ts
+    meta-sync.ts
+```
+
+Create a central Meta client responsible for:
+
+```text
+Graph API version
+base URL
+authentication
+pagination
+rate-limit handling
+error handling
+retries
+logging
+```
+
+---
+
+# 27. API VERSIONING
+
+Do not hard-code obsolete Meta Graph API versions throughout the codebase.
+
+Use:
+
+```text
+META_GRAPH_API_VERSION
+```
+
+Example URL construction:
+
+```text
+https://graph.facebook.com/{META_GRAPH_API_VERSION}/...
+```
+
+All Meta endpoints must go through the central Meta API client.
+
+---
+
+# 28. METRIC MAPPING LAYER
+
+This is important.
+
+Meta changes available Insights metrics over time.
+
+Do not couple the frontend directly to raw Meta metric names.
+
+Create an internal mapping layer.
+
+Example:
+
+```ts
+{
+  views: {
+    metaMetric: "...",
+    label: "Views",
+    supportedPlatforms: ["facebook", "instagram"]
+  },
+
+  contentInteractions: {
+    metaMetric: "...",
+    label: "Content interactions"
+  }
+}
+```
+
+The service should be able to determine:
+
+```text
+supported
+unsupported
+permission_missing
+deprecated
+no_data
+```
+
+This prevents the dashboard from failing when Meta changes a metric.
+
+---
+
+# 29. PAGINATION
+
+Meta APIs commonly paginate responses.
+
+Implement complete pagination safely.
+
+Do not fetch only the first page.
+
+Use Meta paging cursors and continue until:
+
+```text
+no next page
+```
+
+or until an application-defined safe limit is reached.
+
+This is especially important for:
+
+```text
+campaigns
+ads
+content
+leads
+```
+
+---
+
+# 30. RATE LIMITING
+
+Handle Meta API limits gracefully.
+
+If rate limited:
+
+* do not crash the page
+* record the error
+* retry using safe backoff where appropriate
+* display cached/stored data
+* show last successful sync time
+
+Example:
+
+```text
+Meta temporarily limited requests.
+
+Showing data last synced:
+13 Aug 2026, 15:42
+```
+
+---
+
+# 31. ERROR STATES
+
+Create clear states for:
+
+```text
+Meta not connected
+Token expired
+Permission removed
+Facebook Page disconnected
+Instagram account unavailable
+API unavailable
+Rate limited
+Partial data
+No reporting data
+```
+
+Do not display raw Meta error JSON to normal users.
+
+Log detailed technical errors server-side.
+
+---
+
+# 32. CONNECTION SETTINGS
+
+Create:
+
+```text
+/meta-analytics/settings
+```
+
+or a modal.
+
+Show:
+
+```text
+Connected Meta Business
+Facebook Page
+Instagram Account
+Connected By
+Connected Date
+Last Synced
+Connection Status
+Permissions
+```
+
+Buttons:
+
+```text
+Reconnect Meta
+Change Page
+Refresh Connection
+Disconnect
+```
+
+Disconnect should require confirmation.
+
+Removing the Meta connection must not automatically delete historical reporting unless explicitly requested.
+
+---
+
+# 33. ACCESS CONTROL
+
+Reuse the existing organisation/user permissions.
+
+Only authorised users should be able to:
+
+```text
+connect Meta accounts
+disconnect Meta
+refresh integration
+view advertising spend
+view leads
+export Meta data
+```
+
+Do not expose one organisation's Meta data to another organisation.
+
+All Meta queries must be scoped by:
+
+```text
+organisation_id
+```
+
+or the equivalent existing tenant identifier.
+
+---
+
+# 34. SECURITY
+
+Implement security carefully.
+
+Requirements:
+
+* Meta App Secret server-side only
+* Tokens encrypted at rest where possible
+* No tokens in frontend JavaScript
+* No tokens in URL query strings
+* Validate OAuth `state`
+* Validate webhook signatures
+* Protect callback routes
+* Enforce tenant ownership
+* Validate all API inputs
+* Avoid logging raw access tokens
+* Sanitize lead data
+* Preserve existing authentication middleware
+
+---
+
+# 35. BACKEND API ROUTES
+
+Create clean internal endpoints similar to:
+
+```text
+GET  /api/meta/status
+
+GET  /api/meta/auth/start
+GET  /api/meta/auth/callback
+
+POST /api/meta/disconnect
+
+POST /api/meta/sync
+
+GET /api/meta/overview
+GET /api/meta/performance
+GET /api/meta/audience
+GET /api/meta/content
+GET /api/meta/campaigns
+GET /api/meta/adsets
+GET /api/meta/ads
+GET /api/meta/forms
+GET /api/meta/leads
+GET /api/meta/conversations
+GET /api/meta/conversions
+
+GET  /api/meta/export
+
+GET  /api/meta/webhook
+POST /api/meta/webhook
+```
+
+Follow the project's current routing conventions if different.
+
+---
+
+# 36. FRONTEND COMPONENTS
+
+Create reusable components such as:
+
+```text
+MetaAnalyticsHeader
+MetaConnectionStatus
+MetaDateRangePicker
+MetaKpiCard
+MetaComparisonBadge
+MetaPerformanceChart
+MetaAudienceBreakdown
+MetaCampaignTable
+MetaContentTable
+MetaLeadTable
+MetaConversionFunnel
+MetaExportPanel
+MetaEmptyState
+MetaSyncStatus
+```
+
+Do not create one giant component.
+
+---
+
+# 37. RESPONSIVE DESIGN
+
+The Meta Analytics dashboard must work on:
+
+```text
+Desktop
+Laptop
+Tablet
+Mobile
+```
+
+Desktop can use 4 KPI cards per row.
+
+Tablet can use 2.
+
+Mobile should use 1.
+
+Tables should scroll horizontally where needed.
+
+---
+
+# 38. UI DESIGN
+
+Use the application's existing original dark-blue visual style.
+
+Do not replace the application theme.
+
+The page should visually match the rest of the existing dashboard.
+
+Use:
+
+* dark navy background
+* existing card design
+* existing border radius
+* existing typography
+* existing button styling
+* existing sidebar
+* existing spacing system
+
+Highlight important statistics with the application's existing accent colour.
+
+Do not copy Meta's visual branding/UI exactly.
+
+This must look like part of our own application.
+
+---
+
+# 39. LOADING STATES
+
+Add skeletons/loading states.
+
+Do not show blank cards while loading.
+
+Examples:
+
+```text
+Loading performance...
+Loading campaigns...
+Loading Meta leads...
+```
+
+---
+
+# 40. EMPTY STATES
+
+Examples:
+
+```text
+No campaign data available for this date range.
+```
+
+```text
+No Meta leads were received during this period.
+```
+
+```text
+No Facebook Page has been connected.
+```
+
+---
+
+# 41. DATA FRESHNESS
+
+Every report should expose data freshness.
+
+For example:
+
+```text
+Last updated:
+13 August 2026, 15:47
+```
+
+This can appear below the global date controls rather than on every card.
+
+---
+
+# 42. FILTERS
+
+Global filters should include:
+
+```text
+Date
+Platform
+Facebook Page
+Instagram Account
+Campaign
+```
+
+Campaign page filters:
+
+```text
+Status
+Objective
+Campaign
+Ad Set
+Ad
+```
+
+Content filters:
+
+```text
+Platform
+Content Type
+Published Date
+```
+
+Leads filters:
+
+```text
+Platform
+Campaign
+Form
+Status
+Assigned To
+Date
+```
+
+---
+
+# 43. SEARCH
+
+Provide search on:
+
+```text
+Campaigns
+Content
+Leads
+Forms
+```
+
+Do not query Meta separately for every keyboard press.
+
+Search stored/local reporting data when appropriate.
+
+---
+
+# 44. PERFORMANCE CONSIDERATIONS
+
+Avoid:
+
+```text
+one Meta API request per card
+```
+
+Prefer consolidated API/service calls and cached database results.
+
+Dashboard load should fetch grouped internal endpoints such as:
+
+```text
+/api/meta/overview
+```
+
+rather than dozens of independent Meta requests.
+
+---
+
+# 45. HISTORICAL DATA
+
+Preserve historical reporting snapshots.
+
+Do not overwrite historical daily metrics when syncing.
+
+Use upsert by:
+
+```text
+organisation
+account
+metric
+date
+breakdown
+```
+
+This is needed so users can continue viewing historical trends even where Meta API retention windows change.
+
+---
+
+# 46. DATA SOURCE LABELS
+
+Where appropriate indicate the origin:
+
+```text
+Meta
+Facebook
+Instagram
+CRM
+Calculated
+```
+
+For example:
+
+```text
+Revenue
+R18,400
+Source: CRM
+```
+
+and:
+
+```text
+Spend
+R2,800
+Source: Meta Ads
+```
+
+---
+
+# 47. CRM + META REPORTING
+
+Add useful derived reporting.
+
+For each campaign, where CRM data exists calculate:
+
+```text
+Meta leads
+Qualified leads
+Converted leads
+Lead-to-qualified rate
+Lead-to-conversion rate
+Cost per qualified lead
+Cost per converted lead
+Internal revenue
+ROAS
+```
+
+Example:
+
+```text
+Campaign: Licence Renewal August
+
+Spend:
+R2,800
+
+Meta leads:
+76
+
+Qualified:
+29
+
+Converted:
+12
+
+Revenue:
+R18,400
+
+Cost per lead:
+R36.84
+
+Cost per conversion:
+R233.33
+
+ROAS:
+6.57x
+```
+
+Never invent revenue.
+
+Only calculate this when the CRM has associated revenue.
+
+---
+
+# 48. DO NOT SCRAPE META BUSINESS SUITE
+
+Very important:
+
+Do **not** automate a browser, scrape Meta Business Suite, scrape HTML, or depend on private undocumented endpoints.
+
+Use only supported Meta APIs.
+
+If Meta Business Suite displays a metric that cannot be retrieved through the currently available public API, show it as unavailable rather than scraping it.
+
+---
+
+# 49. API PERMISSIONS
+
+Determine the exact current Meta permissions required for each integration feature.
+
+Do not guess old permissions from memory.
+
+Implement the integration so unavailable permissions do not crash the entire dashboard.
+
+For example:
+
+```text
+Campaign reporting may work
+while
+Messaging reporting is unavailable
+```
+
+The UI should still render the supported areas.
+
+---
+
+# 50. APP REVIEW READINESS
+
+Structure the integration so it can later pass Meta App Review.
+
+Document:
+
+```text
+permission
+why it is needed
+feature that uses it
+endpoint that depends on it
+```
+
+Create:
+
+```text
+docs/meta-integration.md
+```
+
+Include:
+
+```text
+Meta App setup
+OAuth redirect URL
+Webhook URL
+Required environment variables
+Permissions
+Development/test mode
+Production setup
+App Review considerations
+Troubleshooting
+```
+
+---
+
+# 51. MIGRATIONS
+
+Create proper database migrations using the application's existing migration tooling.
+
+Do not manually modify the production database.
+
+The migrations should safely create the Meta tables without breaking existing data.
+
+---
+
+# 52. TESTING
+
+Add tests for:
+
+### Meta service
+
+* API error handling
+* Pagination
+* metric mapping
+* expired token
+* rate limit
+* malformed response
+
+### OAuth
+
+* state validation
+* successful callback
+* rejected callback
+
+### Webhook
+
+* verification
+* signature validation
+* duplicate event
+* new lead
+* existing lead
+
+### Reporting
+
+* percentage comparison
+* zero previous period
+* empty data
+* date-range filtering
+
+### Multi-tenancy
+
+Ensure organisation A cannot retrieve organisation B's Meta connection or reporting data.
+
+---
+
+# 53. ACCEPTANCE TEST — CONNECTION
+
+Test this complete flow:
+
+```text
+1. Login.
+2. Open Meta Analytics.
+3. Click Connect Meta Account.
+4. Complete Meta OAuth.
+5. Select Facebook Page.
+6. Select Instagram Professional account if available.
+7. Return to application.
+8. Page shows Connected.
+9. Click Refresh Meta Data.
+10. Meta reporting appears.
+```
+
+---
+
+# 54. ACCEPTANCE TEST — REPORTING
+
+Select:
+
+```text
+16 July 2026
+to
+12 August 2026
+```
+
+Verify the dashboard retrieves all available Meta data for that period.
+
+The report should display the available equivalent of:
+
+```text
+Views
+Viewers / Reach
+
+Follows
+Unfollows
+Net follows
+
+Facebook visits
+Instagram visits
+
+Content interactions
+
+Follower vs non-follower breakdown
+
+3-second video views
+Watch time
+
+Conversations started
+New contacts
+Response rate
+
+Campaign performance
+
+Lead Ads leads
+
+Conversions
+```
+
+Values must originate from the connected Meta account.
+
+---
+
+# 55. ACCEPTANCE TEST — LEADS
+
+Submit a test Meta Lead Ad form.
+
+Verify:
+
+```text
+Meta receives submission
+↓
+Webhook reaches backend
+↓
+Lead details retrieved
+↓
+Meta lead stored
+↓
+CRM lead created
+↓
+Lead appears under Meta Analytics → Leads
+↓
+Lead also appears under Leads Centre → Intake
+```
+
+Confirm duplicate webhook delivery does not create duplicate records.
+
+---
+
+# 56. ACCEPTANCE TEST — EXPORT
+
+Select a custom range.
+
+Download:
+
+```text
+Campaign CSV
+```
+
+Verify:
+
+* correct date range
+* real Meta data
+* correct campaign names
+* correct spend
+* leads
+* impressions
+* clicks
+* no duplicate records
+
+Then test:
+
+```text
+Full Meta Report
+```
+
+---
+
+# 57. DO NOT BREAK EXISTING FEATURES
+
+Before changing code inspect:
+
+```text
+routing
+authentication
+database
+organisation model
+Leads Centre
+existing exports
+existing charts
+existing scheduler/jobs
+existing environment handling
+existing API patterns
+```
+
+Reuse existing utilities and components wherever possible.
+
+Do not rewrite working modules unnecessarily.
+
+Do not remove existing functionality.
+
+---
+
+# 58. IMPLEMENTATION APPROACH
+
+First inspect the repository and produce an internal implementation map covering:
+
+```text
+frontend routes/components
+backend routes
+database/ORM
+authentication
+tenant handling
+existing Leads Centre schema
+existing lead creation service
+background jobs
+CSV/export utilities
+charting library
+```
+
+Then implement against the existing architecture.
+
+Do not create duplicate versions of services that already exist.
+
+---
+
+# 59. FINAL VALIDATION
+
+Before considering the work complete:
+
+```text
+Run TypeScript/type checks
+Run lint
+Run tests
+Run production build
+```
+
+Fix all new errors introduced by this implementation.
+
+Then manually verify:
+
+```text
+Meta Analytics route
+OAuth flow
+Meta connection
+report loading
+date filters
+campaign table
+content table
+Meta leads
+CRM lead creation
+CSV exports
+manual sync
+responsive layout
+empty/error states
+```
+
+---
+
+# FINAL EXPECTED RESULT
+
+The application must contain a dedicated **Meta Analytics** module that becomes our internal Meta reporting centre.
+
+The final flow should be:
+
+```text
+META
+│
+├── Facebook
+├── Instagram
+├── Campaigns
+├── Ads
+├── Content
+├── Lead Ads
+└── Insights
+        │
+        ▼
+META INTEGRATION SERVICE
+        │
+        ├── OAuth
+        ├── Graph API
+        ├── Marketing API
+        ├── Insights
+        ├── Webhooks
+        └── Scheduled Sync
+                │
+                ▼
+         APPLICATION DATABASE
+                │
+        ┌───────┴────────┐
+        ▼                ▼
+META ANALYTICS       LEADS CENTRE
+        │                │
+        ▼                ▼
+Reports/Charts      Intake → Qualified
+Campaigns           → Converted
+Content
+Audience
+Leads
+Conversions
+Exports
+```
+
+The objective is **not merely to reproduce Meta Business Suite**.
+
+The objective is to combine:
+
+**Meta marketing performance + Meta leads + our internal CRM conversion data**
+
+so that management can see the complete journey:
+
+```text
+AD SPEND
+   ↓
+IMPRESSIONS
+   ↓
+VIEWS / CLICKS
+   ↓
+META LEADS
+   ↓
+QUALIFIED LEADS
+   ↓
+CONVERTED CUSTOMERS
+   ↓
+REVENUE / ROAS
+```
+
+Implement this as production-ready functionality using the existing application's architecture and styling.
