@@ -9,6 +9,10 @@ import {
   startCampaignScheduleWorker,
   stopCampaignScheduleWorker,
 } from "./lib/campaignScheduleWorker";
+import {
+  startMetaSyncWorker,
+  stopMetaSyncWorker,
+} from "./services/meta/metaSync";
 
 const rawPort = process.env["PORT"];
 
@@ -73,12 +77,17 @@ app.listen(port, (err) => {
   // the queue is fully ready — the worker self-skips ticks until
   // `isQueueReady()` returns true.
   startCampaignScheduleWorker();
+
+  // Meta Analytics — scheduled 45-min sync of Facebook/Instagram data.
+  // Self-skips every tick unless a Meta connection is active.
+  startMetaSyncWorker();
 });
 
 // Graceful shutdown — let in-flight jobs finish before exiting.
 const shutdown = async (signal: string) => {
   logger.info({ signal }, "Shutdown signal received; stopping queue");
   stopCampaignScheduleWorker();
+  stopMetaSyncWorker();
   await stopQueue();
   process.exit(0);
 };

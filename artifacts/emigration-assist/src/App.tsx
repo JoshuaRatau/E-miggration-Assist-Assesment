@@ -35,6 +35,7 @@ import {
 } from "@/pages/admin-stub";
 import { AdminSubscriptions } from "@/pages/admin-subscriptions";
 import { AdminExports } from "@/pages/admin-exports";
+import { AdminMetaAnalytics } from "@/pages/admin-meta-analytics";
 import { AdminReferrals } from "@/pages/admin-referrals";
 import { ReferralPreview } from "@/pages/referral-preview";
 
@@ -231,6 +232,11 @@ function Router() {
       <Route path="/admin/exports">
         <RequireAdminAuth>
           <AdminExports />
+        </RequireAdminAuth>
+      </Route>
+      <Route path="/admin/meta-analytics">
+        <RequireAdminAuth>
+          <AdminMetaAnalytics />
         </RequireAdminAuth>
       </Route>
       <Route path="/admin/referrals">

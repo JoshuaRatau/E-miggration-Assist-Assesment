@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { AdminLayout } from "@/components/admin-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -99,16 +100,17 @@ export function AdminExports() {
             </CardContent>
           </Card>
 
-          <Card className="border-border/40 opacity-60">
+          <Card className="border-border/40">
             <CardHeader>
-              <CardTitle className="text-lg">Campaigns</CardTitle>
+              <CardTitle className="text-lg">Meta Analytics</CardTitle>
               <CardDescription>
-                Campaign send histories and per-recipient delivery state — coming soon.
+                Facebook &amp; Instagram campaign performance, content, leads and
+                CSV exports live in the Meta Analytics module.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button size="sm" variant="outline" disabled>
-                Coming soon
+              <Button size="sm" variant="outline" asChild data-testid="button-open-meta-analytics">
+                <Link href="/admin/meta-analytics">Open Meta Analytics</Link>
               </Button>
             </CardContent>
           </Card>

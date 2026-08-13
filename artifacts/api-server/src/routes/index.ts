@@ -28,6 +28,7 @@ import { businessIntakeRouter } from "./businessIntake";
 import { supportRouter } from "./support";
 import { referralsRouter } from "./referrals";
 import { referralGateRouter } from "./referralGate";
+import metaRouter from "./meta";
 
 const router: IRouter = Router();
 
@@ -60,5 +61,6 @@ router.use(businessIntakeRouter);
 router.use(supportRouter);
 router.use(referralsRouter);
 router.use(referralGateRouter);
+router.use(metaRouter);
 
 export default router;

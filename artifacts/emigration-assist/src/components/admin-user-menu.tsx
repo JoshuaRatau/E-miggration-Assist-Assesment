@@ -19,6 +19,7 @@ import {
   Upload,
   Download,
   Share2,
+  Facebook,
   BarChart3,
   FileBarChart,
   CreditCard,
@@ -72,6 +73,7 @@ const OPERATIONS: Item[] = [
 
 const INTELLIGENCE: Item[] = [
   { href: "/admin/analytics", label: "Analytics", Icon: BarChart3, testId: "menu-analytics" },
+  { href: "/admin/meta-analytics", label: "Meta Analytics", Icon: Facebook, testId: "menu-meta-analytics" },
   { href: "/admin/reports", label: "Reports", Icon: FileBarChart, testId: "menu-reports" },
   { href: "/admin/subscriptions", label: "Subscription Management", Icon: CreditCard, testId: "menu-subscriptions" },
   { href: "/admin/support", label: "Customer Support", Icon: LifeBuoy, testId: "menu-support" },
