@@ -41,7 +41,15 @@ export function buildAuthUrl(): string {
   url.searchParams.set("client_id", appId);
   url.searchParams.set("redirect_uri", redirect);
   url.searchParams.set("state", createOauthState());
-  url.searchParams.set("scope", OAUTH_SCOPES);
+  // "Facebook Login for Business" apps use a pre-built configuration
+  // (config_id) instead of a raw scope list. If one is provided via env,
+  // prefer it — otherwise fall back to classic scopes.
+  const configId = process.env.META_LOGIN_CONFIG_ID?.trim();
+  if (configId) {
+    url.searchParams.set("config_id", configId);
+  } else {
+    url.searchParams.set("scope", OAUTH_SCOPES);
+  }
   url.searchParams.set("response_type", "code");
   return url.toString();
 }
