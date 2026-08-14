@@ -35,9 +35,11 @@ export type MetricDef = {
 // layer downgrades gracefully instead of failing.
 export const METRICS: MetricDef[] = [
   { key: "views", label: "Views", facebookMetric: "page_views_total", instagramMetric: "views" },
-  { key: "reach", label: "Reach", facebookMetric: "page_impressions_unique", instagramMetric: "reach" },
-  { key: "follows", label: "Follows", facebookMetric: "page_fan_adds", instagramMetric: "follows_and_unfollows" },
-  { key: "unfollows", label: "Unfollows", facebookMetric: "page_fan_removes", instagramMetric: null },
+  // page_impressions_unique + page_fan_adds/removes were deprecated by Meta
+  // (June 2025, new Page experience) — use the documented replacements.
+  { key: "reach", label: "Reach", facebookMetric: "page_total_media_view_unique", instagramMetric: "reach" },
+  { key: "follows", label: "Follows", facebookMetric: "page_daily_follows_unique", instagramMetric: "follows_and_unfollows" },
+  { key: "unfollows", label: "Unfollows", facebookMetric: "page_daily_unfollows_unique", instagramMetric: null },
   { key: "page_visits", label: "Facebook visits", facebookMetric: "page_views_total", instagramMetric: null },
   { key: "profile_visits", label: "Instagram profile visits", facebookMetric: null, instagramMetric: "profile_views" },
   { key: "content_interactions", label: "Content interactions", facebookMetric: "page_post_engagements", instagramMetric: "total_interactions" },

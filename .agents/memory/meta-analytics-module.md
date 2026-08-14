@@ -40,3 +40,6 @@ Pure helpers live in `src/services/meta/metaSyncClassify.ts`, unit-tested indepe
 
 ## Page selection
 OAuth auto-picks the FIRST page from me/accounts — wrong for multi-page users. Admin UI has a Page switcher (GET /api/meta/pages, POST /api/meta/select-page). Switching purges ALL cached meta_* analytics tables (not imported CRM leads), resets lastSyncedAt, unsubscribes old page webhook, resubscribes new one, and is blocked (409) while a sync is running — a mid-sync switch would write old-page data against the new selection.
+
+## Deprecated FB Page metrics (June 2025)
+Meta removed page_impressions_unique + page_fan_adds/removes (new Page experience). Replacements used in metaMetrics.ts: page_total_media_view_unique (reach), page_daily_follows_unique / page_daily_unfollows_unique. If a "FB metrics unavailable (…api_error)" sync warning appears, check Meta's deprecated-metrics doc before suspecting permissions.
