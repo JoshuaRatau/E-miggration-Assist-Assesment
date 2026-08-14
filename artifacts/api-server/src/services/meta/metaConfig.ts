@@ -67,8 +67,18 @@ export function webhookCallbackUrl(): string | null {
   return redirect.replace(/\/api\/meta\/auth\/callback$/, "/api/meta/webhook");
 }
 
-/** Frontend URL to land on after OAuth (success or failure). */
+/**
+ * Frontend URL to land on after OAuth (success or failure).
+ * Prefer the app's own base URL (same derivation as the OAuth redirect) —
+ * this host serves both the API and the admin frontend. WEB_ORIGIN can
+ * point at an externally-hosted (possibly stale) frontend copy, so it is
+ * only a fallback.
+ */
 export function frontendReturnUrl(): string {
+  const redirect = redirectUri();
+  if (redirect) {
+    return redirect.replace(/\/api\/meta\/auth\/callback$/, "/admin/meta-analytics");
+  }
   const origin = process.env.WEB_ORIGIN?.split(",")[0]?.trim();
   if (origin) return `${origin.replace(/\/$/, "")}/admin/meta-analytics`;
   return "/admin/meta-analytics";
