@@ -137,7 +137,9 @@ export async function completeConnection(args: {
     tokenExpiresAt: args.tokenExpiresAt,
     adAccountId: adAccount?.id ?? null,
     adAccountName: adAccount?.name ?? null,
-    status: "active",
+    // "unverified" until the first sync confirms real data can be pulled.
+    // runFullSync advances this to "active" on first anyProgress=true run.
+    status: "unverified",
     lastError: null,
     connectedByUserId: args.connectedByUserId,
     updatedAt: new Date(),

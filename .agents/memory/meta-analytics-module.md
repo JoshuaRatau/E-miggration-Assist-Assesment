@@ -13,3 +13,27 @@ description: How the Facebook/Instagram analytics integration is architected and
 - Campaign/ad numbers are Meta-reported LIFETIME aggregates; keep them labelled separately from CRM conversion counts — never mix.
 - Config: `META_APP_ID`, `META_APP_SECRET` (also signs webhooks), `META_WEBHOOK_VERIFY_TOKEN`, `META_GRAPH_API_VERSION` (default v23.0). Setup guide: `docs/meta-integration.md`.
 - Gotcha: after adding schema files to `lib/db`, run `pnpm exec tsc -b` in lib/db — api-server resolves types via project-reference dist d.ts, not src.
+
+## Sync classification contract (metaSyncClassify.ts)
+
+Pure helpers live in `src/services/meta/metaSyncClassify.ts`, unit-tested independently (18 tests in `metaSyncClassify.test.ts`).
+
+**SectionResult prefixes and their meaning:**
+
+| Prefix | isProgressResult | isGenuineFailure | Meaning |
+|--------|-----------------|-----------------|---------|
+| `ok` | ✅ | ❌ | Section wrote rows, no errors |
+| `partial: …` | ✅ | ✅ | Some rows written, some metrics/sources failed |
+| `empty: …` | ❌ | ❌ | API succeeded but 0 rows written (new page, no activity) |
+| `no …` | ❌ | ❌ | Source not configured (no page/account connected) |
+| `permission_missing: …` | ❌ | ✅ | All metrics denied by Meta permissions |
+| `api_error: …` | ❌ | ✅ | Operational failure (rate_limited, network, etc.) |
+| `token_expired…` | ❌ | ❌ | Auth broken — handled by its own branch, not in syncWarnings |
+| `fb:api_error: …` etc. | ❌ | ✅ | Sub-prefixed content section error |
+
+**Key invariants:**
+- `synced++` / `writes++` only increments when actual DB rows are written — an empty API response (new page, no posts/insights data) is NOT counted as progress.
+- `syncContent` returns `partial: N items synced; <error>` when `totalWrites > 0` but a source failed — so `isProgressResult` correctly sees it as progress.
+- `runOk = anyProgress && !syncWarnings` — partial runs (progress + failures) return `ok: false` so the mutation fires the warning toast, not the success toast.
+- `completeConnection` sets `status: "unverified"` (not "active") — advances to "active" only when the first sync has `anyProgress=true`. Scheduled worker retries "unverified" alongside "active".
+- `lastSyncedAt` only advances when `anyProgress=true` — preserves the 90-day backfill window until real data lands.

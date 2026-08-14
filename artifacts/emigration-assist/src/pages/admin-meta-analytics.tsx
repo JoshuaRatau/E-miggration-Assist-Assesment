@@ -207,10 +207,18 @@ export function AdminMetaAnalytics() {
         credentials: "include",
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({})) as { error?: string }).error ?? `HTTP ${res.status}`);
-      return res.json();
+      return res.json() as Promise<{ ok: boolean; error?: string; sections?: Record<string, string> }>;
     },
-    onSuccess: () => {
-      toast({ title: "Sync finished", description: "Fresh Meta data has been pulled in." });
+    onSuccess: (data) => {
+      if (data.ok) {
+        toast({ title: "Sync finished", description: "Fresh Meta data has been pulled in." });
+      } else {
+        toast({
+          title: "Sync completed with issues",
+          description: data.error ?? "Some metrics could not be pulled in. Check the connection strip for details.",
+          variant: "destructive",
+        });
+      }
       void qc.invalidateQueries({ queryKey: ["meta"] });
     },
     onError: (e: Error) =>
@@ -332,8 +340,8 @@ export function AdminMetaAnalytics() {
                 {conn?.instagramUsername ? `@${conn.instagramUsername}` : "No Instagram account"}
               </span>
               {conn?.adAccountName && <span className="text-muted-foreground">Ads: {conn.adAccountName}</span>}
-              <Badge variant={conn?.status === "active" ? "default" : "destructive"}>
-                {conn?.status === "active" ? "Connected" : conn?.status === "token_expired" ? "Reconnect needed" : conn?.status}
+              <Badge variant={conn?.status === "active" ? "default" : conn?.status === "unverified" ? "secondary" : "destructive"}>
+                {conn?.status === "active" ? "Connected" : conn?.status === "unverified" ? "Verifying" : conn?.status === "token_expired" ? "Reconnect needed" : conn?.status}
               </Badge>
               <span className="text-xs text-muted-foreground ml-auto">
                 Last synced: {conn?.lastSyncedAt ? new Date(conn.lastSyncedAt).toLocaleString() : "never"}
@@ -347,6 +355,52 @@ export function AdminMetaAnalytics() {
             <CardContent className="py-4 flex items-center justify-between gap-4 text-sm">
               <span>The Meta access token has expired. Reconnect to resume syncing.</span>
               <Button size="sm" onClick={() => connect.mutate()}>Reconnect</Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {connected && !conn?.lastSyncedAt && conn?.lastError && (
+          // First sync completed but with no progress — show the actual failure.
+          <Card className="border-destructive/40 bg-red-950/20">
+            <CardContent className="py-4 text-sm text-red-200 space-y-2">
+              <p className="font-medium">Initial sync failed — no data was pulled in.</p>
+              <p className="text-red-300/80">{conn.lastError}</p>
+              <p className="text-red-400/60">
+                Try clicking <strong>Refresh data</strong> above. If the error mentions permissions,
+                check your Meta app roles and reconnect.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {connected && !conn?.lastSyncedAt && !conn?.lastError && (
+          // No completed sync yet — either in progress or just connected.
+          <Card className="border-blue-500/40 bg-blue-950/20">
+            <CardContent className="py-4 flex items-center gap-3 text-sm">
+              <RefreshCw className="h-4 w-4 text-blue-400 animate-spin shrink-0" />
+              <span className="text-blue-200">
+                {status.data?.syncRunning
+                  ? "Initial 90-day sync is running — this takes a few minutes. Data will appear once it completes."
+                  : "Connected. Click Refresh data to pull in the last 90 days, or wait for the automatic sync."}
+              </span>
+            </CardContent>
+          </Card>
+        )}
+
+        {connected && conn?.lastSyncedAt && conn?.lastError && (
+          <Card className="border-amber-500/40 bg-amber-950/20">
+            <CardContent className="py-4 text-sm text-amber-200">
+              <span className="font-medium">
+                {conn.lastError.startsWith("partial:") || conn.lastError.startsWith("permission_missing:")
+                  ? "Partial sync — some metrics unavailable:"
+                  : "Last sync warning:"}
+              </span>{" "}
+              {conn.lastError}
+              {conn.lastError.includes("permission_missing:") && (
+                <span className="text-amber-400/70">
+                  {" "}— check that your Meta app role includes your account, then reconnect to re-request permissions.
+                </span>
+              )}
             </CardContent>
           </Card>
         )}

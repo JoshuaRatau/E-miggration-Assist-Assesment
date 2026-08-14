@@ -13,6 +13,7 @@ import {
 } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "../../lib/logger";
+import { classifySyncResults } from "./metaSyncClassify.js";
 import { GraphError, graphGet, graphGetAll } from "./metaClient";
 import { getConnection, markConnectionError, pageToken, userToken } from "./metaAuth";
 import { fbMetricNames, igMetricNames } from "./metaMetrics";
@@ -95,6 +96,10 @@ async function syncFacebookInsights(conn: MetaConnection, sinceDays: number): Pr
     const since = new Date(Date.now() - sinceDays * 86400_000);
     // Request metrics individually-tolerant: one bad metric shouldn't kill
     // the whole batch, so chunk requests per metric.
+    let writes = 0;          // total DB rows actually written
+    let synced = 0;          // metrics that wrote at least one row
+    const permDenied: string[] = [];   // GraphError.kind === "permission_missing" only
+    const otherErrors: string[] = [];  // rate_limited, api_error, network_error, not_found, etc.
     for (const metric of fbMetricNames()) {
       try {
         const res = await graphGet<{ data?: InsightItem[] }>(
@@ -107,6 +112,7 @@ async function syncFacebookInsights(conn: MetaConnection, sinceDays: number): Pr
             until: isoDay(new Date()),
           },
         );
+        let rowsForMetric = 0;
         for (const item of res.data ?? []) {
           for (const v of item.values ?? []) {
             const day = v.end_time ? v.end_time.slice(0, 10) : null;
@@ -120,15 +126,50 @@ async function syncFacebookInsights(conn: MetaConnection, sinceDays: number): Pr
               metricBreakdown: typeof v.value === "object" ? v.value : undefined,
               metricDate: day,
             });
+            rowsForMetric++;
+            writes++;
           }
         }
+        // Count a metric as "synced" only when it actually persisted rows.
+        // An empty API response (new page, no activity) is not counted —
+        // this keeps anyProgress=false so lastSyncedAt stays null and the
+        // initial-sync banner remains until real data arrives.
+        if (rowsForMetric > 0) synced++;
       } catch (err) {
         // An expired token fails EVERY metric the same way — abort the
         // section and surface it so runFullSync flips the connection.
         if (err instanceof GraphError && err.kind === "token_expired") throw err;
-        logger.warn({ metric, err: errSummary(err) }, "FB metric unavailable");
+        const summary = errSummary(err);
+        logger.warn({ metric, kind: err instanceof GraphError ? err.kind : "unknown", err: summary }, "FB metric unavailable");
+        // Only GraphError.kind === "permission_missing" is a permission gap;
+        // rate_limited / api_error / network_error / not_found are operational.
+        if (err instanceof GraphError && err.kind === "permission_missing") {
+          permDenied.push(metric);
+        } else {
+          otherErrors.push(`${metric}(${(err instanceof GraphError ? err.kind : "error").slice(0, 20)})`);
+        }
       }
     }
+    const total = fbMetricNames().length;
+    const parts: string[] = [];
+    if (writes === 0 && permDenied.length === 0 && otherErrors.length === 0 && total > 0) {
+      // All metrics responded successfully but returned zero data rows.
+      // Not an error — the page exists but has no measurable activity yet.
+      return "empty: FB insights returned no data for this period";
+    }
+    if (writes === 0 && total > 0) {
+      // Complete failure — classify by dominant cause.
+      if (permDenied.length === total && otherErrors.length === 0) {
+        return `permission_missing: all ${total} FB metrics denied`;
+      }
+      return `api_error: FB metrics unavailable (${[...permDenied.slice(0, 2).map((m) => `${m}(permission_missing)`), ...otherErrors.slice(0, 2)].join(", ")})`;
+    }
+    if (permDenied.length > 0)
+      parts.push(`permission_missing: ${permDenied.slice(0, 3).join(", ")}`);
+    if (otherErrors.length > 0)
+      parts.push(`errors: ${otherErrors.slice(0, 2).join(", ")}`);
+    if (parts.length > 0)
+      return `partial: ${synced}/${total} FB metrics synced; ${parts.join("; ")}`;
     return "ok";
   } catch (err) {
     return errSummary(err);
@@ -143,6 +184,10 @@ async function syncInstagramInsights(conn: MetaConnection, sinceDays: number): P
   if (!conn.instagramAccountId || !token) return "no instagram account connected";
   try {
     const since = new Date(Date.now() - sinceDays * 86400_000);
+    let writes = 0;          // total DB rows actually written
+    let synced = 0;          // metrics that wrote at least one row
+    const permDenied: string[] = [];   // GraphError.kind === "permission_missing" only
+    const otherErrors: string[] = [];  // rate_limited, api_error, network_error, not_found, etc.
     for (const metric of igMetricNames()) {
       try {
         const params: Record<string, string> = {
@@ -160,6 +205,7 @@ async function syncInstagramInsights(conn: MetaConnection, sinceDays: number): P
           token,
           params,
         );
+        let rowsForMetric = 0;
         for (const item of res.data ?? []) {
           if (item.values?.length) {
             for (const v of item.values) {
@@ -173,6 +219,8 @@ async function syncInstagramInsights(conn: MetaConnection, sinceDays: number): P
                 metricBreakdown: typeof v.value === "object" ? v.value : undefined,
                 metricDate: day,
               });
+              rowsForMetric++;
+              writes++;
             }
           } else if (item.total_value?.value !== undefined) {
             // total_value has no per-day series — store on today's date as
@@ -185,13 +233,43 @@ async function syncInstagramInsights(conn: MetaConnection, sinceDays: number): P
               metricDate: isoDay(new Date()),
               period: "lifetime",
             });
+            rowsForMetric++;
+            writes++;
           }
         }
+        // Count a metric as "synced" only when it actually persisted rows.
+        if (rowsForMetric > 0) synced++;
       } catch (err) {
         if (err instanceof GraphError && err.kind === "token_expired") throw err;
-        logger.warn({ metric, err: errSummary(err) }, "IG metric unavailable");
+        const summary = errSummary(err);
+        logger.warn({ metric, kind: err instanceof GraphError ? err.kind : "unknown", err: summary }, "IG metric unavailable");
+        // Only GraphError.kind === "permission_missing" is a permission gap;
+        // rate_limited / api_error / network_error / not_found are operational.
+        if (err instanceof GraphError && err.kind === "permission_missing") {
+          permDenied.push(metric);
+        } else {
+          otherErrors.push(`${metric}(${(err instanceof GraphError ? err.kind : "error").slice(0, 20)})`);
+        }
       }
     }
+    const total = igMetricNames().length;
+    const parts: string[] = [];
+    if (writes === 0 && permDenied.length === 0 && otherErrors.length === 0 && total > 0) {
+      return "empty: IG insights returned no data for this period";
+    }
+    if (writes === 0 && total > 0) {
+      // Complete failure — classify by dominant cause.
+      if (permDenied.length === total && otherErrors.length === 0) {
+        return `permission_missing: all ${total} IG metrics denied`;
+      }
+      return `api_error: IG metrics unavailable (${[...permDenied.slice(0, 2).map((m) => `${m}(permission_missing)`), ...otherErrors.slice(0, 2)].join(", ")})`;
+    }
+    if (permDenied.length > 0)
+      parts.push(`permission_missing: ${permDenied.slice(0, 3).join(", ")}`);
+    if (otherErrors.length > 0)
+      parts.push(`errors: ${otherErrors.slice(0, 2).join(", ")}`);
+    if (parts.length > 0)
+      return `partial: ${synced}/${total} IG metrics synced; ${parts.join("; ")}`;
     return "ok";
   } catch (err) {
     return errSummary(err);
@@ -215,6 +293,7 @@ async function syncAudience(conn: MetaConnection): Promise<SectionResult> {
         breakdown: "country",
       },
     );
+    let writes = 0;
     for (const item of res.data ?? []) {
       const breakdown = item.total_value?.breakdowns?.[0];
       if (!breakdown) continue;
@@ -232,8 +311,9 @@ async function syncAudience(conn: MetaConnection): Promise<SectionResult> {
         metricDate: isoDay(new Date()),
         period: "lifetime",
       });
+      writes++;
     }
-    return "ok";
+    return writes > 0 ? "ok" : "empty: no audience demographics returned (account may need ≥100 followers)";
   } catch (err) {
     return errSummary(err);
   }
@@ -279,6 +359,7 @@ async function syncCampaigns(conn: MetaConnection): Promise<SectionResult> {
       fields: "id,name,status,objective,start_time,stop_time",
     });
 
+    let writes = 0;
     for (const c of campaigns) {
       let ins: InsightsRow = {};
       try {
@@ -317,6 +398,7 @@ async function syncCampaigns(conn: MetaConnection): Promise<SectionResult> {
         .insert(metaCampaignsTable)
         .values({ metaCampaignId: c.id, ...values })
         .onConflictDoUpdate({ target: metaCampaignsTable.metaCampaignId, set: values });
+      writes++;
     }
 
     // Ad sets + ads (flat account-level queries, campaign linkage via fields)
@@ -337,6 +419,7 @@ async function syncCampaigns(conn: MetaConnection): Promise<SectionResult> {
         .insert(metaAdSetsTable)
         .values({ metaAdSetId: s.id, ...values })
         .onConflictDoUpdate({ target: metaAdSetsTable.metaAdSetId, set: values });
+      writes++;
     }
     const ads = await graphGetAll<{ id: string; name?: string; status?: string; adset_id?: string; campaign_id?: string }>(
       `${conn.adAccountId}/ads`,
@@ -356,8 +439,9 @@ async function syncCampaigns(conn: MetaConnection): Promise<SectionResult> {
         .insert(metaAdsTable)
         .values({ metaAdId: a.id, ...values })
         .onConflictDoUpdate({ target: metaAdsTable.metaAdId, set: values });
+      writes++;
     }
-    return "ok";
+    return writes > 0 ? "ok" : "empty: no campaigns or ads found";
   } catch (err) {
     return errSummary(err);
   }
@@ -417,6 +501,7 @@ async function syncLeadForms(conn: MetaConnection): Promise<SectionResult> {
       token,
       { fields: "id,name,status,questions,leads_count" },
     );
+    let writes = 0;
     for (const f of forms) {
       const values = {
         pageId: conn.facebookPageId,
@@ -430,6 +515,7 @@ async function syncLeadForms(conn: MetaConnection): Promise<SectionResult> {
         .insert(metaLeadFormsTable)
         .values({ metaFormId: f.id, ...values })
         .onConflictDoUpdate({ target: metaLeadFormsTable.metaFormId, set: values });
+      writes++;
 
       // Pull leads per form.
       try {
@@ -441,7 +527,7 @@ async function syncLeadForms(conn: MetaConnection): Promise<SectionResult> {
         logger.warn({ formId: f.id, err: errSummary(err) }, "lead retrieval unavailable for form");
       }
     }
-    return "ok";
+    return writes > 0 ? "ok" : "empty: no lead forms found";
   } catch (err) {
     return errSummary(err);
   }
@@ -452,6 +538,7 @@ async function syncLeadForms(conn: MetaConnection): Promise<SectionResult> {
 
 async function syncContent(conn: MetaConnection): Promise<SectionResult> {
   const results: string[] = [];
+  let totalWrites = 0;
   const pToken = pageToken(conn);
   if (conn.facebookPageId && pToken) {
     try {
@@ -505,8 +592,9 @@ async function syncContent(conn: MetaConnection): Promise<SectionResult> {
           .insert(metaContentInsightsTable)
           .values({ metaContentId: p.id, ...values })
           .onConflictDoUpdate({ target: metaContentInsightsTable.metaContentId, set: values });
+        totalWrites++;
       }
-      results.push("fb:ok");
+      results.push(posts.length > 0 ? "fb:ok" : "fb:empty");
     } catch (err) {
       results.push(`fb:${errSummary(err)}`);
     }
@@ -578,14 +666,27 @@ async function syncContent(conn: MetaConnection): Promise<SectionResult> {
           .insert(metaContentInsightsTable)
           .values({ metaContentId: m.id, ...values })
           .onConflictDoUpdate({ target: metaContentInsightsTable.metaContentId, set: values });
+        totalWrites++;
       }
-      results.push("ig:ok");
+      results.push(media.length > 0 ? "ig:ok" : "ig:empty");
     } catch (err) {
       results.push(`ig:${errSummary(err)}`);
     }
   }
   if (!results.length) return "no connected content sources";
-  return results.every((r) => r.endsWith("ok")) ? "ok" : results.join("; ");
+  const errorParts = results.filter((r) => !r.endsWith(":ok") && !r.endsWith(":empty"));
+  const hasError = errorParts.length > 0;
+  if (!hasError) {
+    return totalWrites > 0 ? "ok" : "empty: no posts or media found";
+  }
+  if (totalWrites > 0) {
+    // Some sources wrote content, others failed — surface as partial: so
+    // isProgressResult recognises this as verified progress, while the
+    // error details are captured in syncWarnings by isGenuineFailure.
+    return `partial: ${totalWrites} content items synced; ${errorParts.join("; ")}`;
+  }
+  // All sources failed with no writes — join raw errors for warning capture.
+  return errorParts.join("; ");
 }
 
 // ---------------------------------------------------------------------------
@@ -629,16 +730,10 @@ export async function runFullSync(trigger: "manual" | "scheduled"): Promise<{
     sections.lead_forms = await syncLeadForms(conn);
     sections.content = await syncContent(conn);
 
-    const values = Object.values(sections);
-    const allOk = values.every((v) => v === "ok");
-    const anyOk = values.some((v) => v === "ok");
-    // Any section reporting an expired token means auth is broken —
-    // treat the run as failed and flip the connection to the reconnect
-    // state, regardless of what other sections managed to do.
-    const tokenExpired = values.some(
-      (v) => typeof v === "string" && v.startsWith("token_expired"),
-    );
-    const status = tokenExpired ? "failed" : allOk ? "success" : anyOk ? "partial" : "failed";
+    // Classify all section results using the pure helpers in metaSyncClassify.ts
+    // (those helpers are independently unit-tested).
+    const { anyProgress, allOk, tokenExpired, syncWarnings, runOk } = classifySyncResults(sections);
+    const status = tokenExpired ? "failed" : allOk ? "success" : anyProgress ? "partial" : "failed";
 
     await db
       .update(metaSyncRunsTable)
@@ -651,19 +746,44 @@ export async function runFullSync(trigger: "manual" | "scheduled"): Promise<{
         "token_expired",
         "Meta access token expired — reconnect required",
       );
-    } else {
+    } else if (anyProgress) {
+      // Only advance lastSyncedAt / mark active when real data was synced.
+      // A total failure (anyProgress=false) must not update lastSyncedAt —
+      // that would suppress the initial-sync banner and switch subsequent
+      // retries to the 7-day incremental window instead of the 90-day backfill.
       await db
         .update(metaConnectionsTable)
         .set({
           lastSyncedAt: new Date(),
           updatedAt: new Date(),
-          ...(allOk ? { status: "active", lastError: null } : {}),
+          status: "active",
+          lastError: syncWarnings ? syncWarnings.slice(0, 500) : null,
+        })
+        .where(eq(metaConnectionsTable.id, conn.id));
+    } else {
+      // No progress — do NOT advance lastSyncedAt.
+      // syncWarnings already captures genuine failures from classifySyncResults;
+      // for the zero-progress branch we prefix it with "sync failed: " for clarity.
+      // When syncWarnings is empty (all-empty run with no errors) lastError stays null.
+      await db
+        .update(metaConnectionsTable)
+        .set({
+          updatedAt: new Date(),
+          lastError: syncWarnings ? `sync failed: ${syncWarnings}`.slice(0, 500) : null,
         })
         .where(eq(metaConnectionsTable.id, conn.id));
     }
 
-    logger.info({ trigger, status, sections }, "Meta sync finished");
-    return { ok: anyOk, runId: run!.id, sections };
+    logger.info({ trigger, status, sections, syncWarnings }, "Meta sync finished");
+    // runOk = true only when progress was made AND no section reported a genuine failure.
+    // A partial run (e.g. campaigns sync but FB/IG fail with api_error) returns
+    // ok=false so the caller/UI shows a warning rather than a success toast.
+    return {
+      ok: runOk,
+      runId: run!.id,
+      sections,
+      ...(syncWarnings ? { error: syncWarnings } : {}),
+    };
   } catch (err) {
     const msg = errSummary(err);
     await db
@@ -690,7 +810,8 @@ export function startMetaSyncWorker(): void {
     void (async () => {
       try {
         const conn = await getConnection();
-        if (!conn || conn.status !== "active") return;
+        // Retry "unverified" (connected but not yet data-confirmed) alongside "active".
+        if (!conn || (conn.status !== "active" && conn.status !== "unverified")) return;
         await runFullSync("scheduled");
       } catch (err) {
         logger.error({ err: errSummary(err) }, "scheduled Meta sync failed");
