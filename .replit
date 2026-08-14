@@ -50,6 +50,7 @@ TWILIO_WHATSAPP_TEMPLATE_SID = "HX6ba65d89397a629d701450a27c40afed"
 EMA_APP_URL = "https://data-migration-assist-backup.replit.app"
 META_WEBHOOK_VERIFY_TOKEN = "8f0d4c013786311b873c86e79cbe932feacd6de5735711fc"
 META_WEBHOOK_CALLBACK_URL = "https://immigrationassist.replit.app/api/meta/webhook"
+META_LOGIN_CONFIG_ID = "1358292536413444"
 
 [userenv.development]
 EMAIL_FROM = "noreply@emigration-assist.com"
