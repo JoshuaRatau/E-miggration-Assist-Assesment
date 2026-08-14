@@ -384,11 +384,12 @@ export function AdminMetaAnalytics() {
                   conn?.facebookPageName ?? "No Facebook page"
                 )}
               </span>
-              <span className="flex items-center gap-2">
-                <Instagram className="h-4 w-4 text-[#E4405F]" />
-                {conn?.instagramUsername ? `@${conn.instagramUsername}` : "No Instagram account"}
-              </span>
-              {conn?.adAccountName && <span className="text-muted-foreground">Ads: {conn.adAccountName}</span>}
+              {conn?.instagramUsername && (
+                <span className="flex items-center gap-2">
+                  <Instagram className="h-4 w-4 text-[#E4405F]" />
+                  @{conn.instagramUsername}
+                </span>
+              )}
               <Badge variant={conn?.status === "active" ? "default" : conn?.status === "unverified" ? "secondary" : "destructive"}>
                 {conn?.status === "active" ? "Connected" : conn?.status === "unverified" ? "Verifying" : conn?.status === "token_expired" ? "Reconnect needed" : conn?.status}
               </Badge>
