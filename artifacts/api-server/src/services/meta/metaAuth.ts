@@ -10,7 +10,7 @@ import {
   metaAppSecret,
   redirectUri,
 } from "./metaConfig";
-import { graphGet, graphGetAll } from "./metaClient";
+import { graphGet, graphGetAll, graphPost } from "./metaClient";
 
 // Meta OAuth + connection lifecycle. Single-tenant: at most one ACTIVE
 // connection row; connecting again replaces it.
@@ -143,6 +143,27 @@ export async function completeConnection(args: {
     updatedAt: new Date(),
   };
 
+  // Subscribe the Page to the app's leadgen webhook so Meta pushes lead
+  // form submissions instantly (otherwise leads only arrive on the
+  // 45-minute sync). Non-fatal: the connection is still valid without it.
+  if (page?.id && page.access_token) {
+    try {
+      const sub = await subscribePageToLeadgen({
+        pageId: page.id,
+        pageAccessToken: page.access_token,
+      });
+      logger.info(
+        { pageId: page.id, success: sub.success },
+        "Meta connect: page subscribed to leadgen webhook",
+      );
+    } catch (err) {
+      logger.warn(
+        { pageId: page.id, err: err instanceof Error ? err.message : String(err) },
+        "Meta connect: page leadgen webhook subscription failed",
+      );
+    }
+  }
+
   const existing = await getConnection();
   if (existing) {
     const [row] = await db
@@ -154,6 +175,52 @@ export async function completeConnection(args: {
   }
   const [row] = await db.insert(metaConnectionsTable).values(values).returning();
   return row!;
+}
+
+/**
+ * Subscribe the connected Page to the app's webhooks with the `leadgen`
+ * field. Without this, Meta never pushes lead form submissions to the
+ * webhook — leads only arrive on the 45-minute sync. Requires a page
+ * token (pages_manage_ads grants the subscribed_apps edge).
+ */
+export async function subscribePageToLeadgen(args: {
+  pageId: string;
+  pageAccessToken: string;
+}): Promise<{ success: boolean }> {
+  const res = await graphPost<{ success?: boolean }>(
+    `${args.pageId}/subscribed_apps`,
+    args.pageAccessToken,
+    { subscribed_fields: "leadgen" },
+  );
+  return { success: res.success === true };
+}
+
+/**
+ * App-level webhook subscription: registers/updates the Meta app's Page
+ * webhook subscription (callback URL + verify token + leadgen field).
+ * Meta synchronously verifies the callback URL with a GET challenge, so
+ * the URL must be publicly reachable and the verify token must match.
+ * Uses the app access token (`app_id|app_secret`).
+ */
+export async function subscribeAppToLeadgenWebhook(args: {
+  callbackUrl: string;
+  verifyToken: string;
+}): Promise<{ success: boolean }> {
+  const appId = metaAppId();
+  const secret = metaAppSecret();
+  if (!appId || !secret) throw new Error("Meta app not configured");
+  const res = await graphPost<{ success?: boolean }>(
+    `${appId}/subscriptions`,
+    `${appId}|${secret}`,
+    {
+      object: "page",
+      callback_url: args.callbackUrl,
+      verify_token: args.verifyToken,
+      fields: "leadgen",
+      include_values: "true",
+    },
+  );
+  return { success: res.success === true };
 }
 
 /** The single (most recent) connection row, or null. */

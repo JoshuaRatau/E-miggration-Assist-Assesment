@@ -23,6 +23,7 @@ import {
   metaAppSecret,
   redirectUri,
   validateOauthState,
+  webhookCallbackUrl,
   webhookVerifyToken,
 } from "../services/meta/metaConfig";
 import {
@@ -32,6 +33,8 @@ import {
   exchangeCodeForLongLivedToken,
   getConnection,
   pageToken,
+  subscribeAppToLeadgenWebhook,
+  subscribePageToLeadgen,
 } from "../services/meta/metaAuth";
 import { graphGet } from "../services/meta/metaClient";
 import { METRICS, metricByKey, type InternalMetricKey } from "../services/meta/metaMetrics";
@@ -226,6 +229,85 @@ router.post("/meta/disconnect", async (req, res) => {
   await disconnect(conn.id);
   req.log.info("meta connection disconnected");
   return res.json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
+// webhook page subscription (instant lead delivery)
+
+/**
+ * One-off (idempotent) subscribe of the connected Page to the app's
+ * leadgen webhook. New connections do this automatically during OAuth;
+ * this endpoint covers connections made before that existed, and lets an
+ * admin re-run it. Returns the Page's current subscribed_fields so the
+ * caller can confirm leadgen is active.
+ */
+router.post("/meta/webhook/subscribe", async (req, res) => {
+  if (!(await requireAdminAuth(req, res))) return;
+
+  // 1) App-level subscription: register the callback URL + verify token +
+  //    leadgen field with the Meta app (equivalent to the dashboard's
+  //    Webhooks config). Meta verifies the callback URL synchronously.
+  //    Runs even without a connected account — it only needs app creds.
+  let appSubscription: { success: boolean; callbackUrl: string } | { error: string };
+  const callbackUrl = webhookCallbackUrl();
+  const verifyToken = webhookVerifyToken();
+  if (callbackUrl && verifyToken) {
+    try {
+      const appSub = await subscribeAppToLeadgenWebhook({ callbackUrl, verifyToken });
+      appSubscription = { success: appSub.success, callbackUrl };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      req.log.warn({ err: msg, callbackUrl }, "meta app webhook subscription failed");
+      appSubscription = { error: msg };
+    }
+  } else {
+    appSubscription = {
+      error: "META_WEBHOOK_VERIFY_TOKEN or callback URL not configured",
+    };
+  }
+
+  // 2) Page-level subscription: subscribe THIS page to the app's webhook.
+  const conn = await getConnection();
+  if (!conn || conn.status === "disconnected")
+    return res.status(400).json({ error: "Meta account not connected", appSubscription });
+  if (!conn.facebookPageId)
+    return res.status(400).json({ error: "No Facebook Page on the connection", appSubscription });
+  const token = pageToken(conn);
+  if (!token)
+    return res.status(400).json({
+      error: "No page token stored — reconnect the Meta account",
+      appSubscription,
+    });
+
+  try {
+    const sub = await subscribePageToLeadgen({
+      pageId: conn.facebookPageId,
+      pageAccessToken: token,
+    });
+    // Read back the subscription so the response reflects actual state.
+    const check = await graphGet<{
+      data?: Array<{ id?: string; name?: string; subscribed_fields?: string[] }>;
+    }>(`${conn.facebookPageId}/subscribed_apps`, token, {
+      fields: "id,name,subscribed_fields",
+    });
+    const fields = check.data?.[0]?.subscribed_fields ?? [];
+    req.log.info(
+      { pageId: conn.facebookPageId, success: sub.success, fields },
+      "meta webhook page subscription",
+    );
+    return res.json({
+      success: sub.success,
+      pageId: conn.facebookPageId,
+      pageName: conn.facebookPageName,
+      subscribedFields: fields,
+      leadgenActive: fields.includes("leadgen"),
+      appSubscription,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    req.log.error({ err: msg }, "meta webhook page subscription failed");
+    return res.status(502).json({ error: `Page subscription failed: ${msg}` });
+  }
 });
 
 // ---------------------------------------------------------------------------

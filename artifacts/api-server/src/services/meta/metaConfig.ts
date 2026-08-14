@@ -53,6 +53,20 @@ export function redirectUri(): string | null {
   return `${base.replace(/\/$/, "")}/api/meta/auth/callback`;
 }
 
+/**
+ * Public webhook callback URL that Meta will call. Must be the DEPLOYED
+ * host (Meta verifies it with a GET before accepting the subscription).
+ * Priority: explicit META_WEBHOOK_CALLBACK_URL → same base derivation as
+ * the OAuth redirect. The path is fixed.
+ */
+export function webhookCallbackUrl(): string | null {
+  const explicit = process.env.META_WEBHOOK_CALLBACK_URL?.trim();
+  if (explicit) return explicit;
+  const redirect = redirectUri();
+  if (!redirect) return null;
+  return redirect.replace(/\/api\/meta\/auth\/callback$/, "/api/meta/webhook");
+}
+
 /** Frontend URL to land on after OAuth (success or failure). */
 export function frontendReturnUrl(): string {
   const origin = process.env.WEB_ORIGIN?.split(",")[0]?.trim();

@@ -36,13 +36,29 @@ https://<your-api-host>/api/meta/auth/callback
 
 ## Webhook (instant lead delivery)
 
-In the Meta app → Webhooks → **Page** object:
+Both halves of the webhook setup are automated — no manual Meta
+dashboard steps needed:
 
-- Callback URL: `https://<your-api-host>/api/meta/webhook`
-- Verify token: the value of `META_WEBHOOK_VERIFY_TOKEN`
-- Subscribe to the **leadgen** field, then subscribe the Page itself
-  (happens automatically for pages granted during OAuth, or via the
-  Page's *Webhooks* subscriptions).
+1. **App-level subscription** (equivalent to the dashboard's Webhooks →
+   Page config): `POST /api/meta/webhook/subscribe` (admin) registers the
+   callback URL + verify token + `leadgen` field with the Meta app via
+   `POST /{app-id}/subscriptions`. Meta synchronously verifies the
+   callback URL with a GET challenge, so the URL must be publicly
+   reachable and running current code (i.e. the **deployed** app —
+   republish first if the webhook route 404s in production).
+2. **Page-level subscription**: connecting via OAuth automatically calls
+   `POST /{page-id}/subscribed_apps` with `subscribed_fields=leadgen`.
+   `POST /api/meta/webhook/subscribe` also (re-)runs this for the current
+   connection and returns the Page's actual `subscribed_fields` so you
+   can confirm `leadgen` is active.
+
+Configuration:
+
+- Callback URL: `META_WEBHOOK_CALLBACK_URL` (defaults to
+  `https://<api-host>/api/meta/webhook` derived like the OAuth redirect).
+  Point it at the deployed host, not the dev workspace.
+- Verify token: `META_WEBHOOK_VERIFY_TOKEN` — any random string; the GET
+  verification handler compares against it.
 
 Webhook deliveries are verified with `X-Hub-Signature-256` (HMAC over the
 raw body using the app secret) and deduplicated by leadgen id — retried
