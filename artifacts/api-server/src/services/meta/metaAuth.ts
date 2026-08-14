@@ -109,6 +109,25 @@ type PageItem = {
 type AdAccountItem = { id: string; name?: string; account_status?: number };
 
 /**
+ * Choose which Page a fresh connection defaults to. Prefers the Page named
+ * by META_DEFAULT_PAGE_NAME (case-insensitive substring, default
+ * "e-migration assist"), falling back to the first Page. Prevents a
+ * multi-Page Facebook user from landing on an unrelated business.
+ */
+export function pickDefaultPage(pages: PageItem[]): PageItem | null {
+  const preferred = (process.env.META_DEFAULT_PAGE_NAME ?? "e-migration assist")
+    .trim()
+    .toLowerCase();
+  if (preferred) {
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "");
+    const target = norm(preferred);
+    const match = pages.find((p) => p.name && norm(p.name).includes(target));
+    if (match) return match;
+  }
+  return pages[0] ?? null;
+}
+
+/**
  * Complete the connection: discover the first Page (+ its IG business
  * account and page token) and the first active ad account, then upsert
  * the single connection row with encrypted tokens.
@@ -125,7 +144,7 @@ export async function completeConnection(args: {
   const pages = await graphGetAll<PageItem>("me/accounts", args.userToken, {
     fields: "id,name,access_token,instagram_business_account{id,username}",
   });
-  const page = pages[0] ?? null;
+  const page = pickDefaultPage(pages);
 
   let adAccount: AdAccountItem | null = null;
   try {
