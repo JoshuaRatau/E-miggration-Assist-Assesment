@@ -32,7 +32,9 @@ import {
   disconnect,
   exchangeCodeForLongLivedToken,
   getConnection,
+  listAvailablePages,
   pageToken,
+  selectPage,
   subscribeAppToLeadgenWebhook,
   subscribePageToLeadgen,
 } from "../services/meta/metaAuth";
@@ -219,6 +221,57 @@ router.get("/meta/auth/callback", async (req, res) => {
   } catch (err) {
     req.log.error({ err: err instanceof Error ? err.message : String(err) }, "meta oauth callback failed");
     return res.redirect(`${back}?connect_error=exchange_failed`);
+  }
+});
+
+// List all Pages the connected Meta user manages (for the page switcher).
+router.get("/meta/pages", async (req, res) => {
+  if (!(await requireAdminAuth(req, res))) return;
+  const conn = await getConnection();
+  if (!conn || conn.status === "disconnected") {
+    return res.status(404).json({ error: "No Meta connection" });
+  }
+  try {
+    const pages = await listAvailablePages(conn);
+    return res.json({ pages });
+  } catch (err) {
+    req.log.error({ err: err instanceof Error ? err.message : String(err) }, "meta pages list failed");
+    return res.status(502).json({ error: "Could not load Pages from Meta" });
+  }
+});
+
+// Switch the connection to a different Page and re-sync.
+const SelectPageSchema = z.object({ pageId: z.string().min(1) });
+router.post("/meta/select-page", async (req, res) => {
+  if (!(await requireAdminAuth(req, res))) return;
+  const parsed = SelectPageSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "pageId required" });
+  const conn = await getConnection();
+  if (!conn || conn.status === "disconnected") {
+    return res.status(404).json({ error: "No Meta connection" });
+  }
+  // Never switch mid-sync: the in-flight run holds a snapshot of the old
+  // connection and would write old-page data against the new selection.
+  if (isSyncRunning()) {
+    return res.status(409).json({
+      error: "A data sync is currently running. Wait for it to finish, then try again.",
+    });
+  }
+  try {
+    const updated = await selectPage(conn, parsed.data.pageId);
+    req.log.info({ pageId: parsed.data.pageId }, "meta connection switched page");
+    // Re-sync in the background so the dashboard reflects the new Page.
+    void runFullSync("manual");
+    return res.json({
+      ok: true,
+      facebookPageId: updated.facebookPageId,
+      facebookPageName: updated.facebookPageName,
+      instagramUsername: updated.instagramUsername,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    req.log.error({ err: msg }, "meta select-page failed");
+    return res.status(502).json({ error: "Could not switch Page" });
   }
 });
 

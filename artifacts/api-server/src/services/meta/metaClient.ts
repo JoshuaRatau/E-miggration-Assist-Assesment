@@ -170,6 +170,64 @@ export async function graphPost<T = Record<string, unknown>>(
 }
 
 /**
+ * DELETE a Graph API path. Same token handling and error classification
+ * as graphPost. Used to remove a Page's webhook subscription when the
+ * admin switches the connection to a different Page.
+ */
+export async function graphDelete<T = Record<string, unknown>>(
+  path: string,
+  accessToken: string,
+  params: Record<string, string> = {},
+): Promise<T> {
+  const url = new URL(`${graphBase()}/${path.replace(/^\//, "")}`);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  if (accessToken && !url.searchParams.has("access_token")) {
+    url.searchParams.set("access_token", accessToken);
+  }
+
+  let lastErr: GraphError | null = null;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) await sleep(RETRY_BASE_MS * 2 ** (attempt - 1));
+    let res: Response;
+    try {
+      res = await fetch(url.toString(), { method: "DELETE" });
+    } catch (err) {
+      lastErr = new GraphError(
+        "network_error",
+        err instanceof Error ? err.message : "fetch failed",
+      );
+      continue;
+    }
+    if (res.ok) {
+      return (await res.json()) as T;
+    }
+    let errBody: GraphErrorBody = {};
+    try {
+      errBody = (await res.json()) as GraphErrorBody;
+    } catch {
+      /* non-JSON error body */
+    }
+    const kind = classify(errBody.error?.code, errBody.error?.error_subcode, res.status);
+    const gerr = new GraphError(
+      kind,
+      errBody.error?.message ?? `Graph API HTTP ${res.status}`,
+      errBody.error?.code,
+      errBody.error?.error_subcode,
+    );
+    logger.warn(
+      { path: url.pathname, kind, code: gerr.code, subcode: gerr.subcode },
+      "Meta Graph API error (DELETE)",
+    );
+    if (kind === "rate_limited" || kind === "network_error") {
+      lastErr = gerr;
+      continue; // retry
+    }
+    throw gerr;
+  }
+  throw lastErr ?? new GraphError("api_error", "Graph request failed");
+}
+
+/**
  * Fetch ALL pages of a paginated edge, following `paging.next` cursors
  * until exhausted or `maxItems` reached (safety valve — Meta edges can
  * be effectively unbounded).

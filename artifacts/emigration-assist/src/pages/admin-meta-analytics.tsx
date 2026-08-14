@@ -52,6 +52,7 @@ type StatusResponse = {
   syncRunning: boolean;
   connection: {
     status: string;
+    facebookPageId: string | null;
     facebookPageName: string | null;
     instagramUsername: string | null;
     adAccountName: string | null;
@@ -189,6 +190,35 @@ export function AdminMetaAnalytics() {
         };
       }>(`/api/meta/conversions?${rq}`),
     enabled: connected,
+  });
+
+  const pagesQ = useQuery({
+    queryKey: ["meta", "pages"],
+    queryFn: () => getJson<{ pages: { id: string; name: string | null; instagramUsername: string | null }[] }>("/api/meta/pages"),
+    enabled: connected,
+    staleTime: 5 * 60_000,
+  });
+
+  const selectPageM = useMutation({
+    mutationFn: async (pageId: string) => {
+      const res = await fetch(apiUrl("/api/meta/select-page"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pageId }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({})) as { error?: string }).error ?? `HTTP ${res.status}`);
+      return res.json() as Promise<{ ok: boolean; facebookPageName: string | null }>;
+    },
+    onSuccess: (d) => {
+      toast({
+        title: "Page switched",
+        description: `Now tracking ${d.facebookPageName ?? "the selected Page"}. Fresh data is syncing in the background.`,
+      });
+      void qc.invalidateQueries({ queryKey: ["meta"] });
+    },
+    onError: (e: Error) =>
+      toast({ title: "Could not switch Page", description: e.message, variant: "destructive" }),
   });
 
   const connect = useMutation({
@@ -333,7 +363,26 @@ export function AdminMetaAnalytics() {
             <CardContent className="py-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
               <span className="flex items-center gap-2">
                 <Facebook className="h-4 w-4 text-[#1877F2]" />
-                {conn?.facebookPageName ?? "No Facebook page"}
+                {(pagesQ.data?.pages.length ?? 0) > 1 ? (
+                  <Select
+                    value={conn?.facebookPageId ?? undefined}
+                    onValueChange={(v) => selectPageM.mutate(v)}
+                    disabled={selectPageM.isPending}
+                  >
+                    <SelectTrigger className="h-8 w-auto min-w-[180px]" data-testid="select-meta-page">
+                      <SelectValue placeholder={conn?.facebookPageName ?? "Choose a Page"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {pagesQ.data?.pages.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name ?? p.id}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  conn?.facebookPageName ?? "No Facebook page"
+                )}
               </span>
               <span className="flex items-center gap-2">
                 <Instagram className="h-4 w-4 text-[#E4405F]" />

@@ -37,3 +37,6 @@ Pure helpers live in `src/services/meta/metaSyncClassify.ts`, unit-tested indepe
 - `runOk = anyProgress && !syncWarnings` — partial runs (progress + failures) return `ok: false` so the mutation fires the warning toast, not the success toast.
 - `completeConnection` sets `status: "unverified"` (not "active") — advances to "active" only when the first sync has `anyProgress=true`. Scheduled worker retries "unverified" alongside "active".
 - `lastSyncedAt` only advances when `anyProgress=true` — preserves the 90-day backfill window until real data lands.
+
+## Page selection
+OAuth auto-picks the FIRST page from me/accounts — wrong for multi-page users. Admin UI has a Page switcher (GET /api/meta/pages, POST /api/meta/select-page). Switching purges ALL cached meta_* analytics tables (not imported CRM leads), resets lastSyncedAt, unsubscribes old page webhook, resubscribes new one, and is blocked (409) while a sync is running — a mid-sync switch would write old-page data against the new selection.

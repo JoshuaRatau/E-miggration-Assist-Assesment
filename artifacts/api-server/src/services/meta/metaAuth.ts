@@ -1,4 +1,14 @@
-import { db, metaConnectionsTable, type MetaConnection } from "@workspace/db";
+import {
+  db,
+  metaAdSetsTable,
+  metaAdsTable,
+  metaCampaignsTable,
+  metaConnectionsTable,
+  metaContentInsightsTable,
+  metaInsightsDailyTable,
+  metaLeadFormsTable,
+  type MetaConnection,
+} from "@workspace/db";
 import { desc, eq } from "drizzle-orm";
 import { logger } from "../../lib/logger";
 import {
@@ -10,7 +20,7 @@ import {
   metaAppSecret,
   redirectUri,
 } from "./metaConfig";
-import { graphGet, graphGetAll, graphPost } from "./metaClient";
+import { graphDelete, graphGet, graphGetAll, graphPost } from "./metaClient";
 
 // Meta OAuth + connection lifecycle. Single-tenant: at most one ACTIVE
 // connection row; connecting again replaces it.
@@ -184,6 +194,104 @@ export async function completeConnection(args: {
     return row!;
   }
   const [row] = await db.insert(metaConnectionsTable).values(values).returning();
+  return row!;
+}
+
+/**
+ * List all Pages the connected user manages (id, name, IG link). Used by
+ * the admin UI so the right business Page can be selected when the user
+ * manages more than one.
+ */
+export async function listAvailablePages(conn: MetaConnection): Promise<
+  { id: string; name: string | null; instagramUsername: string | null }[]
+> {
+  const token = userToken(conn);
+  if (!token) throw new Error("No user token on connection");
+  const pages = await graphGetAll<PageItem>("me/accounts", token, {
+    fields: "id,name,instagram_business_account{id,username}",
+  });
+  return pages.map((p) => ({
+    id: p.id,
+    name: p.name ?? null,
+    instagramUsername: p.instagram_business_account?.username ?? null,
+  }));
+}
+
+/**
+ * Switch the connection to a different Page (by id) without redoing OAuth.
+ * Re-derives the page token + IG account from me/accounts and re-subscribes
+ * the new Page to the leadgen webhook.
+ */
+export async function selectPage(conn: MetaConnection, pageId: string): Promise<MetaConnection> {
+  const token = userToken(conn);
+  if (!token) throw new Error("No user token on connection");
+  const pages = await graphGetAll<PageItem>("me/accounts", token, {
+    fields: "id,name,access_token,instagram_business_account{id,username}",
+  });
+  const page = pages.find((p) => p.id === pageId);
+  if (!page) throw new Error("Page not found among the accounts this connection can access");
+
+  // Unsubscribe the OLD page from the leadgen webhook so its lead events
+  // stop arriving (best-effort — the old token may already be invalid).
+  if (conn.facebookPageId && conn.facebookPageId !== page.id && conn.pageTokenEncrypted) {
+    try {
+      await graphDelete(`${conn.facebookPageId}/subscribed_apps`, decryptToken(conn.pageTokenEncrypted));
+      logger.info({ pageId: conn.facebookPageId }, "Meta select-page: old page unsubscribed from leadgen webhook");
+    } catch (err) {
+      logger.warn(
+        { pageId: conn.facebookPageId, err: err instanceof Error ? err.message : String(err) },
+        "Meta select-page: old page unsubscribe failed (non-fatal)",
+      );
+    }
+  }
+
+  if (page.access_token) {
+    try {
+      const sub = await subscribePageToLeadgen({ pageId: page.id, pageAccessToken: page.access_token });
+      logger.info({ pageId: page.id, success: sub.success }, "Meta select-page: leadgen webhook subscription");
+    } catch (err) {
+      logger.warn(
+        { pageId: page.id, err: err instanceof Error ? err.message : String(err) },
+        "Meta select-page: leadgen webhook subscription failed",
+      );
+    }
+  }
+
+  // Purge cached analytics from the previous Page so old and new data are
+  // never mixed on the dashboard. (Imported leads in the CRM are kept —
+  // they are business records, not analytics cache.)
+  if (conn.facebookPageId !== page.id) {
+    await db.transaction(async (tx) => {
+      await tx.delete(metaInsightsDailyTable);
+      await tx.delete(metaContentInsightsTable);
+      await tx.delete(metaAdsTable);
+      await tx.delete(metaAdSetsTable);
+      await tx.delete(metaCampaignsTable);
+      await tx.delete(metaLeadFormsTable);
+    });
+    logger.info(
+      { from: conn.facebookPageId, to: page.id },
+      "Meta select-page: purged cached analytics from previous Page",
+    );
+  }
+
+  const [row] = await db
+    .update(metaConnectionsTable)
+    .set({
+      facebookPageId: page.id,
+      facebookPageName: page.name ?? null,
+      instagramAccountId: page.instagram_business_account?.id ?? null,
+      instagramUsername: page.instagram_business_account?.username ?? null,
+      pageTokenEncrypted: page.access_token ? encryptToken(page.access_token) : null,
+      // Data must be re-verified against the new Page; the dashboard shows
+      // the "initial sync" state until the new Page's sync completes.
+      status: "unverified",
+      lastSyncedAt: null,
+      lastError: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(metaConnectionsTable.id, conn.id))
+    .returning();
   return row!;
 }
 
