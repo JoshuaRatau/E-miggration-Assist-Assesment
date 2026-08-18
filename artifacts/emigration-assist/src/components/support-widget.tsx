@@ -172,27 +172,29 @@ export function SupportWidget() {
               >
                 <CheckCircle2 className="h-12 w-12 text-[hsl(187_38%_52%)]" />
                 <p className="text-base font-semibold">Thank you!</p>
-                {ticketReference ? (
+                <p className="text-sm text-slate-300">
+                  Your support request has been submitted successfully.
+                </p>
+                {ticketReference && (
                   <p className="text-sm text-slate-300">
-                    Your request was logged as{" "}
+                    Your ticket reference is{" "}
                     <span className="font-semibold text-[hsl(187_38%_52%)]">
                       {ticketReference}
                     </span>
-                    . We usually reply by email.
-                  </p>
-                ) : (
-                  <p className="text-sm text-slate-300">
-                    Your request has been received. Our team will get back to you
-                    as soon as possible.
+                    .
                   </p>
                 )}
+                <p className="text-sm text-slate-300">
+                  Our support team will review your request and get back to you
+                  via email as soon as possible.
+                </p>
                 <button
                   type="button"
                   onClick={resetForm}
                   data-testid="button-support-another"
                   className="mt-2 rounded-lg bg-[hsl(187_38%_52%)] px-4 py-2 text-sm font-medium text-[#0a1628] transition-opacity hover:opacity-90"
                 >
-                  Submit another request
+                  Submit Another Request
                 </button>
               </div>
             ) : (
