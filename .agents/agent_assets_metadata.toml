@@ -6,57 +6,81 @@ id = "AUDU5VAn8oJGHnHLiXbFl"
 uri = "file://docs/ARCHITECTURE.md"
 type = "text"
 title = "E-Migration Assist — Architecture Document (A→Z)"
+logical_id = "3171ce8c-3921-4356-a927-a9ebfc6eb211"
 
 [[outputs]]
 id = "e2n6172uZbXEPfuDKLxoU"
 uri = "file://docs/FUNCTIONAL_SPEC.md"
 type = "text"
 title = "E-Migration Assist — Functional Specification (Fully Functioning)"
+logical_id = "125cb2dc-45bc-4e17-ada6-23d0e9c8c15c"
 
 [[outputs]]
 id = "dqooa4P0PkwW6U8WLNmnI"
 uri = "file://docs/ARCHITECTURE.pdf"
 type = "pdf"
 title = "E-Migration Assist — Architecture (PDF)"
+logical_id = "b0975e97-a062-4855-8180-ec618f3ac1f9"
 
 [[outputs]]
 id = "LPTvVhnA7TXxote_bKyFN"
 uri = "file://docs/FUNCTIONAL_SPEC.pdf"
 type = "pdf"
 title = "E-Migration Assist — Functional Specification (PDF)"
+logical_id = "ea4d2ac2-40ef-4e71-85dc-6fcaeacf81b4"
 
 [[outputs]]
 id = "-UmyiiTaiwRLod_3x9v05"
 uri = "file://replit.md"
 type = "text"
 title = "E-Migration Assist — replit.md (project README)"
+logical_id = "7ce2337e-27b2-4487-99f6-e6925c2609de"
 
 [[outputs]]
 id = "T2N1HLDKAN3zWxuPQAX7B"
 uri = "file://docs/AWS_DEPLOYMENT.md"
 type = "text"
 title = "AWS Deployment — af-south-1 (updated)"
+logical_id = "9460eb9f-4af4-41ec-b0e2-97478b8abda2"
 
 [[outputs]]
 id = "q38gM7wsPHANtOw5qBtIZ"
 uri = "file://screenshots/admin-v2-verify.png"
 type = "image"
 title = "Live /admin (this environment) — v2 shell: sidebar, search, Overstay segment, new KPIs"
+logical_id = "bae6078f-78d2-43da-8839-53c70268a2b3"
 
 [[outputs]]
 id = "TclVZNqmtGsx0otBSKp8F"
 uri = "file://reports/EMA-Funnel-Report-2026-07-04.pdf"
 type = "pdf"
 title = "EMA Leads Funnel — Change Report (24h)"
+logical_id = "3bb421c0-1403-42cd-948d-8b903965ef0b"
 
 [[outputs]]
 id = "P3HKpAzq49DiAny7PoqA4"
 uri = "file://docs/end-to-end-architecture.txt"
 type = "text"
 title = "End-to-End Architecture (Plain Text)"
+logical_id = "d79b574c-0e4d-4798-b256-b0c9a1abb4bd"
 
 [[outputs]]
 id = "i9bosfsQYhl01aVugJqbg"
 uri = "file://docs/end-to-end-architecture.pdf"
 type = "pdf"
 title = "End-to-End Architecture (PDF)"
+logical_id = "1d24a53e-ef3f-4be9-b201-3fbf9530faa3"
+
+[[outputs]]
+id = "x39JIfwks2ptweeCD6zur"
+uri = "file://exports/Support-Centre-Implementation-Prompt.pdf"
+type = "pdf"
+title = "Support Centre — Implementation Prompt"
+description = "8-page PDF covering the interface, submission flow, database, email notifications, Support Hub integration, and verification checklist. Ready to upload to another Replit project."
+logical_id = "f3e85732-0cb5-466b-9f9d-63ec63c22b9e"
+content_hash = "sha256:1c8f7b37a492d571c20fec7e0a7a60b6bc30879835255fed365c2bcd795f3a4f"
+size = 18045
+mtime_ms = 1789698142727
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:a30823e0-2ce8-41ab-a45d-1ba7f07cedc0/f3e85732-0cb5-466b-9f9d-63ec63c22b9e/a64377d4-edf7-4011-a6f3-5f05f37c2765"
+storage_version_token = "1789698151451318"
+content_type = "application/pdf"
