@@ -1,0 +1,26 @@
+Use these confirmed EC2 results to finalise the existing deployment plan. Do not repeat the general server audit.
+
+* Linux x86_64, glibc 2.39.
+* Shell and running application both use Node v22.22.2 at /usr/bin/node.
+* PM2 process: immigration-api, online.
+* Script: /home/ubuntu/E-miggration-Assist-Assesment/artifacts/api-server/dist/index.mjs
+* Working directory: /home/ubuntu/E-miggration-Assist-Assesment/artifacts/api-server
+* Nginx: api.emigration-assist.com proxies / to http://localhost:5000.
+* No frontend static-serving directives appeared in the inspected Nginx configuration. Do not change frontend hosting or deploy the candidate /assessment/ frontend without verifying its actual destination.
+* Environment files exist at the repository root and artifacts/api-server/.env. Their loading mechanism remains unverified; preserve them and do not print their contents.
+* Current free disk space: 184,020,992 bytes.
+* Repository disk allocation: 698,613,760 bytes.
+* PM2 logs: 36,503,552 bytes.
+* Active swap must remain untouched.
+
+The earlier 319 MB capacity assumption is invalid. Your estimated 267,321,344-byte deployment budget currently does not fit.
+
+Prepare the smallest verified API release necessary for this integration, retaining the existing installation for rollback. Report its revised peak disk requirement. Do not remove safety reserves merely to declare it fits.
+
+If space still blocks deployment, provide one targeted read-only command batch to locate repository growth and potentially disposable build/cache files. Do not delete anything or run installations/builds on EC2.
+
+Verify the package against Node 22.22.2 if available; otherwise distinguish engine compatibility from actual runtime testing.
+
+Separately, state the exact outstanding GHL live-test gate and the concrete action needed to clear it. Existing bounded approval remains valid; do not request it again or claim mocked tests prove live delivery.
+
+Return a concise execution handoff with remaining blockers and exact next actions. No EC2 changes, migrations, pushes, deployments or additional AWS costs are authorised by this message.

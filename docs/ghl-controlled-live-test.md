@@ -226,9 +226,10 @@ No duplicate-handling or production validation bypass is included.
    Permission covers the supplied test identity only; if staff/external recipients
    cannot be excluded, stop and request clarification, not wider permission by assumption.
 4. Repeat read-only inventory and the two identity-collision checks; stop on matches.
-5. Present one consolidated approval covering exactly the fields and records
-   above, the manifest, destination, pipeline and unresolved risks.
-6. Only after approval, create and retain one controlled run handle; never use the
+5. Retain the already-received bounded approval for exactly the fields and records
+   above. Do not request that same approval again; unresolved recipient and
+   pre-write checks still block execution.
+6. Once those remaining gates pass, create and retain one controlled run handle; never use the
    ordinary app server, frontend, startup jobs or application database. Retain
    that same handle until delivery and no-op replay both finish.
 7. Save individual answers; verify immutable snapshot and no queued delivery

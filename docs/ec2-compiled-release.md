@@ -1,5 +1,12 @@
 # Compiled EC2 release — preparation only
 
+**Superseded capacity/topology assumptions:** The user subsequently confirmed only
+184,020,992 bytes free, Node 22.22.2 at `/usr/bin/node`, and API-only Nginx proxying
+to localhost:5000. The combined frontend/API candidate and 319 MB calculation
+below are historical evidence, not the current deployment recommendation.
+Use `docs/ec2-api-only-release.md` for the revised API-only handoff. Do not deploy
+the candidate frontend or change its hosting.
+
 No EC2 changes, pushes, deployment, swap changes or application database access are authorized. Current 319 MB free is **not yet a safe deployment approval**. `/swapfile` is active and untouchable.
 
 ## Build and dependency audit

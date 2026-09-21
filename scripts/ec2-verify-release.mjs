@@ -3,10 +3,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+const apiOnly = process.argv.includes("--api-only");
+if (process.argv.length > 2 && (!apiOnly || process.argv.length !== 3))
+  throw new Error("Usage: node scripts/ec2-verify-release.mjs [--api-only]");
+const archive = apiOnly ? "dist/ema-api-compiled.tar.gz" : "dist/ema-compiled.tar.gz";
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ema-release-verify-"));
 const env = { PATH: process.env.PATH, HOME: dir, NODE_ENV: "production" };
 try {
-  execFileSync("tar", ["-xzf", path.resolve("dist/ema-compiled.tar.gz"), "-C", dir]);
+  execFileSync("tar", ["-xzf", path.resolve(archive), "-C", dir]);
   execFileSync("sha256sum", ["-c", "SHA256SUMS"], { cwd: dir, env, stdio: "pipe" });
   execFileSync(process.execPath, ["--check", "api/index.mjs"], { cwd: dir, env });
   execFileSync(process.execPath, ["migrate.mjs", "--plan"], { cwd: dir, env, stdio: "inherit" });
@@ -16,6 +20,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 const require=createRequire(import.meta.url);
 const manifest=JSON.parse(fs.readFileSync('./release.json'));
+if(manifest.mode!==${JSON.stringify(apiOnly ? "api-only" : "api-and-frontend")})throw Error('Unexpected release mode');
+if(${apiOnly}&&fs.existsSync('./public'))throw Error('API-only release unexpectedly contains frontend');
 function walk(d){for(const n of fs.readdirSync(d)){const p=path.join(d,n),s=fs.lstatSync(p);if(s.isSymbolicLink()){if(!fs.realpathSync(p).startsWith(process.cwd()+'/'))throw Error('Escaping symlink')}else if(s.isDirectory())walk(p)}}walk('.');
 for(const name of ['pino','pino-http','pg-boss','file-type','nodemailer','pg','@google-cloud/storage','@aws-sdk/client-s3','@aws-sdk/lib-storage','@aws-sdk/s3-request-presigner'])await import(name);
 const {fileTypeFromBuffer}=await import('file-type');
