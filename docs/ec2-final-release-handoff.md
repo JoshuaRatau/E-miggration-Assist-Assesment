@@ -74,6 +74,14 @@ shell history. No git pull, on-server dependency install or build is needed.
 
 ## Remaining database/recovery gate
 
+**Updated authorization:** the user permits the alternative transactional
+migration-safety gate documented in `ema-migration-safety-audit.md` without
+waiting for AWS backup inspection permissions. The backup requirements below
+remain unresolved infrastructure evidence, not a claim of verification.
+Full schema verification BEFORE COMMIT is now required. The pinned runner
+currently commits before those assertions and must not be executed unchanged
+under that requirement. This supersedes the earlier backup-only execution gate.
+
 The read-only batch reports the two migration ledger statuses against the pinned
 candidate hashes and integration schema/constraint/trigger/index readiness.
 

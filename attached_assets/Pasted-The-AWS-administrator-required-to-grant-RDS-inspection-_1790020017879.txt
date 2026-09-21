@@ -1,0 +1,137 @@
+The AWS administrator required to grant RDS inspection permissions is currently unavailable.
+
+Do not wait for new AWS permissions and do not attempt to bypass AWS IAM.
+
+Use the alternative migration-safety path below.
+
+We already know from the production preflight that:
+
+- the correct production database is connected;
+- the EMA→GHL migrations have NOT yet been applied;
+- none of the six EMA→GHL tables currently exist;
+- GHL capture is OFF;
+- GHL delivery is OFF;
+- PostgreSQL WAL archiving is enabled;
+- archive handler is configured;
+- archived_count was 37475;
+- failed_count was 0.
+
+The only unavailable evidence is external AWS backup/PITR administration because rds:DescribeDBInstances is denied.
+
+STEP 1 — READ-ONLY MIGRATION SAFETY AUDIT
+
+Inspect the exact existing migration files:
+
+- 0001_ema_ghl_outbox.sql
+- 0002_ema_ghl_production.sql
+
+Do not modify them.
+
+Determine whether either migration contains ANY:
+
+- DROP
+- TRUNCATE
+- DELETE
+- UPDATE of existing production records
+- destructive ALTER on an existing application table
+- column removal
+- type conversion of existing data
+- table rename
+- irreversible data transformation
+- CREATE INDEX CONCURRENTLY
+- VACUUM
+- transaction control incompatible with an outer transaction
+- external side effect
+- non-transactional operation
+
+Also identify every existing production object that either migration modifies.
+
+STEP 2 — DECISION GATE
+
+If either migration is destructive, non-transactional, irreversible, or modifies existing production data in a way that cannot be safely rolled back:
+
+STOP.
+
+Report the exact statement and do not run the migration.
+
+If both migrations are strictly additive/reversible and safe to execute transactionally, continue immediately.
+
+STEP 3 — TRANSACTIONAL PRODUCTION MIGRATION
+
+Run the approved migrations against the already-confirmed production database using a transaction-safe execution strategy.
+
+Do not enable GHL capture.
+Do not enable GHL delivery yet.
+
+If any migration statement fails:
+
+ROLL BACK the transaction.
+
+Do not leave a partially installed EMA→GHL schema.
+
+STEP 4 — VERIFY BEFORE COMMIT
+
+Before finalising the migration, verify all expected objects and safeguards:
+
+- ema_release_migrations
+- ema_assessment_submissions
+- ema_ghl_operations
+- ema_ghl_attempts
+- ema_ghl_links
+- ema_ghl_worker_leases
+- ema_ghl_mutation_barriers
+- correct migration hashes
+- required columns
+- production environment constraints
+- ema_snapshot_immutable trigger
+- opportunity ownership uniqueness protection
+
+If verification fails:
+
+ROLL BACK.
+
+If verification passes:
+
+complete the migration according to the approved migration design.
+
+STEP 5 — CONTINUE EXISTING ROLLOUT
+
+After successful migration verification, continue directly with the existing approved controlled EMA → GHL test.
+
+Use synthetic data only.
+
+My existing live-test approval remains valid.
+
+Do not ask for approval again.
+
+Verify:
+
+- EMA submission retained;
+- GHL contact correct;
+- mapped fields correct;
+- opportunity correct;
+- pipeline/stage correct;
+- note/history correct;
+- stored GHL IDs correct;
+- no duplicate contact;
+- no duplicate opportunity;
+- retry/idempotency works;
+- no unexpected notification/workflow side effect.
+
+If the controlled test passes, complete the existing production activation for NEW EMA assessment completions only.
+
+Do not backfill historical leads.
+Do not process unrelated existing leads.
+Do not change GHL workflows/settings.
+Do not revisit the Replit OAuth connector.
+Do not redesign or refactor anything.
+
+IMPORTANT:
+
+The inability to verify AWS-managed PITR must be recorded in the final deployment report as an unresolved infrastructure evidence item.
+
+Do not falsely state that backup/PITR was verified.
+
+Proceed only if the migration audit proves the database changes themselves are additive, reversible and transaction-safe.
+
+Continue now.
