@@ -419,7 +419,7 @@ export default function BusinessAssessment() {
 
   const isIntro = step === STEP_INTRO;
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-300 via-slate-400 to-slate-500 text-foreground">
+    <div className="min-h-screen bg-background text-foreground">
       <BrandHeader variant="compact" homeHref="/" homeHardNav />
 
       {/* Ambient brand glow */}
@@ -454,18 +454,7 @@ export default function BusinessAssessment() {
         )}
 
         <div
-          style={{
-            "--foreground": "215 30% 22%",
-            "--card": "210 40% 99%",
-            "--card-foreground": "215 30% 22%",
-            "--card-border": "214 25% 84%",
-            "--border": "214 25% 84%",
-            "--background": "210 40% 98%",
-            "--muted": "210 30% 93%",
-            "--muted-foreground": "215 16% 42%",
-            "--input": "214 25% 84%",
-          } as any}
-          className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-white/80 p-6 backdrop-blur-md shadow-[0_20px_50px_-20px_rgba(15,23,42,0.25)] ring-1 ring-slate-900/[0.04] sm:p-10"
+          className="relative overflow-hidden rounded-2xl border border-card-border bg-card p-6 backdrop-blur-md shadow-[0_20px_50px_-20px_rgba(0,0,0,0.5)] sm:p-10"
         >
           {/* INTRO */}
           {step === STEP_INTRO && (
@@ -479,7 +468,7 @@ export default function BusinessAssessment() {
 
                 <h1 className="font-display text-[2.4rem] font-extrabold leading-[1.02] tracking-tight text-foreground sm:text-5xl lg:text-[3.4rem]">
                   Run your practice with{" "}
-                  <span className="bg-gradient-to-r from-primary to-cyan-600 bg-clip-text text-transparent">
+                  <span className="bg-gradient-to-r from-primary to-cyan-400 bg-clip-text text-transparent">
                     structure & technology
                   </span>
                   .
@@ -501,7 +490,7 @@ export default function BusinessAssessment() {
                   ].map(({ icon: Icon, label }) => (
                     <div
                       key={label}
-                      className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white/60 px-3 py-2.5 text-sm"
+                      className="flex items-center gap-2 rounded-xl border border-card-border bg-background/60 px-3 py-2.5 text-sm"
                     >
                       <Icon className="h-4 w-4 text-primary" />
                       <span className="text-foreground/90">{label}</span>
@@ -537,7 +526,7 @@ export default function BusinessAssessment() {
                 />
                 <p className="mt-5 text-center font-display text-lg font-semibold tracking-tight text-foreground sm:text-xl">
                   Structured Immigration.{" "}
-                  <span className="bg-gradient-to-r from-primary to-cyan-600 bg-clip-text text-transparent">
+                  <span className="bg-gradient-to-r from-primary to-cyan-400 bg-clip-text text-transparent">
                     Powered by Technology.
                   </span>
                 </p>
@@ -1168,7 +1157,7 @@ export default function BusinessAssessment() {
                 <Button
                   asChild
                   variant="outline"
-                  className="rounded-xl border-slate-200 bg-white/60 backdrop-blur-md hover-elevate"
+                  className="rounded-xl border-card-border bg-background/60 backdrop-blur-md hover-elevate"
                 >
                   <Link href={`/status?ref=${result.referenceNumber}`}>
                     Check my status
@@ -1178,7 +1167,7 @@ export default function BusinessAssessment() {
                 <Button
                   asChild
                   variant="outline"
-                  className="rounded-xl border-slate-200 bg-white/60 backdrop-blur-md hover-elevate"
+                  className="rounded-xl border-card-border bg-background/60 backdrop-blur-md hover-elevate"
                 >
                   <a href="/">
                     <HomeIcon className="mr-2 h-4 w-4" /> Back to home
