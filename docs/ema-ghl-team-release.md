@@ -38,6 +38,37 @@ symlink activation is part of this plan. The API remains at
 `/home/ubuntu/E-miggration-Assist-Assesment/artifacts/api-server/dist/index.mjs`,
 under the existing `immigration-api` PM2 process and existing Nginx proxy.
 
+## Completed here after the base release
+
+Continued from `14c709f1193912a759d6d355641c1de73dee1607`.
+All 22 approved EMA custom fields have now been created and read back from the
+live location. All eight protected fields were preserved. No contact, note or
+opportunity records were created. **Do not run field setup again.**
+
+Actual deployment evidence files:
+
+| File under `docs/release-evidence/` | Actual contents |
+| --- | --- |
+| `ghl-field-mapping.json` | Complete validated 22-key logical-to-provider-ID mapping |
+| `ghl-field-validation.json` | Full provider field readback, destination and mapping digest |
+| `ghl-field-setup.jsonl` | Durable creation journal, including explicit reuse after safe stops |
+| `ghl-recipient-review.json` | Accepted recipient evidence and precisely unresolved configuration; NOT approval evidence |
+| `ghl-controlled-status.json` | Blocked/not-started status; NOT a successful test report |
+
+Mapping SHA-256 (key-sorted JSON):
+`913fd11f6f3b4da1d5c1e7ec402af78b7b60bc3902ac940f3c7a56c0b9f03c75`.
+The mapping passes the production helper's exact-key/protected-ID validation.
+The blocked status was checked and is correctly rejected by activation validation.
+The actual saved mapping and existing pipeline/stage also passed the production
+destination validator using authenticated GET requests only; no application
+database was accessed.
+
+Real provider responses required two narrow validator corrections: enum options
+arrive as `picklistOptions`; the provider key for **EMA WhatsApp Opt-in** is
+`contact.ema_whatsapp_optin`. The logical mapping key remains
+`contact.ema_whatsapp_opt_in`. No unrelated field-key normalization was added.
+Deploy this updated source, not just the earlier base revision.
+
 ## Reconciled destination and recipient evidence
 
 Authenticated, read-only provider reconciliation during this preparation:
@@ -47,10 +78,10 @@ Authenticated, read-only provider reconciliation during this preparation:
 | Location | `5ce9hy8I0qH6fFNBo1cF` |
 | Existing pipeline | Marketing Pipeline, `gXmKkxDwNOTZnpG6AUgD` |
 | Existing initial stage | New Lead, `7115d545-87ab-4f8b-b8f9-69a0a8464d26` |
-| Existing contact custom fields | Eight protected fields; leave unchanged |
-| Existing opportunity custom fields | None |
-| EMA-specific fields | All 22 still require the already-approved setup |
-| Production ID mapping | Must use the actual IDs returned by setup; not invented IDs |
+| Contact custom fields after setup | Eight protected plus 20 EMA fields |
+| Opportunity custom fields after setup | Two EMA fields |
+| EMA-specific fields | All 22 created; exact model/type/options/key readback passed |
+| Production ID mapping | Actual IDs saved in `docs/release-evidence/ghl-field-mapping.json` |
 
 Setup performs inventory before creating anything and stops on collisions unless
 the exact compatible field is explicitly approved with `--reuse KEY=ID`.
@@ -65,12 +96,21 @@ BCC/forwarding addresses are empty and assigned-user forwarding is disabled.
 The inspected staff profile has conversation email/SMS notifications disabled.
 In-app notifications remain enabled.
 
-The precise remaining scope is other staff notification settings and Ticket
-System's event subscriptions/downstream recipients for contact/opportunity
-writes. Do not repeat the five-workflow review or the four drafts. Do not mark
-these remaining paths safe without evidence, and do not modify them to make
-the test pass. The controlled approval permits only the supplied shared identity
-and the three fixed synthetic pairs; consent/DND protections remain mandatory.
+The sole remaining non-deployment blocker is the account-side recipient behavior
+for the four exact writes: contact creation, contact update, note creation and
+opportunity creation. Available code/configuration does not establish an active
+Ticket System subscriber or other staff alert for them; it also does not prove
+that such handlers are absent. The staff configuration GET returned HTTP 401.
+Missing fact: whether any such handler is configured and, if so, whether its
+actions/recipients exclude everyone except the controlled identity.
+
+A private integration token is API authorization, not evidence of an event
+subscription. The application's Eride Support Hub integration only receives
+support-widget requests and is not called by the isolated harness. No
+notification, workflow or integration preference was changed.
+Do not repeat the complete workflow review or infer that unknown handlers are
+confirmed sends. The original supplied controlled identity has been located and
+validated in its original attachment; it does not need to be supplied again.
 
 ## 1. Review and build off-host through the existing team process
 
@@ -78,13 +118,14 @@ Do not run package installs/builds on EC2. In the team's existing build checkout
 
 ```sh
 git rev-parse HEAD
-node scripts/ec2-migrate.test.mjs
 pnpm --filter @workspace/api-server run build
 node artifacts/api-server/scripts/build-ghl-tools.mjs
-EMA_GHL_TEST_COMPILED=true pnpm --filter @workspace/api-server exec vitest run src/lib/ghl/controlled-cli.test.ts
 node artifacts/api-server/dist/ema-migrate.mjs --plan
-node artifacts/api-server/dist/ghl-controlled-live.mjs --dry-run
 ```
+
+Completed migration/controlled regression suites need not be repeated.
+Only new field-only, real-response decoder and exact-key-alias regressions were
+run for this continuation; API typecheck passed after those changes.
 
 The API build clears dist, so build the GHL tools AFTER it. Use the existing
 dependency/runtime packaging process; deploy the tools and their data assets
@@ -139,77 +180,47 @@ curl --fail --silent --show-error http://127.0.0.1:5000/api/healthz
 curl --fail --silent --show-error https://api.emigration-assist.com/api/healthz
 ```
 
-## 3. Complete setup and the isolated controlled test
+## 3. Resolve the one recipient fact, then finish the controlled test here
 
-Run this on the secure owner/build machine containing the compiled tools and
-existing private integration token in its protected process environment. Do not
-copy a token into the runbook or shell history. Do not run ordinary application
-startup, forms, campaign jobs, or shared-database code for this isolated test.
+Field setup is complete; no field-creation action remains for the deployment
+owner. The existing token and original approved identity are available in this
+environment. Only recipient coverage is unresolved, as recorded in
+`docs/release-evidence/ghl-recipient-review.json`.
 
-Use the already supplied controlled email/phone identity; it belongs only in
-`EMA_GHL_CONTROLLED_MANIFEST_JSON` through the owner's existing secure input
-mechanism. The fixed three lead/submission UUID pairs are printed by the inert
-`--dry-run` command and remain unchanged.
+No isolated database or live contact test was started. There is therefore no
+lost run state and no successful controlled report to transfer. The actual
+`ghl-controlled-status.json` is deliberately unsuitable for production activation.
+Do not rename it or substitute the field-validation report for a success report.
 
-Use a subshell so controlled configuration cannot leak into production:
+After the exact recipient fact is established, finish the already-approved test
+in this environment, without starting the application or touching its database:
 
-```sh
-(
-set -eu
-umask 077
-export NODE_ENV=test
-export GHL_LOCATION_ID=5ce9hy8I0qH6fFNBo1cF
-export EMA_GHL_CONTROLLED_LIVE_APPROVED_LOCATION_ID="$GHL_LOCATION_ID"
-export EMA_GHL_CONTROLLED_LIVE_APPROVAL=ALLOW_THREE_SYNTHETIC_RECORDS_IN_LIVE_ACCOUNT
-export EMA_GHL_DELIVERY_MODE=controlled-live
-export EMA_GHL_DELIVERY_ENABLED=true
-export EMA_GHL_CAPTURE_ENABLED=false
-export EMA_GHL_PIPELINE_ID=gXmKkxDwNOTZnpG6AUgD
-export EMA_GHL_STAGE_ID=7115d545-87ab-4f8b-b8f9-69a0a8464d26
-export EMA_GHL_SETUP_ENABLED=true
-export EMA_GHL_CONTROLLED_SETUP_APPROVAL=ALLOW_22_EMA_FIELDS_IN_LIVE_ACCOUNT
-: "${GHL_PRIVATE_INTEGRATION_TOKEN:?Load through existing secure environment}"
-: "${EMA_GHL_CONTROLLED_MANIFEST_JSON:?Load the existing approved identity manifest securely}"
-: "${EMA_GHL_RECIPIENT_EVIDENCE_FILE:?Set the path to the truthful completed recipient evidence}"
-: "${EMA_GHL_RELEASE_EVIDENCE_DIR:?Set an existing protected operator evidence directory}"
-export EMA_GHL_MAPPING_FILE="$EMA_GHL_RELEASE_EVIDENCE_DIR/field-mapping.json"
+1. Assemble the fixed three-pair manifest in memory from the original supplied
+   identity, not fixture contact details. Keep existing controlled-live approvals,
+   the reviewed location/pipeline/stage, and the actual saved field mapping.
+2. Write truthful, fresh CLI-compatible recipient evidence to
+   `docs/release-evidence/ghl-recipient-evidence.json` (not produced yet).
+3. Load the existing `ghl-field-mapping.json` as `EMA_GHL_FIELD_IDS_JSON`.
+   With the existing isolated controlled environment contract, invoke:
 
-node --input-type=module <<'NODE'
-import fs from "node:fs";
-import { runGhlSetup } from "./artifacts/api-server/dist/ghl-setup.mjs";
-import { readEvidence } from "./artifacts/api-server/dist/ghl-controlled-live.mjs";
-await readEvidence(process.env.EMA_GHL_RECIPIENT_EVIDENCE_FILE,process.env.GHL_LOCATION_ID);
-if (fs.existsSync(process.env.EMA_GHL_MAPPING_FILE)) throw Error("Mapping exists: review/reuse, do not recreate fields");
-const journal=fs.openSync(process.env.EMA_GHL_RELEASE_EVIDENCE_DIR+"/field-creation.jsonl","ax",0o600);
-try {
-  const location=process.env.GHL_LOCATION_ID;
-  const result=await runGhlSetup(["--apply","--controlled-live-account","--location-id",location,"--approve-location",location],{
-    onCreated: entry=>fs.writeSync(journal,JSON.stringify(entry)+"\n")
-  });
-  fs.writeFileSync(process.env.EMA_GHL_MAPPING_FILE,JSON.stringify(result.mappings,null,2),{flag:"wx",mode:0o600});
-} finally { fs.closeSync(journal); }
-NODE
+   ```sh
+   node artifacts/api-server/dist/ghl-controlled-live.mjs --execute \
+     --approve-location 5ce9hy8I0qH6fFNBo1cF \
+     --recipient-evidence "$PWD/docs/release-evidence/ghl-recipient-evidence.json" \
+     > "$PWD/docs/release-evidence/ghl-controlled-report.json"
+   ```
 
-export EMA_GHL_FIELD_IDS_JSON="$(cat "$EMA_GHL_MAPPING_FILE")"
-node artifacts/api-server/dist/ghl-controlled-live.mjs --execute \
-  --approve-location "$GHL_LOCATION_ID" \
-  --recipient-evidence "$EMA_GHL_RECIPIENT_EVIDENCE_FILE" \
-  > "$EMA_GHL_RELEASE_EVIDENCE_DIR/controlled-report.json"
-)
-```
+   That success-report filename is reserved for future real execution and does
+   not currently exist. Do not run until the recipient gate is met.
+4. Retain one process/database handle through fresh collision checks, delivery,
+   provider readbacks and no-op replay. Retain the resulting report/IDs/digest.
+   A crash or ambiguity is a stop condition, not permission to restart and adopt
+   the remote contact. Existing collision checks refuse blind recreation.
+5. Verify the genuine success report and recipient evidence with the production
+   activation helper before handing them to the owner.
 
-Only run the setup block once its recipient prerequisites are satisfied.
-The evidence template is printed by `--dry-run`; populate only facts genuinely
-verified. A current review timestamp is not permission to invent missing
-evidence. The test repeats collision lookups immediately before writes.
-The CLI retains all fixtures and delivery/replay state in one isolated in-memory
-PGlite session; it does not retain synthetic records in the production EMA DB.
-It verifies provider state and outputs counts, IDs and mapping evidence without
-the controlled email/phone. This test is NOT proof of production form-to-GHL flow.
-
-On failure stop: preserve journals/report, do not enable normal delivery, delete
-remote records or rerun a fresh isolated test against its now-existing contact.
-The collision guard intentionally refuses adoption of a prior run's records.
+The test must establish one GHL contact, three notes, three opportunities and
+18 confirmed operations. It is not the final production form-to-GHL verification.
 
 ## 4. Deploy the frontend finalisation fix through the existing Vercel project
 
@@ -247,9 +258,9 @@ Use the exact helper commands below (paths supplied by the owner):
 ```sh
 cd /home/ubuntu/E-miggration-Assist-Assesment
 /usr/bin/node scripts/ema-pm2-ghl.cjs enable \
-  --mapping "$EMA_GHL_MAPPING_FILE" \
-  --controlled-report "$EMA_GHL_CONTROLLED_REPORT_FILE" \
-  --recipient-evidence "$EMA_GHL_RECIPIENT_EVIDENCE_FILE"
+  --mapping "$PWD/docs/release-evidence/ghl-field-mapping.json" \
+  --controlled-report "$PWD/docs/release-evidence/ghl-controlled-report.json" \
+  --recipient-evidence "$PWD/docs/release-evidence/ghl-recipient-evidence.json"
 curl --fail --silent --show-error http://127.0.0.1:5000/api/healthz
 curl --fail --silent --show-error https://api.emigration-assist.com/api/healthz
 ```
@@ -259,6 +270,10 @@ variables, supplies the reviewed production destination/mapping and exact
 production approvals, checks schema/provider configuration read-only, then
 updates only immigration-api through PM2. It enables both capture and delivery.
 No historical records are reconstructed or backfilled.
+
+Only the mapping file currently exists at these three activation paths.
+The two future files must come from completed evidence and actual successful
+execution in step 3. Missing/blocked/incorrect reports must stop activation.
 
 Persist this one application's intended environment using the owner's existing
 PM2 persistence process. Do not blindly run `pm2 save` while another developer

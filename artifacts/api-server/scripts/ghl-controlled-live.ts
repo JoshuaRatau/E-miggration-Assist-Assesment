@@ -3,7 +3,8 @@ import { readFile as readFileFromDisk } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { deliveryConfig, GhlFailure, type GhlConfig, type GhlEnvironment } from "../src/lib/ghl/config";
 import { HttpGhlClient, type GhlClient } from "../src/lib/ghl/client";
-import { fieldDefinitions } from "../src/lib/ghl/fields";
+import { fieldDefinitions, providerFieldKeyMatches } from "../src/lib/ghl/fields";
+import { remoteFieldOptionsMatch } from "../src/lib/ghl/field-options";
 import {
   createControlledRun,
   finalizeControlledFixture,
@@ -124,9 +125,9 @@ async function validateDestination(client: GhlClient, config: GhlConfig) {
     for (const definition of fieldDefinitions.filter(field => field.model === model)) {
       const fields = remote.filter((field: any) => field.id === config.fieldIds[`${model}.${definition.key}`]);
       const field = fields[0];
-      if (fields.length !== 1 || field.model !== model || field.fieldKey !== `${model}.${definition.key}` ||
+      if (fields.length !== 1 || field.model !== model || !providerFieldKeyMatches(field.fieldKey, definition) ||
         field.dataType !== definition.dataType ||
-        JSON.stringify([...(field.options ?? [])].sort()) !== JSON.stringify([...(definition.options ?? [])].sort()))
+        !remoteFieldOptionsMatch(field, definition.options))
         fail("CONTROLLED_FIELD_MAPPING_MISMATCH");
     }
   }

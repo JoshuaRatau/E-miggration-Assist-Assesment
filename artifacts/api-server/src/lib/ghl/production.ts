@@ -2,7 +2,8 @@ import { sql } from "drizzle-orm";
 import { GhlFailure, type GhlConfig } from "./config";
 import type { Executor } from "./snapshots";
 import type { GhlClient } from "./client";
-import { fieldDefinitions } from "./fields";
+import { fieldDefinitions, providerFieldKeyMatches } from "./fields";
+import { remoteFieldOptionsMatch } from "./field-options";
 const ready = new WeakMap<GhlConfig, { db: Executor; client: GhlClient; fingerprint: string }>();
 
 export async function prepareProductionDelivery(db: Executor, client: GhlClient, config: GhlConfig) {
@@ -51,10 +52,8 @@ export async function validateProductionDestination(client: GhlClient, config: G
     for (const definition of fieldDefinitions.filter(f => f.model === model)) {
       const matches = fields.filter(f => f.id === config.fieldIds[`${model}.${definition.key}`]);
       const f = matches[0];
-      if (matches.length !== 1 || f.model !== model || f.fieldKey !== `${model}.${definition.key}` ||
-        f.dataType !== definition.dataType || (definition.options &&
-          (!Array.isArray(f.options) || definition.options.length !== f.options.length ||
-            definition.options.some(option => !f.options.includes(option)))))
+      if (matches.length !== 1 || f.model !== model || !providerFieldKeyMatches(f.fieldKey, definition) ||
+        f.dataType !== definition.dataType || !remoteFieldOptionsMatch(f, definition.options))
         throw new GhlFailure("PRODUCTION_FIELD_MAPPING_MISMATCH");
     }
   }

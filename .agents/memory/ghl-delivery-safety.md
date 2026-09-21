@@ -3,11 +3,17 @@ name: GHL delivery safety decisions
 description: Development-only approval boundary and ambiguous remote-write semantics.
 ---
 
-GHL implementation approval is development-only, with mocked responses and a confirmed isolated database. Production enablement, actual GHL setup/writes and historical backfills need separate approval.
+GHL approval is operation-specific, not general authority to mutate the account.
+The user separately authorized the 22 EMA field definitions and the bounded
+isolated three-assessment test; production deployment/configuration changes and
+backfills must not be inferred from that approval.
 
 **Why:** The configured token/location may identify real customer infrastructure; credential presence is not consent to write or test against it. Replit is development and AWS is production, but repository deployment notes do not verify the live AWS topology.
 
-**How to apply:** Keep tests off the application database. The user clarified that a real network client and guarded worker/setup wiring are approved development code; the restriction is on executing live writes, not implementing them. Keep enablement off unless separately authorised.
+**How to apply:** Keep tests off the application database. Field-definition setup
+may proceed independently of contact-test recipient prerequisites when explicitly
+authorized. Contact/note/opportunity test writes still require the bounded
+identity and recipient gates; credential presence does not satisfy those gates.
 
 The user has no separate GHL test account. Controlled-live preparation uses the existing live sub-account and exactly three allowlisted lead/submission pairs, one per flow, sharing one user-controlled contact identity; it must never be described as an isolated GHL account.
 

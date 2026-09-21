@@ -1,0 +1,69 @@
+{"at":"2026-09-21T21:51:30.598Z","phase":"create-intent","model":"contact","name":"EMA Lead ID"}
+{"at":"2026-09-21T21:51:31.791Z","phase":"create-response","status":201,"field":{"id":"gzHlo94VYBgest1bhwBP","name":"EMA Lead ID","fieldKey":"contact.ema_lead_id","model":"contact","dataType":"TEXT"}}
+{"at":"2026-09-21T21:51:31.800Z","phase":"validated-creation","logicalMappingKey":"contact.ema_lead_id","id":"gzHlo94VYBgest1bhwBP"}
+{"at":"2026-09-21T21:51:31.805Z","phase":"create-intent","model":"contact","name":"EMA Reference"}
+{"at":"2026-09-21T21:51:32.250Z","phase":"create-response","status":201,"field":{"id":"2j8MgTjNmwjV9SV9SkPk","name":"EMA Reference","fieldKey":"contact.ema_reference","model":"contact","dataType":"TEXT"}}
+{"at":"2026-09-21T21:51:32.257Z","phase":"validated-creation","logicalMappingKey":"contact.ema_reference","id":"2j8MgTjNmwjV9SV9SkPk"}
+{"at":"2026-09-21T21:51:32.262Z","phase":"create-intent","model":"contact","name":"EMA Latest Submission ID"}
+{"at":"2026-09-21T21:51:32.714Z","phase":"create-response","status":201,"field":{"id":"yWoKZGJQQdHNIpyFmtKv","name":"EMA Latest Submission ID","fieldKey":"contact.ema_latest_submission_id","model":"contact","dataType":"TEXT"}}
+{"at":"2026-09-21T21:51:32.720Z","phase":"validated-creation","logicalMappingKey":"contact.ema_latest_submission_id","id":"yWoKZGJQQdHNIpyFmtKv"}
+{"at":"2026-09-21T21:51:32.725Z","phase":"create-intent","model":"contact","name":"EMA Assessment Type"}
+{"at":"2026-09-21T21:51:33.197Z","phase":"create-response","status":201,"field":{"id":"2GAvpElQpLT1pLtUWGvJ","name":"EMA Assessment Type","fieldKey":"contact.ema_assessment_type","model":"contact","dataType":"SINGLE_OPTIONS","picklistOptions":["individual","overstay","business"]}}
+{"at":"2026-09-21T21:51:33.202Z","phase":"stopped","code":"CREATED_FIELD_REVIEW_REQUIRED"}
+{"at":"2026-09-21T21:53:16.402Z","phase":"resume-explicit-reuse","fieldIds":["gzHlo94VYBgest1bhwBP","2j8MgTjNmwjV9SV9SkPk","yWoKZGJQQdHNIpyFmtKv","2GAvpElQpLT1pLtUWGvJ"],"reason":"provider-picklistOptions-decoder-corrected-no-recreation"}
+{"at":"2026-09-21T21:53:16.872Z","phase":"create-intent","model":"contact","name":"EMA Latest Completed At"}
+{"at":"2026-09-21T21:53:17.309Z","phase":"create-response","status":201,"field":{"id":"qWARej4GZL9dkWF9lwCX","name":"EMA Latest Completed At","fieldKey":"contact.ema_latest_completed_at","model":"contact","dataType":"TEXT"}}
+{"at":"2026-09-21T21:53:17.317Z","phase":"validated-creation","logicalMappingKey":"contact.ema_latest_completed_at","id":"qWARej4GZL9dkWF9lwCX"}
+{"at":"2026-09-21T21:53:17.324Z","phase":"create-intent","model":"contact","name":"EMA Assessment Consent"}
+{"at":"2026-09-21T21:53:17.802Z","phase":"create-response","status":201,"field":{"id":"36RkAwQ7XZrts3OJSX1A","name":"EMA Assessment Consent","fieldKey":"contact.ema_assessment_consent","model":"contact","dataType":"SINGLE_OPTIONS","picklistOptions":["accepted","not-recorded"]}}
+{"at":"2026-09-21T21:53:17.810Z","phase":"validated-creation","logicalMappingKey":"contact.ema_assessment_consent","id":"36RkAwQ7XZrts3OJSX1A"}
+{"at":"2026-09-21T21:53:17.816Z","phase":"create-intent","model":"contact","name":"EMA Consent At"}
+{"at":"2026-09-21T21:53:18.234Z","phase":"create-response","status":201,"field":{"id":"HLpMClAiofbOg12bZuoS","name":"EMA Consent At","fieldKey":"contact.ema_consent_at","model":"contact","dataType":"TEXT"}}
+{"at":"2026-09-21T21:53:18.241Z","phase":"validated-creation","logicalMappingKey":"contact.ema_consent_at","id":"HLpMClAiofbOg12bZuoS"}
+{"at":"2026-09-21T21:53:18.251Z","phase":"create-intent","model":"contact","name":"EMA Preferred Contact Channel"}
+{"at":"2026-09-21T21:53:18.773Z","phase":"create-response","status":201,"field":{"id":"iPdR7TK3HGB0J4XBuLzC","name":"EMA Preferred Contact Channel","fieldKey":"contact.ema_preferred_contact_channel","model":"contact","dataType":"SINGLE_OPTIONS","picklistOptions":["email","whatsapp","phone"]}}
+{"at":"2026-09-21T21:53:18.780Z","phase":"validated-creation","logicalMappingKey":"contact.ema_preferred_contact_channel","id":"iPdR7TK3HGB0J4XBuLzC"}
+{"at":"2026-09-21T21:53:18.787Z","phase":"create-intent","model":"contact","name":"EMA WhatsApp Number"}
+{"at":"2026-09-21T21:53:19.201Z","phase":"create-response","status":201,"field":{"id":"uIl7fu92wnG5Sl0Iq24X","name":"EMA WhatsApp Number","fieldKey":"contact.ema_whatsapp_number","model":"contact","dataType":"TEXT"}}
+{"at":"2026-09-21T21:53:19.209Z","phase":"validated-creation","logicalMappingKey":"contact.ema_whatsapp_number","id":"uIl7fu92wnG5Sl0Iq24X"}
+{"at":"2026-09-21T21:53:19.218Z","phase":"create-intent","model":"contact","name":"EMA WhatsApp Opt-in"}
+{"at":"2026-09-21T21:53:19.834Z","phase":"create-response","status":201,"field":{"id":"biieZXAsjkTT0p2suRr9","name":"EMA WhatsApp Opt-in","fieldKey":"contact.ema_whatsapp_optin","model":"contact","dataType":"SINGLE_OPTIONS","picklistOptions":["yes","no","not-recorded"]}}
+{"at":"2026-09-21T21:53:19.841Z","phase":"stopped","code":"CREATED_FIELD_REVIEW_REQUIRED"}
+{"at":"2026-09-21T21:55:00.404Z","phase":"resume-explicit-reuse","fields":[{"key":"contact.ema_lead_id","id":"gzHlo94VYBgest1bhwBP"},{"key":"contact.ema_reference","id":"2j8MgTjNmwjV9SV9SkPk"},{"key":"contact.ema_latest_submission_id","id":"yWoKZGJQQdHNIpyFmtKv"},{"key":"contact.ema_assessment_type","id":"2GAvpElQpLT1pLtUWGvJ"},{"key":"contact.ema_latest_completed_at","id":"qWARej4GZL9dkWF9lwCX"},{"key":"contact.ema_assessment_consent","id":"36RkAwQ7XZrts3OJSX1A"},{"key":"contact.ema_consent_at","id":"HLpMClAiofbOg12bZuoS"},{"key":"contact.ema_preferred_contact_channel","id":"iPdR7TK3HGB0J4XBuLzC"},{"key":"contact.ema_whatsapp_number","id":"uIl7fu92wnG5Sl0Iq24X"},{"key":"contact.ema_whatsapp_opt_in","id":"biieZXAsjkTT0p2suRr9"}],"reason":"exact-provider-optin-key-alias-reconciled-no-recreation"}
+{"at":"2026-09-21T21:55:01.165Z","phase":"create-intent","model":"contact","name":"EMA Source"}
+{"at":"2026-09-21T21:55:01.581Z","phase":"create-response","status":201,"field":{"id":"lboy5jIeIZDflH4BCl7B","name":"EMA Source","fieldKey":"contact.ema_source","model":"contact","dataType":"TEXT"}}
+{"at":"2026-09-21T21:55:01.589Z","phase":"validated-creation","logicalMappingKey":"contact.ema_source","id":"lboy5jIeIZDflH4BCl7B"}
+{"at":"2026-09-21T21:55:01.595Z","phase":"create-intent","model":"contact","name":"EMA Source Campaign"}
+{"at":"2026-09-21T21:55:02.113Z","phase":"create-response","status":201,"field":{"id":"FWD0yvbCuqRe7rlGINqN","name":"EMA Source Campaign","fieldKey":"contact.ema_source_campaign","model":"contact","dataType":"TEXT"}}
+{"at":"2026-09-21T21:55:02.120Z","phase":"validated-creation","logicalMappingKey":"contact.ema_source_campaign","id":"FWD0yvbCuqRe7rlGINqN"}
+{"at":"2026-09-21T21:55:02.128Z","phase":"create-intent","model":"contact","name":"EMA UTM Source"}
+{"at":"2026-09-21T21:55:02.575Z","phase":"create-response","status":201,"field":{"id":"YutRkMnAZNJPQHt8y1uY","name":"EMA UTM Source","fieldKey":"contact.ema_utm_source","model":"contact","dataType":"TEXT"}}
+{"at":"2026-09-21T21:55:02.582Z","phase":"validated-creation","logicalMappingKey":"contact.ema_utm_source","id":"YutRkMnAZNJPQHt8y1uY"}
+{"at":"2026-09-21T21:55:02.588Z","phase":"create-intent","model":"contact","name":"EMA UTM Medium"}
+{"at":"2026-09-21T21:55:03.193Z","phase":"create-response","status":201,"field":{"id":"xsOx3hRTYLk1T0yEEMuv","name":"EMA UTM Medium","fieldKey":"contact.ema_utm_medium","model":"contact","dataType":"TEXT"}}
+{"at":"2026-09-21T21:55:03.199Z","phase":"validated-creation","logicalMappingKey":"contact.ema_utm_medium","id":"xsOx3hRTYLk1T0yEEMuv"}
+{"at":"2026-09-21T21:55:03.206Z","phase":"create-intent","model":"contact","name":"EMA UTM Campaign"}
+{"at":"2026-09-21T21:55:03.692Z","phase":"create-response","status":201,"field":{"id":"oVTBn8vvRtaou33zEfw0","name":"EMA UTM Campaign","fieldKey":"contact.ema_utm_campaign","model":"contact","dataType":"TEXT"}}
+{"at":"2026-09-21T21:55:03.699Z","phase":"validated-creation","logicalMappingKey":"contact.ema_utm_campaign","id":"oVTBn8vvRtaou33zEfw0"}
+{"at":"2026-09-21T21:55:03.705Z","phase":"create-intent","model":"contact","name":"EMA Funnel Context"}
+{"at":"2026-09-21T21:55:04.205Z","phase":"create-response","status":201,"field":{"id":"QK2uD05hVWc6ceRh7srs","name":"EMA Funnel Context","fieldKey":"contact.ema_funnel_context","model":"contact","dataType":"LARGE_TEXT"}}
+{"at":"2026-09-21T21:55:04.212Z","phase":"validated-creation","logicalMappingKey":"contact.ema_funnel_context","id":"QK2uD05hVWc6ceRh7srs"}
+{"at":"2026-09-21T21:55:04.220Z","phase":"create-intent","model":"contact","name":"EMA Immigration Situation"}
+{"at":"2026-09-21T21:55:04.703Z","phase":"create-response","status":201,"field":{"id":"QckwBSYZlexm2OZAlQmq","name":"EMA Immigration Situation","fieldKey":"contact.ema_immigration_situation","model":"contact","dataType":"SINGLE_OPTIONS","picklistOptions":["valid","expired","overstay","undesirable","prohibited","visa_required","unknown"]}}
+{"at":"2026-09-21T21:55:04.712Z","phase":"validated-creation","logicalMappingKey":"contact.ema_immigration_situation","id":"QckwBSYZlexm2OZAlQmq"}
+{"at":"2026-09-21T21:55:04.718Z","phase":"create-intent","model":"contact","name":"EMA Overstay Situation"}
+{"at":"2026-09-21T21:55:05.155Z","phase":"create-response","status":201,"field":{"id":"9IKLQxv77EfpH2bS8lbZ","name":"EMA Overstay Situation","fieldKey":"contact.ema_overstay_situation","model":"contact","dataType":"SINGLE_OPTIONS","picklistOptions":["visa_expired","undesirable_declaration","overstayed_after_expiry","unsure_of_status","application_rejected_in_sa","missed_departure_deadline","other"]}}
+{"at":"2026-09-21T21:55:05.162Z","phase":"validated-creation","logicalMappingKey":"contact.ema_overstay_situation","id":"9IKLQxv77EfpH2bS8lbZ"}
+{"at":"2026-09-21T21:55:05.169Z","phase":"create-intent","model":"contact","name":"EMA Practice Areas"}
+{"at":"2026-09-21T21:55:05.666Z","phase":"create-response","status":201,"field":{"id":"OwKcIPMwC7iSOEfkuMQM","name":"EMA Practice Areas","fieldKey":"contact.ema_practice_areas","model":"contact","dataType":"MULTIPLE_OPTIONS","picklistOptions":["work_visas","permanent_residence","appeals","condonation","corporate_mobility","other"]}}
+{"at":"2026-09-21T21:55:05.674Z","phase":"validated-creation","logicalMappingKey":"contact.ema_practice_areas","id":"OwKcIPMwC7iSOEfkuMQM"}
+{"at":"2026-09-21T21:55:05.680Z","phase":"create-intent","model":"contact","name":"EMA Annual Case Volume Band"}
+{"at":"2026-09-21T21:55:06.245Z","phase":"create-response","status":201,"field":{"id":"U6g9uvAIVdvqTSkCVKA9","name":"EMA Annual Case Volume Band","fieldKey":"contact.ema_annual_case_volume_band","model":"contact","dataType":"SINGLE_OPTIONS","picklistOptions":["<25","25-99","100-249","250+"]}}
+{"at":"2026-09-21T21:55:06.252Z","phase":"validated-creation","logicalMappingKey":"contact.ema_annual_case_volume_band","id":"U6g9uvAIVdvqTSkCVKA9"}
+{"at":"2026-09-21T21:55:06.260Z","phase":"create-intent","model":"opportunity","name":"EMA Lead ID"}
+{"at":"2026-09-21T21:55:06.851Z","phase":"create-response","status":201,"field":{"id":"MEKueOI0h8IfCSVI3fYG","name":"EMA Lead ID","fieldKey":"opportunity.ema_lead_id","model":"opportunity","dataType":"TEXT"}}
+{"at":"2026-09-21T21:55:06.958Z","phase":"validated-creation","logicalMappingKey":"opportunity.ema_lead_id","id":"MEKueOI0h8IfCSVI3fYG"}
+{"at":"2026-09-21T21:55:06.964Z","phase":"create-intent","model":"opportunity","name":"EMA Reference"}
+{"at":"2026-09-21T21:55:07.552Z","phase":"create-response","status":201,"field":{"id":"pa7c0kXaIaonFEf9SldO","name":"EMA Reference","fieldKey":"opportunity.ema_reference","model":"opportunity","dataType":"TEXT"}}
+{"at":"2026-09-21T21:55:07.559Z","phase":"validated-creation","logicalMappingKey":"opportunity.ema_reference","id":"pa7c0kXaIaonFEf9SldO"}
+{"at":"2026-09-21T21:55:08.088Z","phase":"completed","totalCreatedFields":22,"existingFieldsPreserved":8}

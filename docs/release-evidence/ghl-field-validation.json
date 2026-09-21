@@ -1,0 +1,287 @@
+{
+  "status": "validated",
+  "validatedAt": "2026-09-21T21:55:08.087Z",
+  "locationId": "5ce9hy8I0qH6fFNBo1cF",
+  "pipelineId": "gXmKkxDwNOTZnpG6AUgD",
+  "stageId": "7115d545-87ab-4f8b-b8f9-69a0a8464d26",
+  "mappingFile": "docs/release-evidence/ghl-field-mapping.json",
+  "fieldMappingSha256": "913fd11f6f3b4da1d5c1e7ec402af78b7b60bc3902ac940f3c7a56c0b9f03c75",
+  "createdFields": 22,
+  "existingFieldsPreserved": 8,
+  "models": {
+    "contact": 20,
+    "opportunity": 2
+  },
+  "contactRecordsCreated": 0,
+  "opportunityRecordsCreated": 0,
+  "fullReadbackPassed": true,
+  "fields": [
+    {
+      "id": "2GAvpElQpLT1pLtUWGvJ",
+      "name": "EMA Assessment Type",
+      "fieldKey": "contact.ema_assessment_type",
+      "model": "contact",
+      "dataType": "SINGLE_OPTIONS",
+      "picklistOptions": [
+        "individual",
+        "overstay",
+        "business"
+      ]
+    },
+    {
+      "id": "2iOXERu2s46l8kMCBiHz",
+      "name": "Work Email",
+      "fieldKey": "contact.work_email",
+      "model": "contact",
+      "dataType": "TEXT"
+    },
+    {
+      "id": "2j8MgTjNmwjV9SV9SkPk",
+      "name": "EMA Reference",
+      "fieldKey": "contact.ema_reference",
+      "model": "contact",
+      "dataType": "TEXT"
+    },
+    {
+      "id": "36RkAwQ7XZrts3OJSX1A",
+      "name": "EMA Assessment Consent",
+      "fieldKey": "contact.ema_assessment_consent",
+      "model": "contact",
+      "dataType": "SINGLE_OPTIONS",
+      "picklistOptions": [
+        "accepted",
+        "not-recorded"
+      ]
+    },
+    {
+      "id": "9IKLQxv77EfpH2bS8lbZ",
+      "name": "EMA Overstay Situation",
+      "fieldKey": "contact.ema_overstay_situation",
+      "model": "contact",
+      "dataType": "SINGLE_OPTIONS",
+      "picklistOptions": [
+        "visa_expired",
+        "undesirable_declaration",
+        "overstayed_after_expiry",
+        "unsure_of_status",
+        "application_rejected_in_sa",
+        "missed_departure_deadline",
+        "other"
+      ]
+    },
+    {
+      "id": "FWD0yvbCuqRe7rlGINqN",
+      "name": "EMA Source Campaign",
+      "fieldKey": "contact.ema_source_campaign",
+      "model": "contact",
+      "dataType": "TEXT"
+    },
+    {
+      "id": "HLpMClAiofbOg12bZuoS",
+      "name": "EMA Consent At",
+      "fieldKey": "contact.ema_consent_at",
+      "model": "contact",
+      "dataType": "TEXT"
+    },
+    {
+      "id": "IS2CAXTma2xz9o3EMjfp",
+      "name": "Biggest Challenge",
+      "fieldKey": "contact.biggest_challenge",
+      "model": "contact",
+      "dataType": "TEXT"
+    },
+    {
+      "id": "KpOR1mtq9Si0pRhkrr01",
+      "name": "Visa Services Managed",
+      "fieldKey": "contact.visa_services_managed",
+      "model": "contact",
+      "dataType": "TEXT"
+    },
+    {
+      "id": "OwKcIPMwC7iSOEfkuMQM",
+      "name": "EMA Practice Areas",
+      "fieldKey": "contact.ema_practice_areas",
+      "model": "contact",
+      "dataType": "MULTIPLE_OPTIONS",
+      "picklistOptions": [
+        "work_visas",
+        "permanent_residence",
+        "appeals",
+        "condonation",
+        "corporate_mobility",
+        "other"
+      ]
+    },
+    {
+      "id": "QK2uD05hVWc6ceRh7srs",
+      "name": "EMA Funnel Context",
+      "fieldKey": "contact.ema_funnel_context",
+      "model": "contact",
+      "dataType": "LARGE_TEXT"
+    },
+    {
+      "id": "QckwBSYZlexm2OZAlQmq",
+      "name": "EMA Immigration Situation",
+      "fieldKey": "contact.ema_immigration_situation",
+      "model": "contact",
+      "dataType": "SINGLE_OPTIONS",
+      "picklistOptions": [
+        "valid",
+        "expired",
+        "overstay",
+        "undesirable",
+        "prohibited",
+        "visa_required",
+        "unknown"
+      ]
+    },
+    {
+      "id": "RtXtcvdzU42voJDLm9qS",
+      "name": "Job Title",
+      "fieldKey": "contact.job_title",
+      "model": "contact",
+      "dataType": "TEXT"
+    },
+    {
+      "id": "U6g9uvAIVdvqTSkCVKA9",
+      "name": "EMA Annual Case Volume Band",
+      "fieldKey": "contact.ema_annual_case_volume_band",
+      "model": "contact",
+      "dataType": "SINGLE_OPTIONS",
+      "picklistOptions": [
+        "<25",
+        "25-99",
+        "100-249",
+        "250+"
+      ]
+    },
+    {
+      "id": "YutRkMnAZNJPQHt8y1uY",
+      "name": "EMA UTM Source",
+      "fieldKey": "contact.ema_utm_source",
+      "model": "contact",
+      "dataType": "TEXT"
+    },
+    {
+      "id": "biieZXAsjkTT0p2suRr9",
+      "name": "EMA WhatsApp Opt-in",
+      "fieldKey": "contact.ema_whatsapp_optin",
+      "model": "contact",
+      "dataType": "SINGLE_OPTIONS",
+      "picklistOptions": [
+        "yes",
+        "no",
+        "not-recorded"
+      ]
+    },
+    {
+      "id": "gZtaUo0SSLXhQcJAGJ77",
+      "name": "Work Phone Number",
+      "fieldKey": "contact.work_phone_number",
+      "model": "contact",
+      "dataType": "TEXT"
+    },
+    {
+      "id": "gzHlo94VYBgest1bhwBP",
+      "name": "EMA Lead ID",
+      "fieldKey": "contact.ema_lead_id",
+      "model": "contact",
+      "dataType": "TEXT"
+    },
+    {
+      "id": "iPdR7TK3HGB0J4XBuLzC",
+      "name": "EMA Preferred Contact Channel",
+      "fieldKey": "contact.ema_preferred_contact_channel",
+      "model": "contact",
+      "dataType": "SINGLE_OPTIONS",
+      "picklistOptions": [
+        "email",
+        "whatsapp",
+        "phone"
+      ]
+    },
+    {
+      "id": "lboy5jIeIZDflH4BCl7B",
+      "name": "EMA Source",
+      "fieldKey": "contact.ema_source",
+      "model": "contact",
+      "dataType": "TEXT"
+    },
+    {
+      "id": "oVTBn8vvRtaou33zEfw0",
+      "name": "EMA UTM Campaign",
+      "fieldKey": "contact.ema_utm_campaign",
+      "model": "contact",
+      "dataType": "TEXT"
+    },
+    {
+      "id": "ojsDWQfgXKvIZrKW0Uur",
+      "name": "Monthly Case Volume",
+      "fieldKey": "contact.monthly_case_volume",
+      "model": "contact",
+      "dataType": "TEXT"
+    },
+    {
+      "id": "orEkAgxqn2IMek7lhmHS",
+      "name": "Organization Type",
+      "fieldKey": "contact.organization_type",
+      "model": "contact",
+      "dataType": "TEXT"
+    },
+    {
+      "id": "qGcf3BK7GKqMpJ6ZqKzc",
+      "name": "Solution Timeline",
+      "fieldKey": "contact.solution_timeline",
+      "model": "contact",
+      "dataType": "TEXT"
+    },
+    {
+      "id": "qWARej4GZL9dkWF9lwCX",
+      "name": "EMA Latest Completed At",
+      "fieldKey": "contact.ema_latest_completed_at",
+      "model": "contact",
+      "dataType": "TEXT"
+    },
+    {
+      "id": "uIl7fu92wnG5Sl0Iq24X",
+      "name": "EMA WhatsApp Number",
+      "fieldKey": "contact.ema_whatsapp_number",
+      "model": "contact",
+      "dataType": "TEXT"
+    },
+    {
+      "id": "xsOx3hRTYLk1T0yEEMuv",
+      "name": "EMA UTM Medium",
+      "fieldKey": "contact.ema_utm_medium",
+      "model": "contact",
+      "dataType": "TEXT"
+    },
+    {
+      "id": "yWoKZGJQQdHNIpyFmtKv",
+      "name": "EMA Latest Submission ID",
+      "fieldKey": "contact.ema_latest_submission_id",
+      "model": "contact",
+      "dataType": "TEXT"
+    },
+    {
+      "id": "MEKueOI0h8IfCSVI3fYG",
+      "name": "EMA Lead ID",
+      "fieldKey": "opportunity.ema_lead_id",
+      "model": "opportunity",
+      "dataType": "TEXT"
+    },
+    {
+      "id": "pa7c0kXaIaonFEf9SldO",
+      "name": "EMA Reference",
+      "fieldKey": "opportunity.ema_reference",
+      "model": "opportunity",
+      "dataType": "TEXT"
+    }
+  ],
+  "productionDestinationValidation": {
+    "passed": true,
+    "validatedAt": "2026-09-21T21:58:30.333Z",
+    "applicationDatabaseAccessed": false,
+    "providerWrites": 0
+  }
+}

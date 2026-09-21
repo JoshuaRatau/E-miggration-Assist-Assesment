@@ -1,0 +1,55 @@
+{
+  "status": "incomplete",
+  "reviewedAt": "2026-09-21T21:56:32.979Z",
+  "locationId": "5ce9hy8I0qH6fFNBo1cF",
+  "workflowReviewComplete": true,
+  "acceptedEvidence": [
+    "Five-workflow inventory complete; only Facebook workflow published, sole trigger Facebook Lead Form Submitted",
+    "BCC and forwarding empty; assigned-user forwarding disabled",
+    "Inspected staff profile conversation email/SMS notifications disabled"
+  ],
+  "excludedCodePaths": [
+    "Isolated harness does not call support widget, referral notifications, normal intake notifications or campaign workers",
+    "Eride Support Hub route is separate from GHL record mutation path"
+  ],
+  "tokenAloneEstablishesSubscription": false,
+  "activeExternalSubscriptionProven": false,
+  "staffConfigurationRead": {
+    "endpoint": "GET /users/?locationId=<approved-location>",
+    "status": 401,
+    "preferencesVerified": false
+  },
+  "relevantWrites": [
+    {
+      "method": "POST",
+      "path": "/contacts/",
+      "event": "contact creation"
+    },
+    {
+      "method": "PUT",
+      "path": "/contacts/{id}",
+      "event": "contact update"
+    },
+    {
+      "method": "POST",
+      "path": "/contacts/{id}/notes",
+      "event": "note creation"
+    },
+    {
+      "method": "POST",
+      "path": "/opportunities/",
+      "event": "opportunity creation"
+    }
+  ],
+  "remainingFact": "For these four writes, confirm whether account-level staff notifications or a Ticket System subscriber/consumer is configured; if present, establish its action and recipients exclude everyone except the controlled identity. No such active path is proven by available code/configuration, and absence cannot be established here.",
+  "reachability": "event-emitting writes are known; external handlers and other staff preferences are unverified",
+  "otherRecipientsExcluded": false,
+  "activationEvidence": false,
+  "sources": [
+    "artifacts/api-server/src/lib/ghl/worker.ts",
+    "artifacts/api-server/src/lib/supportHub.ts",
+    "artifacts/api-server/src/routes/support.ts",
+    "https://marketplace.gohighlevel.com/docs/Authorization/PrivateIntegrationsToken/",
+    "https://marketplace.gohighlevel.com/docs/webhook/WebhookIntegrationGuide/"
+  ]
+}

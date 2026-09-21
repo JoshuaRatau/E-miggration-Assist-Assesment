@@ -2,6 +2,16 @@ import type { Flow } from "./snapshots";
 export type FieldDefinition = { key: string; name: string; dataType: "TEXT" | "LARGE_TEXT" | "SINGLE_OPTIONS" | "MULTIPLE_OPTIONS"; model: "contact" | "opportunity"; options?: string[] };
 const field = (key: string, name: string, dataType: FieldDefinition["dataType"] = "TEXT", options?: string[]): FieldDefinition =>
   ({ key, name: `EMA ${name}`, dataType, model: "contact", ...(options ? { options } : {}) });
+/** GHL deliberately removes the hyphen only for this one provider-generated key. */
+export function expectedProviderFieldKey(definition: FieldDefinition) {
+  return definition.model === "contact" && definition.key === "ema_whatsapp_opt_in"
+    ? "contact.ema_whatsapp_optin"
+    : `${definition.model}.${definition.key}`;
+}
+export function providerFieldKeyMatches(actual: unknown, definition: FieldDefinition) {
+  const logicalKey = `${definition.model}.${definition.key}`;
+  return actual === logicalKey || actual === expectedProviderFieldKey(definition);
+}
 // New fields only. None of the eight existing custom-field IDs is referenced.
 export const fieldDefinitions: FieldDefinition[] = [
   field("ema_lead_id", "Lead ID"), field("ema_reference", "Reference"),

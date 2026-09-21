@@ -1,5 +1,12 @@
 # Controlled test in the LIVE E-Migration Assist GHL sub-account
 
+**Current execution status:** all 22 approved field definitions are now created
+and validated. See `release-evidence/ghl-field-mapping.json` and
+`ema-ghl-team-release.md`; do not create them again. No controlled contact,
+note or opportunity test was started: account-side recipient configuration
+remains unresolved. The original supplied identity is available, not missing.
+The proposed field-creation procedure below is historical scope, not work to rerun.
+
 ## Status and permission boundary
 
 The user approved the exact bounded live-write scope on 2026-09-21, explicitly

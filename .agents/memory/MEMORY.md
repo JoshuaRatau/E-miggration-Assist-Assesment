@@ -16,3 +16,4 @@
 - [E2E suite gotchas](e2e-suite-gotchas.md) — dev bypass envs, fire-and-forget audit needs polling, /convert inquiryType gate, 50-row list cap, leadStatus field, chunked runs.
 - [GHL delivery safety](ghl-delivery-safety.md) — development-only approval; ambiguous remote writes require barriers, not just local leases; preserve first-touch attribution.
 - [EC2 release constraints](ec2-release-constraints.md) — off-host builds; preserve active swap and existing rollback files; do not assume PM2/Nginx paths from repository defaults.
+- [GHL provider fields](ghl-provider-field-contract.md) — live v3 enum responses and generated field keys differ from request/logical schemas; reconcile created IDs before retry.
