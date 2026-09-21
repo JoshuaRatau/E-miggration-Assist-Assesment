@@ -1,0 +1,23 @@
+Continue from release revision 14c709f1193912a759d6d355641c1de73dee1607 and docs/ema-ghl-team-release.md. Do not restart preparation or repeat completed tests.
+
+We will finish the remaining work available in this environment, then give the deployment owner only the actions requiring his existing access.
+
+1. Complete the already-approved setup of the 22 EMA GHL fields using the existing authenticated connection. Reconcile immediately before creation to avoid duplicates; preserve the eight existing fields. Save the resulting validated mapping for deployment without exposing credentials.
+
+2. Reconcile all supplied recipient evidence. The workflow review is complete. For other staff notifications and Ticket System, inspect available relevant code/configuration first. Do not infer that a private integration token automatically subscribes to events. If evidence remains insufficient, report the exact reachable event and missing fact together once. Do not change notification preferences, integrations or workflows.
+
+3. If the existing recipient restrictions are satisfied and the controlled-test prerequisites are available, run the already-approved isolated live test from this environment. Verify actual provider readbacks and duplicate-safe replay. Preserve its isolated state and report so a restart does not cause accidental duplicate writes. If blocked, complete everything else and state the specific blocker.
+
+4. Finalise the operator handoff in docs/ema-ghl-team-release.md using the actual mapping/report/evidence filenames produced. Verify that reports and configuration are suitable for the production destination. Do not invent a successful report or bypass activation validation.
+
+5. Clearly separate:
+
+   * Work completed here.
+   * Any exact remaining non-deployment blocker.
+   * Commands the owner must execute through the existing GitHub, Ubuntu and assessment Vercel process.
+
+Preserve all existing infrastructure, deployment paths and unrelated work. Do not push, merge, deploy, migrate the production database or change production environment variables from here. GHL writes remain limited to the existing approved field setup and bounded controlled test.
+
+The final owner sequence must continue through migration, application deployment, frontend release, enabling both capture and delivery for new completions, and real end-to-end verification. No backfill. Do not call disabled deployment LIVE.
+
+Report actual completed actions and provide the updated concise owner checklist. Do not return another general readiness audit.
