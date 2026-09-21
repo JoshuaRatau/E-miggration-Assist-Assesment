@@ -181,6 +181,22 @@ const original = active.DATABASE_URL;
     ledgerHashes = ledger.rows.map(x => `${x.name}:${x.sha256}`);
   }
   await client.query("ROLLBACK");
+  // Configuration and archiver counters are NOT evidence of a usable backup.
+  out.backup = { recoverableBackupVerified: false, catalogReadable: false };
+  try {
+    const backup = await client.query(`
+      SELECT pg_is_in_recovery() AS in_recovery,
+        (SELECT setting IN ('on','always') FROM pg_settings WHERE name='archive_mode') AS archiving_enabled,
+        (SELECT setting IN ('replica','logical') FROM pg_settings WHERE name='wal_level') AS wal_level_supports_pitr,
+        (SELECT bool_or(length(trim(setting)) > 0) FROM pg_settings
+          WHERE name IN ('archive_command','archive_library')) AS archive_handler_configured,
+        archived_count, last_archived_time, failed_count, last_failed_time
+      FROM pg_stat_archiver`);
+    out.backup = { recoverableBackupVerified: false, catalogReadable: true,
+      ...backup.rows[0], note: "Settings/counters only; backup destination, retention, restore access and PITR coverage remain unverified." };
+  } catch {
+    out.backup.note = "Backup catalog unavailable; no backup or recovery capability inferred.";
+  }
   const required = {
     ema_assessment_submissions: ["id","lead_id","flow","answers","attribution","captured_at","completed_at"],
     ema_ghl_operations: ["id","submission_id","environment","location_id","kind","ordinal","state","attempts","available_at","lease_token","lease_until","remote_id","result","error_code","confirmed_at"],

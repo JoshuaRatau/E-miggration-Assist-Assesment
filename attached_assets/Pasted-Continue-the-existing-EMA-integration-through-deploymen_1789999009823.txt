@@ -1,0 +1,24 @@
+Continue the existing EMA integration through deployment readiness. Stop repeating completed audits or rebuilding unchanged packages.
+
+Confirmed:
+
+* EC2 runs immigration-api through PM2, using /usr/bin/node v22.22.2.
+* Existing API directory: /home/ubuntu/E-miggration-Assist-Assesment/artifacts/api-server.
+* Nginx proxies api.emigration-assist.com to localhost:5000.
+* Last free space after pnpm metadata cleanup: 307,884,032 bytes.
+* API-only release budget: 243,482,624 bytes including provisional reserves. Recheck capacity immediately before staging.
+* GHL inventory contains five workflows; only the Facebook workflow is published, with Facebook Lead Form Submitted as its only trigger.
+* BCC and forwarding addresses are empty; forwarding to assigned user is off. Reply Address is [info@emigration-assist.com](mailto:info@emigration-assist.com).
+* The inspected staff profile has conversation Email/SMS notifications off, but in-app notifications enabled. Other staff coverage remains unverified.
+* Private integrations include Ticket System and two EMA entries. Ticket System event subscriptions are unknown. Do not change or revoke any integration.
+
+Now:
+
+1. Inspect the existing release and deployment scripts. Resolve configuration-loading and migration questions from available code first.
+2. Consolidate any genuinely missing EC2 facts into ONE copy-paste command block. Include the pending environment/database probe and any backup information it can safely establish. Print no secrets. Do not repeat previous server inventory.
+3. Prepare the exact existing-release transfer, checksum verification, staging, migration, PM2 activation, health verification and rollback commands, using real verified paths. Preserve the current installation for rollback.
+4. Include the assessment frontend finalisation fix through its existing Vercel deployment.
+5. Keep GHL capture and delivery disabled until recipient restrictions are established. Preserve the existing bounded test approval; do not claim mocked tests prove live delivery.
+6. No EC2 builds or dependency installation, storage expansion, swap changes, unrelated cleanup, or interference with the other developer’s work.
+
+Complete all available preparation now. Return only the single required EC2 command block and a concise list of any remaining deployment blockers. Before production mutations, present the exact release and migration actions for approval together.

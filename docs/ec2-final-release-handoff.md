@@ -59,8 +59,8 @@ the pinned operations script rather than substituting another archive.
 
 Transfer method, only after separate authorization:
 
-1. Publish/download the exact reviewed archive as a GitHub Release asset and
-   verify its SHA-256 on the operator workstation. No publication occurs now.
+1. Obtain the exact reviewed local archive and verify its pinned SHA-256 on the
+   operator workstation. Direct transfer does not require GitHub publication.
 2. Through the operator's existing authenticated SSH/SFTP connection as ubuntu,
    upload the archive (binary mode) to this exact proposed destination:
    `/home/ubuntu/ema-api-40f7aabeccd94c90a0fe84d42f3713112bd5f193a72090fcf013c250def90419.tar.gz`.
@@ -148,10 +148,69 @@ documented capabilities/scopes do not establish access to workflow action
 recipient settings, so completing OAuth must not be presented as sufficient to
 clear the recipient gate.
 
-Next UI evidence: E-Migration Assist sub-account → Automation → Workflows →
-All Workflows, filtered to Published, including folder contents, to identify
-additional published workflows beyond the already-reviewed Facebook workflow.
-Do not repeat the four draft reviews. Follow reachable workflows' recipient
-action settings only after that inventory identifies a relevant path. Existing
-bounded approval and recipient limits remain valid. No workflow edits are
-authorized; neither package tests nor API access prove recipient safety.
+The user confirms all five workflows: only the Facebook workflow is published,
+with Facebook Lead Form Submitted as its only trigger. Do not repeat this
+inventory or the four draft reviews. BCC/forwarding addresses are empty and
+assigned-user forwarding is off. The inspected staff profile has email/SMS
+conversation notifications off; other staff coverage remains unverified.
+Ticket System integration event subscriptions remain unknown. Do not change or
+revoke Ticket System or either EMA private integration. Remaining recipient
+evidence is other staff notification coverage and Ticket System subscription/
+downstream-recipient behavior relevant to the controlled writes.
+Existing bounded approval and recipient limits remain valid. No workflow edits
+are authorized; neither package tests nor API access prove recipient safety.
+
+## Consolidated approval package (not executed)
+
+Present all production actions together for approval once the read-only results
+and recovery evidence are available; the flags below are execution guards, not
+permission to proceed. Review each phase's result rather than chaining them.
+
+The local source files already exist: `dist/ema-api-compiled.tar.gz` and
+`scripts/ec2-api-release-ops.sh`. In the existing authenticated SFTP session,
+with its local directory set to this repository root, the exact transfer commands
+are:
+
+```text
+put dist/ema-api-compiled.tar.gz /home/ubuntu/ema-api-40f7aabeccd94c90a0fe84d42f3713112bd5f193a72090fcf013c250def90419.tar.gz
+put scripts/ec2-api-release-ops.sh /home/ubuntu/ec2-api-release-ops.sh
+```
+
+An SSH hostname/alias and authenticated transport have not been supplied here;
+do not invent an scp destination. GitHub publication is not required if the
+reviewed local files are transferred directly by the operator. Preserve source
+review/provenance requirements and do not trigger any automatic Vercel release.
+
+Immediately before transfer, require at least 244,531,200 free bytes (the
+243,482,624 budget plus 1 MiB bookkeeping); backup/WAL needs are additional.
+Staging also rechecks remaining capacity after transfer.
+
+```sh
+df -B1 --output=avail /home/ubuntu
+printf '%s  %s\n' '40f7aabeccd94c90a0fe84d42f3713112bd5f193a72090fcf013c250def90419' '/home/ubuntu/ema-api-40f7aabeccd94c90a0fe84d42f3713112bd5f193a72090fcf013c250def90419.tar.gz' | sha256sum --check
+printf '%s  %s\n' 'ef67fff0c2a18096d118ae6374676697c389e5571a2a632c9a90cb2c496c1bdf' '/home/ubuntu/ec2-api-release-ops.sh' | sha256sum --check
+bash /home/ubuntu/ec2-api-release-ops.sh stage --approved
+bash /home/ubuntu/ec2-api-release-ops.sh migrate --approved
+bash /home/ubuntu/ec2-api-release-ops.sh activate --approved
+```
+
+Stage verifies the extracted SHA256SUMS and prints the migration plan.
+Migration runs the packaged 0001 and 0002 SQL with the verified inherited
+DATABASE_URL, under one transaction/advisory lock and a hash ledger; existing
+unrecorded schema or mismatched hashes stop execution. No dotenv sourcing.
+Activation retains the original dist directory at
+`/home/ubuntu/E-miggration-Assist-Assesment/artifacts/api-server/dist.rollback-40f7aabeccd94c90a0fe84d42f3713112bd5f193a72090fcf013c250def90419`,
+switches only the known dist path and restarts only immigration-api.
+The activation script performs both local and public health checks described
+above. If needed, the separately approved rollback command remains
+`bash /home/ubuntu/ec2-api-release-ops.sh rollback --approved`.
+
+The same approval package must include the assessment frontend finalisation
+release through the existing Vercel project, after API health is established.
+Exact Vercel project/revision and deployment mechanism must be confirmed before
+giving a project-targeted publish command. Keep capture and delivery disabled
+through both releases until the recipient gate is met.
+
+The read-only probe now reports only backup-related settings and archiver
+counters/timestamps where available. These cannot verify an actual recoverable
+backup, destination, retention, restore permissions or PITR coverage.
