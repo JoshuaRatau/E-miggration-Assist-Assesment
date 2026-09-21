@@ -23,10 +23,20 @@ publication, pushes or real-lead activation were performed.
   `src/lib/finalize-assessment.ts` supplies the response check.
   API `routes/leads.ts` durably finalises before acknowledging success.
   The API-only archive contains the server part, not the browser changes.
-- Deploy compatible API first, then the frontend at its verified existing host
-  with the correct API origin. Do not deploy the candidate `/assessment/`
-  frontend on this EC2 host. Actual published frontend version/host/build inputs
-  remain to be established; the frontend might already include some changes.
+- Repository deployment evidence identifies the frontend host as Vercel:
+  `vercel.json` builds `@workspace/emigration-assist` and serves
+  `artifacts/emigration-assist/dist/public`. `replit.md` and
+  `docs/AWS_DEPLOYMENT.md` identify the public assessment route as
+  `https://www.emigration-assist.com/assessment/`, reverse-proxied by the separate
+  marketing-site Vercel project to this repository's assessment Vercel project.
+  The exact Vercel project hostname and current published revision are not
+  recorded; this is repository evidence, not a fresh live-host verification.
+- Release the compatible API first, then release the frontend finalisation fix
+  through that existing assessment Vercel project. Use the confirmed EC2 API
+  origin `https://api.emigration-assist.com` as the intended API base, not the
+  stale Replit-backend example in older docs. Preserve the existing marketing
+  rewrite/base-path arrangement after confirming project settings. No EC2
+  frontend hosting change is needed. Do not publish either release now.
 
 ## Capacity and immutable transfer
 
@@ -132,7 +142,16 @@ Do not prune rollback files or remove swap.
 
 ## Next GHL action
 
-Complete the pending HighLevel connection so the remaining reachable published
-automation recipient paths can be inspected read-only (or supply the equivalent
-redacted UI evidence). Existing bounded approval and recipient limits remain
-valid. Neither this release preparation nor mocked tests prove live delivery.
+The pending connection is Replit's HighLevel OAuth API connector, not browser
+access to the GHL UI and not the existing private integration token. Its current
+documented capabilities/scopes do not establish access to workflow action
+recipient settings, so completing OAuth must not be presented as sufficient to
+clear the recipient gate.
+
+Next UI evidence: E-Migration Assist sub-account → Automation → Workflows →
+All Workflows, filtered to Published, including folder contents, to identify
+additional published workflows beyond the already-reviewed Facebook workflow.
+Do not repeat the four draft reviews. Follow reachable workflows' recipient
+action settings only after that inventory identifies a relevant path. Existing
+bounded approval and recipient limits remain valid. No workflow edits are
+authorized; neither package tests nor API access prove recipient safety.

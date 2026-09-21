@@ -26,3 +26,14 @@ Local leases cannot cancel a remote mutation after a timeout. Preserve an unreso
 **Why:** A delayed older update can overwrite newer answers after local lease expiry. Provider-shaped contact and opportunity custom-field fixtures differ, so shared decoders can conceal reconciliation failures.
 
 **How to apply:** Keep remote-contract and late-completion regressions when extending delivery. Preserve first-touch attribution separately from each submission's immutable captured attribution.
+
+Do not conflate HighLevel OAuth API authorization, private-token API access and
+an authenticated browser session. None alone proves access to workflow action
+recipient settings.
+
+**Why:** Generic OAuth-connection advice can stall recipient verification when
+the connector exposes CRM APIs but not the required workflow settings.
+
+**How to apply:** Check actual scopes/capabilities before making OAuth completion
+a prerequisite. If recipient details are unavailable through the API, request
+the next specific GHL UI screen rather than repeating token or login checks.
