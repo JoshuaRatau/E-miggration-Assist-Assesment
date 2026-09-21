@@ -1,0 +1,664 @@
+Continue the **E-Migration Assist (EMA) → GoHighLevel (GHL) assessment integration** from the exact checkpoint below.
+
+## CRITICAL CONTEXT
+
+The existing controlled live-test approval is **already granted and remains valid**.
+
+**DO NOT ask for live-test approval again.**
+
+The live GHL test has **not yet been executed** because notification-recipient restrictions have not been fully verified.
+
+Do not restart completed work. Do not repeat already completed checks unless fresh verification immediately before the live write is explicitly required below.
+
+The objective remains:
+
+**When an EMA assessment is completed, retain the assessment/lead in EMA and also sync the required lead and assessment data into the E-Migration Assist GHL sub-account.**
+
+This is a **dual-write integration**.
+
+The integration must support the approved EMA assessment flows and maintain traceability between EMA and GHL.
+
+---
+
+# CURRENT SAFETY STATE
+
+The following have already been established.
+
+### Contact duplication
+
+Existing evidence confirms:
+
+* Duplicate contacts are OFF.
+* Email is primary.
+* Phone is secondary.
+
+This setting does **not** prove notification safety.
+
+Do not reopen this unless a fresh collision check immediately before the live write requires querying contact state.
+
+### Existing workflow inventory already seen
+
+Previously supplied evidence showed:
+
+* **Emigration Facebook Leads Capture** — PUBLISHED.
+* Four other displayed workflows — DRAFT.
+
+Do not reopen or re-audit the four draft workflows.
+
+### Facebook workflow already established
+
+Known trigger:
+
+**Facebook Lead Form Submitted**
+
+It is filtered to the selected E-Migration Assist Facebook Page/form.
+
+Known action:
+
+**Update contact field → Email**
+
+The existence of the Email action is confirmed.
+
+However, the controlled API integration test does **not** submit a Facebook lead form.
+
+Therefore:
+
+* Do not assume this workflow will execute.
+* Do not classify it as reachable unless another trigger or downstream mechanism can enrol the API-created contact.
+* Do not resend screenshots of its Email action unless new evidence materially changes its relevance.
+
+### EMA-side application notifications
+
+Code inspection already established that EMA contains referral/support internal emails and other campaign/admin messaging paths.
+
+The standalone GHL integration test harness does **not** invoke those application paths.
+
+Do not request GHL screenshots for those unrelated EMA paths.
+
+---
+
+# PHASE 1 — COMPLETE THE REMAINING NOTIFICATION-SAFETY VERIFICATION
+
+This phase is **READ-ONLY**.
+
+### ABSOLUTE RESTRICTIONS
+
+During this phase:
+
+* Do not save settings.
+* Do not publish workflows.
+* Do not enable or disable workflows.
+* Do not click Test.
+* Do not click Send.
+* Do not modify notification settings.
+* Do not modify integrations.
+* Do not create contacts.
+* Do not create opportunities.
+* Do not trigger workflows.
+* Do not change AWS.
+* Do not change production.
+* Do not deploy.
+* Do not push code.
+* Do not perform a live API write yet.
+
+Use the **E-Migration Assist GHL sub-account only**.
+
+For every item below classify the result as:
+
+* **CLEARED**
+* **NOT APPLICABLE**
+* **STILL UNRESOLVED**
+* **BLOCKING PATH FOUND**
+
+Do not call an item dangerous simply because it has not been verified.
+
+“Unresolved” means **unverified**, not “confirmed notification to another recipient.”
+
+---
+
+## CHECK 1 — COMPLETE PUBLISHED-WORKFLOW INVENTORY
+
+Navigate to:
+
+**Automation → Workflows → All Workflows**
+
+Requirements:
+
+* Clear any search/filter.
+* Inspect all pages.
+* Inspect all folders.
+* Establish whether there are any other **PUBLISHED** workflows beyond the already documented **Emigration Facebook Leads Capture**.
+
+For any additional published workflow only:
+
+Inspect its triggers and determine whether any of the following could enrol records created or updated by the EMA integration:
+
+* Contact Created
+* Contact Changed
+* Contact Tag Added/Removed
+* Contact Field Changed
+* Note Added
+* Opportunity Created
+* Opportunity Changed
+* Pipeline Changed
+* Pipeline Stage Changed
+* Customer Replied
+* Conversation/message events
+* inbound webhook events
+* other generic contact/opportunity triggers
+
+Required evidence:
+
+* Workflow inventory showing all workflow names and statuses across all pages/folders; or
+* Clear confirmation that the previously shown five workflows are the complete inventory.
+
+Only inspect trigger configuration for **additional published workflows**.
+
+Do not reopen the four known drafts.
+
+---
+
+## CHECK 2 — FACEBOOK WORKFLOW TRIGGER COVERAGE
+
+Navigate to:
+
+**Automation → Workflows → Emigration Facebook Leads Capture → Builder**
+
+Determine whether:
+
+**Facebook Lead Form Submitted**
+
+is the **only trigger**.
+
+Required evidence:
+
+* One view showing the complete trigger row; or
+* Clear confirmation that no additional triggers exist.
+
+Decision rule:
+
+If Facebook submission is the only entry point and no other reachable workflow/integration explicitly enrols the API-created test contact into this workflow:
+
+Mark:
+
+**NOT REACHED BY CONTROLLED API TEST**
+
+Do not inspect its already-known Email action again.
+
+---
+
+## CHECK 3 — RECIPIENTS FOR ANY WORKFLOW ACTUALLY REACHABLE BY THE TEST
+
+Perform this only for workflows shown to be reachable from the API integration test.
+
+Inspect the entire reachable execution path, including branches and delayed actions.
+
+For every relevant action inspect:
+
+### Send Email
+
+Confirm:
+
+* To/recipient
+* CC
+* BCC
+* Dynamic recipient values
+
+### Internal Notification
+
+Confirm:
+
+* Notification channel
+* To User Type
+* Selected users
+* Selected teams
+* Custom destinations
+* CC/BCC if present
+
+### SMS / WhatsApp
+
+Confirm any:
+
+* Destination override
+* Custom phone
+* Dynamic destination
+
+### Downstream execution
+
+Inspect reachable:
+
+* Add to Workflow
+* Campaign enrolment
+* Webhook actions
+* Custom code
+* Integration steps
+* Conditional branches
+* Delayed actions
+
+If another workflow is invoked, follow it only if it is actually reachable.
+
+Required evidence:
+
+Expanded configuration for each reachable sending/notification action.
+
+For dynamic values determine whether they resolve to:
+
+* The supplied controlled test identity; or
+* Another person/staff recipient.
+
+Do not expose passwords, tokens, API keys, or webhook secrets.
+
+---
+
+## CHECK 4 — EMAIL BCC / REPLY / FORWARD SETTINGS
+
+Navigate to:
+
+**Settings → Email Services → Reply & Forward Settings**
+
+Inspect separately:
+
+### BCC Emails
+
+This can affect outbound test emails immediately.
+
+Confirm whether:
+
+* Empty; or
+* Restricted exclusively to the approved test identity; or
+* Contains another recipient.
+
+### Forwarding Address
+
+This is relevant if an incoming reply occurs.
+
+Confirm whether:
+
+* Empty; or
+* Approved identity only; or
+* Another recipient.
+
+### Reply Address
+
+Determine where replies would be routed.
+
+Do not conflate this with BCC.
+
+Required evidence:
+
+One screenshot/view covering these settings or a precise read-only report of each value.
+
+Other addresses may be redacted and identified as:
+
+**other recipient**
+
+---
+
+## CHECK 5 — STAFF NOTIFICATION PATHS
+
+Inspect relevant GHL user notification preferences.
+
+Navigation where applicable:
+
+**Settings → My Profile → Notifications**
+
+and equivalent user notification settings for staff who could receive reachable events.
+
+Inspect relevant notification categories for:
+
+* New conversations/messages
+* Assigned conversations
+* Messages in assigned conversations
+* Followed conversations
+* Contact assignments
+* Opportunity assignments
+* Pipeline/stage activity
+* Other notification categories visibly relevant to events generated by this integration
+
+Check channels such as:
+
+* Email
+* SMS
+* In-app
+* Mobile/push
+
+Do not assume one user’s settings prove the behaviour for all users.
+
+Required outcome:
+
+Either establish:
+
+**No reachable event generated by the controlled integration creates a staff notification**
+
+or identify the specific staff users/channels that could receive one.
+
+Do not change notification preferences.
+
+---
+
+## CHECK 6 — EXTERNAL / LEGACY AUTOMATION
+
+Inspect:
+
+**Settings → Integrations**
+
+Also inspect, only if available in this account:
+
+* Automation → Triggers
+* Campaigns
+* Legacy automation menus
+
+Check visible integrations or connected automation systems that could subscribe to:
+
+* Contact creation/update
+* Notes
+* Opportunity creation/update
+* Pipeline/stage changes
+* Conversations/messages
+
+Examples may include:
+
+* Zapier
+* Make
+* Webhooks
+* Other connected automation providers
+
+There is no requirement to prove globally that every possible external subscription is absent.
+
+The requirement is to identify whether any **known/visible connected automation** matches the events generated by this test.
+
+Do not expose:
+
+* API keys
+* Tokens
+* Credentials
+* Secret webhook URLs
+
+---
+
+# NOTIFICATION GATE
+
+After Checks 1–6 produce a consolidated result.
+
+Proceed to the controlled live test only if the evidence establishes that the proposed test will **not notify anyone except the supplied approved test identity**.
+
+A path is acceptable when it is demonstrated to be:
+
+* Not reachable; or
+* Reachable but has no send/notification action; or
+* Reachable and all recipients resolve exclusively to the approved controlled test identity.
+
+Do not require impossible proof of unrelated hypothetical behaviour.
+
+Do not treat an unverified possibility as a confirmed active notification path.
+
+If one specific unresolved item prevents safe execution, identify **exactly that item** and stop before the write.
+
+Do not request renewed test approval.
+
+---
+
+# PHASE 2 — FRESH PRE-WRITE DESTINATION AND COLLISION CHECKS
+
+Once the notification gate is cleared, perform these checks immediately before the live write.
+
+These are required because destination state may have changed since earlier inspection.
+
+Confirm:
+
+1. The target is the correct **E-Migration Assist GHL location/sub-account**.
+2. Current GHL location ID.
+3. Required custom field IDs.
+4. Custom field data types.
+5. Required pipeline ID.
+6. Required stage ID.
+7. Existing contact collision using the exact synthetic:
+
+   * email
+   * phone
+8. Existing opportunity collision for the synthetic EMA lead/test record.
+9. Existing notes/history that could cause ambiguity.
+10. Current duplicate-contact behaviour.
+11. Consent/DND state for the synthetic test contact.
+12. Any currently reachable workflow triggered by the exact proposed operations.
+13. No existing GHL record belongs to a real person using the synthetic test identity.
+14. The test will not overwrite or mutate unrelated records.
+
+If a collision exists:
+
+Do not silently overwrite the record.
+
+Determine whether it is:
+
+* The same controlled test record from an earlier attempt; or
+* An unrelated/real record.
+
+If unrelated, stop and use a new synthetic identity within the approved test scope.
+
+---
+
+# PHASE 3 — CONTROLLED LIVE GHL INTEGRATION TEST
+
+The existing approval authorises this test once the safety gate above is satisfied.
+
+Do not request approval again.
+
+Use synthetic/test data only.
+
+No real customer data.
+
+Test the approved assessment flows separately:
+
+1. **Individual assessment**
+2. **Overstay assessment**
+3. **Business assessment**
+
+The exact flow names should follow the current EMA implementation if the source uses slightly different canonical names.
+
+For each flow:
+
+1. Complete/create the controlled assessment through the approved test harness.
+2. Preserve the record in EMA.
+3. Invoke the GHL integration.
+4. Create or update the corresponding GHL contact using the approved deduplication logic.
+5. Write the mapped EMA assessment/lead fields.
+6. Preserve traceability back to EMA.
+7. Create/update the correct EMA-owned opportunity if required by the current approved implementation.
+8. Add the approved history/note record.
+9. Verify the resulting GHL state using a read-after-write check.
+
+---
+
+# DATA INTEGRITY REQUIREMENTS
+
+The test must validate the current implementation’s approved mappings rather than inventing new fields.
+
+Where implemented, verify data such as:
+
+* EMA Lead ID/reference
+* Assessment type
+* Assessment completion status
+* Assessment completion date/time
+* Name
+* Email
+* Phone
+* Country/location fields where applicable
+* Qualification/result fields
+* Source/attribution
+* Consent-related information
+* Required assessment answers/custom fields
+* Pipeline
+* Stage
+* Opportunity
+* GHL Contact ID
+* GHL Opportunity ID
+* Integration/delivery status
+* Last sync timestamp/error state where implemented
+* A dated GHL history/note entry providing EMA traceability
+
+Do not put large raw assessment JSON into a note merely because it is available.
+
+Use the explicit mapped fields and approved concise history format.
+
+---
+
+# OPPORTUNITY RULE
+
+Maintain the currently approved invariant:
+
+**One EMA-owned opportunity per EMA lead.**
+
+A retry must not create another opportunity for the same EMA lead.
+
+Do not merge unrelated EMA leads merely because GHL contact deduplication resolves them to the same contact.
+
+Contact identity and EMA lead identity are separate concepts.
+
+---
+
+# RETRY / IDEMPOTENCY VERIFICATION
+
+After the initial successful test, verify retry behaviour.
+
+At minimum establish that repeating/recovering the same delivery does not create:
+
+* Duplicate GHL contacts
+* Duplicate EMA-owned opportunities
+* Uncontrolled duplicate notes/history
+* Corrupted EMA sync state
+
+Where supported by the existing harness, simulate or exercise a recoverable delivery retry.
+
+Do not intentionally create destructive failures.
+
+---
+
+# READ-AFTER-WRITE VERIFICATION
+
+Do not consider HTTP 2xx alone sufficient.
+
+For each test flow verify actual resulting state in GHL.
+
+Capture:
+
+* EMA lead/test identifier
+* GHL contact ID
+* GHL opportunity ID
+* Correct contact data
+* Correct mapped custom fields
+* Correct assessment type
+* Correct pipeline
+* Correct stage
+* Correct source/attribution
+* Correct note/history
+* Correct consent/DND state
+* No unexpected workflow enrolment
+* No unexpected notification
+* No duplicate contact
+* No duplicate opportunity
+* EMA delivery/reconciliation state
+
+Where useful, capture sanitized response/request metadata.
+
+Do not expose secrets.
+
+---
+
+# PHASE 4 — POST-TEST REPORT
+
+Produce one consolidated report containing:
+
+## A. Notification safety
+
+For checks 1–6 show:
+
+| Check | Result | Evidence | Impact |
+| ----- | ------ | -------- | ------ |
+
+Use only:
+
+* CLEARED
+* NOT APPLICABLE
+* STILL UNRESOLVED
+* BLOCKING PATH FOUND
+
+Explicitly distinguish:
+
+* Confirmed active notification paths
+* Confirmed unreachable paths
+* Unverified possibilities
+
+## B. Pre-write checks
+
+Show:
+
+* Target GHL sub-account/location
+* Contact collision result
+* Opportunity collision result
+* Field/pipeline/stage verification
+* Workflow reachability result
+* Consent/DND result
+
+## C. Test results
+
+For each assessment flow show:
+
+| Flow | EMA Lead ID | GHL Contact ID | GHL Opportunity ID | Contact Result | Opportunity Result | Field Mapping | Note/History | Notification Result | Overall |
+| ---- | ----------- | -------------- | ------------------ | -------------- | ------------------ | ------------- | ------------ | ------------------- | ------- |
+
+## D. Idempotency/retry
+
+Report whether retry behaviour produced any duplicate:
+
+* Contacts
+* Opportunities
+* History records
+
+## E. Issues
+
+Separate issues into:
+
+* Blocking
+* Non-blocking
+* Observation only
+
+Do not fix unrelated findings.
+
+---
+
+# PRODUCTION / AWS BOUNDARY
+
+This work is currently a **controlled integration validation**, not production release authorisation.
+
+Unless an existing explicit approval in the current project scope says otherwise:
+
+* Do not modify production AWS.
+* Do not deploy to production.
+* Do not run production migrations.
+* Do not perform historical backfill.
+* Do not send data for real customers.
+* Do not enable additional workflows.
+* Do not change GHL account settings.
+* Do not push code merely because the test passes.
+
+If the controlled live test succeeds, report the evidence and the exact remaining production-readiness steps separately.
+
+---
+
+# SCOPE CONTROL
+
+Do not redesign or refactor unrelated EMA functionality.
+
+Do not change existing business logic unless required to correct a demonstrated integration defect.
+
+Do not make speculative improvements.
+
+Do not broaden the implementation beyond the approved EMA → GHL assessment synchronization.
+
+Do not replace the existing architecture if the current implementation works.
+
+Do not request information that has already been supplied.
+
+Do not ask for the existing live-test approval again.
+
+Continue from the current state, preserve all existing safety gates, and stop only if a **specific unresolved safety condition** prevents the controlled write.
