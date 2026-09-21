@@ -1,0 +1,95 @@
+Correction to the previous execution plan:
+
+I DO NOT currently have access to the Ubuntu/EC2 shell.
+
+The shell used for the successful production preflight belonged to another person who is currently unavailable.
+
+Do not ask me to run commands on:
+
+ubuntu@ip-172-31-2-172
+
+and do not assume I have SSH access, a private key, terminal access, or access to that person's machine.
+
+Continue from the CURRENT checkpoint only.
+
+Already confirmed:
+
+- production preflight passed;
+- migration safety audit passed;
+- both migration hashes match;
+- migrations are acceptable for the confirmed fresh-schema state;
+- GHL capture is OFF;
+- GHL delivery is OFF;
+- no production migration has been executed yet;
+- AWS backup/PITR external evidence remains unverified and must remain recorded as such.
+
+The remaining problem is EXECUTION ACCESS.
+
+STEP 1 — FIND AN EXISTING AUTHENTICATED PRODUCTION EXECUTION CHANNEL
+
+Using only credentials/connections already available to this Replit project, determine whether an existing authenticated route to the production EC2 instance exists.
+
+Check only existing mechanisms such as:
+
+- AWS Systems Manager / SSM managed-instance access;
+- an existing deployment/CI/CD mechanism already configured for this application;
+- an existing AWS deployment mechanism already attached to this production instance;
+- another already-configured authenticated remote-execution mechanism belonging to this project.
+
+Do not create a new server.
+Do not create new IAM users.
+Do not generate new SSH keys.
+Do not change security groups.
+Do not open SSH to the internet.
+Do not request or expose another person's credentials.
+Do not create new billed infrastructure.
+Do not alter production while discovering the available execution path.
+
+STEP 2 — IF AN EXISTING EXECUTION CHANNEL IS AVAILABLE
+
+If you confirm an existing authenticated channel that can execute commands on the SAME production host running:
+
+/home/ubuntu/E-miggration-Assist-Assesment/artifacts/api-server/dist/index.mjs
+
+then use that channel under my EXISTING rollout approval.
+
+Do not ask me for approval again.
+
+Execute the already-approved migration process using the same production configuration established by the successful preflight.
+
+Required sequence:
+
+1. verify the two approved migration hashes;
+2. connect to the same production DATABASE_URL without displaying it;
+3. execute 0001 and 0002 transactionally;
+4. perform the required pre-commit assertions on the same connection;
+5. ROLLBACK if any assertion fails;
+6. COMMIT only if every assertion passes;
+7. verify the committed production schema;
+8. continue with the already-approved controlled EMA → GHL synthetic test;
+9. if the controlled test passes, complete the existing production activation for NEW assessment completions only.
+
+Do not perform historical backfill.
+Do not process unrelated leads.
+Do not modify GHL workflows/settings.
+Do not revisit the Replit HighLevel OAuth connector.
+Do not redesign/refactor the implementation.
+
+Work continuously through successful stages.
+
+STEP 3 — IF NO EXECUTION CHANNEL EXISTS
+
+If none of the existing authenticated mechanisms can execute on the production EC2 host, STOP.
+
+Do not invent another workaround.
+
+Tell me ONLY:
+
+- which existing execution mechanisms you checked;
+- whether the EC2 instance is reachable through any of them;
+- the exact missing access required to execute the already-approved rollout;
+- the minimum action the unavailable AWS/server administrator must perform when available.
+
+Do not restart earlier investigations.
+
+The immediate objective is to determine whether this Replit environment already has a legitimate way to execute the rollout on the existing production server without requiring my unavailable Ubuntu shell.
