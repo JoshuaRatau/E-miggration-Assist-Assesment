@@ -24,6 +24,23 @@ let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
  console.log(JSON.stringify({name:p.name,pid:p.pid,status:e.status,mode:e.exec_mode,
  script:e.pm_exec_path,cwd:e.pm_cwd,interpreter:e.exec_interpreter,node_version:e.node_version,
  stdout:e.pm_out_log_path,stderr:e.pm_err_log_path},null,2));
+ const fs=require("node:fs"),path=require("node:path"),cp=require("node:child_process");
+ if(Number.isInteger(p.pid)&&p.pid>0){
+   const executable="/proc/"+p.pid+"/exe";
+   try{
+     const actual=fs.readlinkSync(executable);
+     console.log("Running process executable: "+actual);
+     if(/^node(?:js)?(?: \(deleted\))?$/.test(path.basename(actual))){
+       // Execute that same binary with --version only, without NODE_OPTIONS,
+       // application environment, startup arguments or application code.
+       const version=cp.execFileSync(executable,["--version"],{
+         encoding:"utf8",timeout:5000,env:{PATH:"/usr/bin:/bin"},
+         stdio:["ignore","pipe","ignore"]
+       }).trim();
+       console.log("Running process Node binary version: "+version);
+     }else console.log("Executable is not recognisably Node; PM2 may use a wrapper. Node version not verified.");
+   }catch{console.log("Running executable/version unavailable (permissions or process exited); not verified.");}
+ }else console.log("No running application PID; actual Node version not verified.");
 });'
 else printf 'PM2 daemon not detected; do not start one for this audit.\n'; fi
 printf '\n== Relevant Nginx directives only (never headers) ==\n'
