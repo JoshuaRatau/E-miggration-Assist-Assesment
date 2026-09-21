@@ -43,3 +43,16 @@ the connector exposes CRM APIs but not the required workflow settings.
 **How to apply:** Check actual scopes/capabilities before making OAuth completion
 a prerequisite. If recipient details are unavailable through the API, request
 the next specific GHL UI screen rather than repeating token or login checks.
+
+For the controlled-test recipient gate, account-owner confirmation is acceptable;
+do not demand screenshots already supplied or proof that every hypothetical
+external subscription is absent.
+
+**Why:** The agreed checklist concerns known/visible automations matching actual
+test events. A private token, HTTP 401, or conversation-notification preference
+does not establish an active path from contact/note/opportunity mutations.
+
+**How to apply:** Distinguish established handlers, relevant uninspected settings,
+and unsupported hypotheses. Any remaining question must name the actual matching
+event and minimum missing fact; owner confirmation can settle it without renewed
+test approval. Do not infer conversation activity from record writes.
