@@ -1,0 +1,177 @@
+Continue immediately from the successful production preflight.
+
+Do not restart the investigation.
+Do not repeat completed checks.
+Do not change the rollout logic.
+Do not ask me again for approvals I have already given.
+Do not stop between successful stages to ask whether you should continue.
+
+The production preflight has already confirmed:
+
+- one verified immigration-api PM2 production process;
+- active DATABASE_URL is present and its provenance is proven;
+- NODE_ENV is production;
+- PM2 saved configuration matches the active process;
+- the database is the remote production database;
+- EMA_GHL_CAPTURE_ENABLED is currently disabled;
+- EMA_GHL_DELIVERY_ENABLED is currently disabled;
+- ema_release_migrations is not yet present;
+- 0001_ema_ghl_outbox.sql is not recorded;
+- 0002_ema_ghl_production.sql is not recorded;
+- the six EMA→GHL production tables are not yet installed;
+- PostgreSQL archive mode is enabled;
+- WAL level supports PITR;
+- archive handling is configured;
+- archived_count = 37475;
+- failed_count = 0;
+- backup destination, retention, restore access and actual PITR coverage still require verification.
+
+Continue using the EXISTING production rollout plan in this exact order.
+
+STEP 1 — BACKUP / PITR GATE
+
+Verify the existing production database backup/PITR/restore readiness using the existing infrastructure only.
+
+Do not create a large database dump on the EC2 root disk.
+Do not create new billed storage.
+Do not modify production application data.
+
+The previous PostgreSQL probe already confirmed archiving configuration and successful WAL archiving, so now verify only the remaining recovery facts needed for the rollout:
+
+- backup destination;
+- retention;
+- restore access;
+- PITR/recovery coverage for this exact production database.
+
+If the existing infrastructure provides adequate recoverability, record the evidence and CONTINUE IMMEDIATELY.
+
+Do not stop simply because PostgreSQL itself could not prove the external backup destination.
+
+If there is a genuine recovery blocker, stop and give me only:
+
+1. the exact blocker;
+2. the exact minimum action required to resolve it.
+
+STEP 2 — STAGE THE EXISTING APPROVED MIGRATIONS
+
+Use the existing approved migration files only:
+
+- 0001_ema_ghl_outbox.sql
+- 0002_ema_ghl_production.sql
+
+Before applying them, verify their expected hashes against the approved candidate hashes already used by the preflight.
+
+Do not regenerate, redesign or replace the migrations.
+
+STEP 3 — APPLY THE MIGRATIONS
+
+Apply the two approved migrations to the exact production database identified by the successful preflight.
+
+Use the existing approved migration order.
+
+Do not modify unrelated schemas.
+Do not modify unrelated application data.
+Do not enable GHL capture or delivery yet.
+
+STEP 4 — VERIFY THE PRODUCTION SCHEMA
+
+Immediately after migration, verify:
+
+- ema_release_migrations ledger exists;
+- 0001_ema_ghl_outbox.sql is recorded with the correct approved hash;
+- 0002_ema_ghl_production.sql is recorded with the correct approved hash;
+
+and that these tables exist:
+
+- ema_assessment_submissions
+- ema_ghl_operations
+- ema_ghl_attempts
+- ema_ghl_links
+- ema_ghl_worker_leases
+- ema_ghl_mutation_barriers
+
+Also verify:
+
+- all required columns exist;
+- production environment constraints are valid;
+- ema_snapshot_immutable trigger is present and valid;
+- EMA-owned opportunity uniqueness/ownership protection is present and valid.
+
+If any migration or schema verification fails, STOP BEFORE ACTIVATION and report the exact failure.
+
+If everything passes, continue automatically.
+
+STEP 5 — CONTROLLED EMA → GHL LIVE TEST
+
+My existing controlled live-test approval remains valid.
+
+Do not ask me for approval again.
+
+Use synthetic/test data only.
+
+Enable only what the existing rollout design requires for the controlled test.
+
+Run the already-approved EMA → GHL controlled test.
+
+Verify the actual resulting state, not only HTTP success.
+
+Confirm:
+
+- the EMA assessment submission is retained;
+- the corresponding GHL contact is created or updated correctly;
+- mapped assessment fields are correct;
+- EMA traceability/reference is correct;
+- the EMA-owned opportunity is created/updated correctly;
+- the correct pipeline/stage is used;
+- the approved GHL note/history is present;
+- GHL contact ID is stored correctly;
+- GHL opportunity ID is stored correctly;
+- EMA delivery/reconciliation state is correct;
+- no duplicate contact is created;
+- no duplicate EMA-owned opportunity is created;
+- retry/idempotency does not create duplicates;
+- no unexpected workflow or notification side effect occurs.
+
+Do not use real customer data.
+
+If the controlled test fails, stop and report the exact failure without activating normal production delivery.
+
+If the controlled test passes, continue automatically.
+
+STEP 6 — COMPLETE THE EXISTING PRODUCTION ACTIVATION
+
+After the controlled test passes, complete the existing production activation steps so that new EMA assessment completions can sync to GHL according to the implementation already built.
+
+Do not perform historical backfill.
+Do not process unrelated existing leads.
+Do not change GHL workflows or GHL account settings.
+Do not redesign or refactor unrelated EMA functionality.
+Do not introduce new architecture.
+Do not repeat earlier OAuth/Replit connector investigation.
+Do not restart the integration work.
+
+Work continuously through successful stages.
+
+Stop only if there is:
+
+- a genuine destructive-risk blocker;
+- failed migration verification;
+- failed controlled live test;
+- or an action outside my already-approved scope.
+
+When everything is finished, give me ONE concise final report containing:
+
+- Backup/PITR gate: PASS/FAIL
+- Migration 0001: PASS/FAIL
+- Migration 0002: PASS/FAIL
+- Production schema verification: PASS/FAIL
+- GHL capture status: ENABLED/DISABLED
+- GHL delivery status: ENABLED/DISABLED
+- Controlled EMA→GHL test: PASS/FAIL
+- GHL contact result
+- GHL opportunity result
+- Idempotency/retry result
+- Unexpected notifications/workflows: YES/NO
+- EMA→GHL production integration live: YES/NO
+
+Continue now.
