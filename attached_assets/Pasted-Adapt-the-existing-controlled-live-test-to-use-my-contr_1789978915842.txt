@@ -1,0 +1,23 @@
+Adapt the existing controlled-live test to use my controlled contact details:
+
+* Email: [koketsomalatji@eridetech.africa](mailto:koketsomalatji@eridetech.africa)
+* Phone: 0717065496
+* International phone format: +27717065496
+
+I do not have three separate email/phone pairs. Replace that requirement for this test only.
+
+1. Prepare one synthetic assessment for each flow: individual, overstay and business, all using these contact details. Keep delivery restricted to the three explicitly allowlisted lead/submission pairs.
+
+2. Perform separate read-only GHL lookups for the email and phone. If either matches an existing contact, report the collision and pause before modifying that contact. Do not automatically adopt it. If they match different contacts, flag the identity conflict.
+
+3. If neither matches an existing contact, propose creating one synthetic GHL contact shared across the three assessments. Process them sequentially, preserve all three dated history entries, and verify that the latest completed assessment controls the latest-answer fields.
+
+4. Preserve the existing one-opportunity-per-EMA-lead policy. Explain the expected opportunity count based on the actual EMA lead records. Check whether the application’s duplicate rules permit these three flows to use the same contact details. Do not bypass validation or alter production duplicate handling to make the test pass.
+
+5. Use +27717065496 wherever international phone format is required. Do not invent additional contact details. Providing my email and phone does not authorise email, SMS or WhatsApp messages; keep test notification suppression in place and identify any unresolved GHL automation risks.
+
+6. Retain destination validation, collision/conflict checks, replay protection and database isolation. Keep test records and delivery links available throughout the test and replay.
+
+Prepare and verify these changes using isolated tests now. Keep live GHL setup and delivery disabled. Do not change AWS, the application database, existing GHL records, workflows or account settings. Do not push or deploy.
+
+Finish with the revised test plan, expected contact/history/opportunity counts, any remaining blockers, and the exact proposed live changes for one consolidated approval. Clearly distinguish integration-harness testing from full browser-to-form testing.
