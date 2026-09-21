@@ -2,7 +2,9 @@
 
 ## Status and permission boundary
 
-This is preparation, not a test-execution approval or an end-to-end success report.
+The user approved the exact bounded live-write scope on 2026-09-21, explicitly
+retaining all recipient and safety gates. Execution has not started; this is not
+an end-to-end success report. Account-side recipient verification remains pending.
 The GHL destination is a LIVE sub-account, not a separate test account. Replit is
 development; AWS hosts production. No live setup/delivery flags were enabled.
 No application database migration, AWS change, push or deployment was performed.
@@ -45,7 +47,8 @@ messaging permission above is the only messaging authorisation for this test.
 
 ## Exact proposed live changes
 
-Subject to fresh inventory/collision checks and a single later bounded approval:
+Approved scope, subject to fresh inventory/collision checks and verification that
+reachable GHL automations cannot send to other recipients:
 
 1. Create the 22 fields below. Reuse **zero** existing fields.
 2. If both identity searches find no contact, create exactly one new synthetic
@@ -293,7 +296,9 @@ passed 128 tests plus API typecheck/build; this documentation-only update does n
 claim another test run. Separate email/phone checks returned no matches as recorded
 above; refresh immediately before approved writes.
 
-Pending: one final bounded live-write approval and evidence that reachable GHL
-automations cannot send to other recipients. These are independent gates: approval
-of the listed records does not waive recipient restrictions. No live E2E success
-is claimed.
+Bounded live-write approval received for the exact fields, records, sequential
+contact updates and replay described above, retaining all recipient/safety gates.
+Pending: evidence that reachable GHL automations cannot send to other recipients,
+then immediate pre-write inventory/collision checks. Approval of the listed records
+does not waive recipient restrictions. Live writes remain disabled until those
+gates pass. No live E2E success is claimed.
