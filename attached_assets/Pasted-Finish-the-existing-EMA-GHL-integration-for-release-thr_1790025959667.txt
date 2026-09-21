@@ -1,0 +1,26 @@
+Finish the existing EMA → GHL integration for release through the team’s established GitHub and deployment process.
+
+The required outcome is LIVE delivery for new assessment completions, with records retained in EMA and synchronised to GHL. Capture and delivery may remain disabled temporarily during deployment, but leaving them disabled is not completion.
+
+Preserve:
+
+* Existing AWS, PM2, Nginx, Vercel, application paths and deployment arrangements.
+* Existing EMA functionality, data and unrelated developer work.
+* Existing approvals, recipient restrictions, consent/DND protections and no-backfill scope.
+
+Do not introduce alternative release staging, directory replacement or symlink activation. Do not request new IAM/SSM permissions. Do not automatically push, merge or change production during this preparation step.
+
+Use the completed implementation, tests, server/database findings, migration safety audit and supplied screenshots. Do not repeat completed audits or evidence requests.
+
+Complete the remaining release preparation:
+
+1. Prepare the focused integration change set, including required migrations, configuration and frontend finalisation fix. Identify the exact source revision.
+2. Finish the runnable controlled-test entry point using the existing harness and isolated storage, preserving its production safeguards.
+3. Reconcile the existing GHL destination, custom fields and mappings. Distinguish completed setup from anything still required; do not recreate existing items.
+4. Use the established frontend destination and deployment configuration. Do not invent another project or routing arrangement.
+5. Provide one sequential runbook for the authorised deployment owner: deploy, migrate at the correct point, verify health, run the approved controlled live test, enable capture and delivery for new completions, and verify the complete form-to-GHL flow.
+6. Include the exact activation commands using the existing configuration mechanism, plus failure handling. No secret values in the response.
+7. Preserve the authorised transactional migration approach, with assertions before COMMIT and ROLLBACK on failure. Record AWS PITR as unverified.
+8. Reconcile recipient evidence already supplied. If an actual remaining gap blocks the approved test, state it precisely rather than restarting the review.
+
+Return the release revision, required files, test command and complete execution runbook. Do not stop at “prepared with delivery disabled” or claim that mocked tests prove live success.
