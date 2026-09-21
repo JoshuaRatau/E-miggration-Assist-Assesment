@@ -7,6 +7,13 @@ The GHL destination is a LIVE sub-account, not a separate test account. Replit i
 development; AWS hosts production. No live setup/delivery flags were enabled.
 No application database migration, AWS change, push or deployment was performed.
 
+On 2026-09-21 the user authorised test email, SMS and WhatsApp messages **only to
+the supplied controlled email/phone pair**, and only for the three assessments
+below. This is recipient-specific messaging permission, **not live-write approval**.
+It does not authorise other recipients, consent/DND overrides, or workflow/account
+changes. Preserve existing suppression/DND; do not enable normal app notification
+paths or send extra diagnostic messages merely because receipt is permitted.
+
 The user supplied duplicate settings: duplicates OFF, email primary, phone
 secondary. The attached duplicate-settings screenshot supports these settings.
 The user also reports a published Facebook-lead-triggered workflow and four draft
@@ -33,7 +40,8 @@ Do not copy the user's personal contact details into source, fixtures or this
 document. Separate read-only email and phone requests on 2026-09-21 each returned
 HTTP 200 with no matching contact. This is point-in-time evidence only; repeat
 both checks immediately before any approved writes. A supplied identity is not
-permission to adopt or modify an existing contact or send messages.
+permission to adopt or modify an existing contact. The later recipient-specific
+messaging permission above is the only messaging authorisation for this test.
 
 ## Exact proposed live changes
 
@@ -46,6 +54,49 @@ Subject to fresh inventory/collision checks and a single later bounded approval:
 4. Create one linked open New Lead opportunity per allowlisted EMA lead.
 5. Retry/replay only those records; no additional records, existing-contact
    adoption, historical backfill, account/workflow edits or cleanup deletion.
+
+The contact is created for the individual assessment, then updated for overstay
+and business in that order. These two updates apply only to the newly created,
+run-owned contact, not any pre-existing contact. Readbacks and replay must preserve
+one contact, three dated notes and three distinct opportunities.
+
+### Fixed proposed allowlist and synthetic answers
+
+These are reserved identifiers, not records already created in any database:
+
+| Flow / processing order | EMA lead UUID | Submission UUID |
+|---|---|---|
+| 1. individual | 843b5cf4-456c-46cd-87e5-50f6d9cc1a4f | 2a2f7b63-f30c-4f20-8ceb-4662ff024dcd |
+| 2. overstay | 856c18fe-962a-45e2-b457-88ab2f4a20cb | f0cf5621-8084-4088-9830-4a0f763a0128 |
+| 3. business | 7eb4be34-7b67-4c28-8dd7-df02cef5fd1a | 6289f8e1-adbc-49a3-844b-50ea6fd98b40 |
+
+At execution, assemble the manifest in memory using these identifiers, the
+already validated configured live location, and the same supplied normalised
+email and international phone for every row. Do not persist the user's contact
+details in repository files or invent another identity.
+
+All three synthetic snapshots use `fullName: EMA Controlled Test`,
+`consentAccepted: true`, `preferredContactMethod: email`, the supplied contact
+pair in email/phone/whatsapp, and a runtime UTC consent timestamp. This is test-only
+assessment consent, not a DND override or general marketing subscription.
+Leave `whatsappOptIn` absent rather than treating bounded test-message permission
+as a permanent marketing opt-in. Attribution uses `source: controlled-test`,
+`sourceCampaign: shared-contact-test`; references are generated as
+`EMA-CONTROLLED-TEST-<flow>`.
+
+Flow-specific synthetic answers:
+- Individual: `immigrationSituation: visa_required`.
+- Overstay: `firstName: EMA Controlled Test`, `currentSituation: unsure_of_status`.
+- Business: `firmName: EMA Controlled Test Firm`, `practiceAreas: [work_visas]`,
+  `casesLast12mBand: <25`.
+
+These are deliberately minimal integration fixtures, not statements about the
+user's actual immigration/business situation or validated full form answers.
+Complete individual first, then overstay, then business, so business is the
+latest completed assessment. Check common latest-submission/type/timestamp values
+and supplied business values, while preserving the earlier full snapshots/notes
+and first-touch attribution. Flow-specific fields absent from a later assessment
+are not automatically cleared by the existing mapper.
 
 The eight existing fields remain untouched: Work Email, Biggest Challenge,
 Visa Services Managed, Job Title, Work Phone Number, Monthly Case Volume,
@@ -165,12 +216,12 @@ No duplicate-handling or production validation bypass is included.
 
 ## Proposed test procedure (not executed live)
 
-1. Use the user's one approved normalized email/E.164-phone pair in all three
-   manifest entries; obtain exact synthetic assessment answers without inventing
-   additional contact details. Do not store the pair in repository fixtures.
-2. Bind the three lead/submission UUID pairs and destination into the manifest.
-3. Inspect all outbound automation paths with an account owner. Resolve the
-   notification blocker below before live execution approval.
+1. Use the fixed allowlist and synthetic answers above with the user's supplied
+   normalized email/E.164-phone pair; do not invent or store other contact details.
+2. Bind those three lead/submission pairs and the destination into an in-memory manifest.
+3. Establish that reachable GHL automations cannot send to other recipients.
+   Permission covers the supplied test identity only; if staff/external recipients
+   cannot be excluded, stop and request clarification, not wider permission by assumption.
 4. Repeat read-only inventory and the two identity-collision checks; stop on matches.
 5. Present one consolidated approval covering exactly the fields and records
    above, the manifest, destination, pipeline and unresolved risks.
@@ -192,7 +243,8 @@ No duplicate-handling or production validation bypass is included.
 
 ## Notification risks and stop conditions
 
-Normal EMA frontend submissions are not a safe no-notification test route:
+Bounded test messages to the supplied email/phone are permitted. The ordinary
+frontend/server is still excluded from this harness; the following paths exist:
 
 - Individual OTP request can invoke Twilio WhatsApp or email, including fallback.
   A development OTP code does not inherently suppress the provider call.
@@ -204,11 +256,30 @@ The isolated snapshot harness avoids those paths entirely. Existing route tests
 mock notification dependencies; they do not establish no-send behaviour of the
 ordinary deployed forms.
 
+Known routes to recipients other than this controlled identity:
+- Referral internal notification: `src/routes/referrals.ts` calls
+  `sendInternalNotification`; its team inbox is not covered by this permission.
+- Support-widget internal notification: `src/routes/support.ts` calls
+  `sendInternalNotification`; its team inbox is likewise not authorised.
+- Normal app campaign/scheduled-send workers can contact unrelated leads; admin
+  manual email and admin-auth routes can send to their selected recipients.
+
+These are known application paths, not claims that GHL writes trigger them. The
+standalone harness imports snapshot/delivery components rather than the normal
+server and does not invoke those paths. Do not start/restart the normal server,
+use browser forms, invoke referral/support/admin routes, or run campaign workers
+as part of this controlled test. Existing unrelated services are not changed.
+
 GHL contact/field/note/opportunity writes can trigger account-side automations.
 The reported Facebook-specific workflow and four drafts do not rule out other
 workflows, legacy campaigns, opportunity notifications or integration actions.
 No account settings/automations were changed, and this code does not claim a
-provider-wide no-send switch. Zero unintended sends cannot yet be guaranteed.
+provider-wide recipient allowlist for GHL automations. Staff/assigned-user emails,
+internal workflow notifications, webhooks or forwarded messages are possible but
+not verified active paths in this GHL account. Do not present them as confirmed
+sends. Account-side recipient scope remains unverified; user permission does not
+cover them. If other recipients cannot be excluded, live execution remains paused
+even after bounded scope approval. Do not solve this by changing workflows/settings.
 
 ## Evidence and outstanding inputs
 
@@ -216,6 +287,13 @@ Isolated/intercepted tests are evidence about code, not live GHL delivery.
 See `docs/ghl-development.md` for the core regression suite and
 `src/lib/ghl/controlled.test.ts` for controlled-mode coverage.
 
-Pending: exact synthetic answers/manifest using the supplied shared identity,
-no-collision check results, account-side notification review and one final bounded
-approval. No live E2E success is claimed.
+Prepared: fixed three-pair allowlist, synthetic answers, shared-contact procedure,
+and recipient-specific permission boundary. Prior isolated/intercepted verification
+passed 128 tests plus API typecheck/build; this documentation-only update does not
+claim another test run. Separate email/phone checks returned no matches as recorded
+above; refresh immediately before approved writes.
+
+Pending: one final bounded live-write approval and evidence that reachable GHL
+automations cannot send to other recipients. These are independent gates: approval
+of the listed records does not waive recipient restrictions. No live E2E success
+is claimed.
