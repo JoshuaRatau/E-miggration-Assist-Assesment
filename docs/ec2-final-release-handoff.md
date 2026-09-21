@@ -78,9 +78,11 @@ shell history. No git pull, on-server dependency install or build is needed.
 migration-safety gate documented in `ema-migration-safety-audit.md` without
 waiting for AWS backup inspection permissions. The backup requirements below
 remain unresolved infrastructure evidence, not a claim of verification.
-Full schema verification BEFORE COMMIT is now required. The pinned runner
-currently commits before those assertions and must not be executed unchanged
-under that requirement. This supersedes the earlier backup-only execution gate.
+Full schema verification BEFORE COMMIT is implemented in the updated operator
+script. It replaces execution of the archive's original migrate.mjs without
+modifying or rebuilding the archive. This supersedes the earlier backup-only
+execution gate. The user confirms authenticated ubuntu terminal access for
+operator execution; this agent still has no direct remote shell.
 
 The read-only batch reports the two migration ledger statuses against the pinned
 candidate hashes and integration schema/constraint/trigger/index readiness.
@@ -196,7 +198,7 @@ Staging also rechecks remaining capacity after transfer.
 ```sh
 df -B1 --output=avail /home/ubuntu
 printf '%s  %s\n' '40f7aabeccd94c90a0fe84d42f3713112bd5f193a72090fcf013c250def90419' '/home/ubuntu/ema-api-40f7aabeccd94c90a0fe84d42f3713112bd5f193a72090fcf013c250def90419.tar.gz' | sha256sum --check
-printf '%s  %s\n' 'ef67fff0c2a18096d118ae6374676697c389e5571a2a632c9a90cb2c496c1bdf' '/home/ubuntu/ec2-api-release-ops.sh' | sha256sum --check
+printf '%s  %s\n' '9f0e797737e96331e9aa2fa7134c9179c104d5fb2919f0e25964d7a706493f73' '/home/ubuntu/ec2-api-release-ops.sh' | sha256sum --check
 bash /home/ubuntu/ec2-api-release-ops.sh stage --approved
 bash /home/ubuntu/ec2-api-release-ops.sh migrate --approved
 bash /home/ubuntu/ec2-api-release-ops.sh activate --approved

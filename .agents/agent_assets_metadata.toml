@@ -84,3 +84,31 @@ mtime_ms = 1789698142727
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:a30823e0-2ce8-41ab-a45d-1ba7f07cedc0/f3e85732-0cb5-466b-9f9d-63ec63c22b9e/a64377d4-edf7-4011-a6f3-5f05f37c2765"
 storage_version_token = "1789698151451318"
 content_type = "application/pdf"
+
+[[outputs]]
+id = "hncMWIMatkQ4ndFpc_WWx"
+uri = "file://dist/ema-api-compiled.tar.gz"
+type = "unspecified"
+title = "Existing EMA API release — unchanged"
+description = "Pinned API-only archive. SHA-256: 40f7aabeccd94c90a0fe84d42f3713112bd5f193a72090fcf013c250def90419"
+logical_id = "29b7a467-acf9-42d0-9668-baea25ed5b53"
+content_hash = "sha256:40f7aabeccd94c90a0fe84d42f3713112bd5f193a72090fcf013c250def90419"
+size = 5056381
+mtime_ms = 1789994987714
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:a30823e0-2ce8-41ab-a45d-1ba7f07cedc0/29b7a467-acf9-42d0-9668-baea25ed5b53/41e6679f-2d3c-491f-9196-08830fe8c40f"
+storage_version_token = "1790022428354202"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "NOF6dLCKGro9oz-ch5mgg"
+uri = "file://dist/operator-downloads/ema-operator-script.zip"
+type = "unspecified"
+title = "EMA deployment script — extract before use"
+description = "Contains ec2-api-release-ops.sh with same-transaction schema assertions, post-commit verification, API activation and rollback. No dependency installation required."
+logical_id = "d63bc562-e289-4828-8498-f4566710da6b"
+content_hash = "sha256:c66f8b7898667920980dc98429e54e2e0853c80538f6e4b2f5f1e248342f9842"
+size = 5407
+mtime_ms = 1790022418590
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:a30823e0-2ce8-41ab-a45d-1ba7f07cedc0/d63bc562-e289-4828-8498-f4566710da6b/93af7bd2-3368-4f35-bad2-d637620172b8"
+storage_version_token = "1790022429048094"
+content_type = "application/octet-stream"

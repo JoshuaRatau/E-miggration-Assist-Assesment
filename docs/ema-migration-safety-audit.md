@@ -64,15 +64,14 @@ that later application writes can be undone without data loss.
 
 Execution is NOT complete:
 
-1. The existing runner calls COMMIT immediately after SQL/ledger writes; it does
-   not perform the requested full schema/safeguard assertions before COMMIT.
-   Do not run the pinned release's migration phase unchanged under this updated
-   requirement. Verification must execute on the same connection/transaction
-   and throw on failure before COMMIT.
-2. No authenticated EC2 execution channel has been established in this
-   workspace. The production preflight was operator-provided; it does not give
-   this agent access to the PM2 process environment on EC2. Do not substitute
-   the workspace database for the confirmed production database.
+1. The archive's original migrate.mjs remains unchanged and commits without
+   full assertions. Use the updated ec2-api-release-ops.sh instead: it loads pg
+   from the unchanged archive, applies the hash-pinned SQL, verifies the schema
+   on the same transaction before COMMIT, then verifies again after COMMIT.
+   The activation receipt is written only after all checks succeed.
+2. The user now confirms authenticated ubuntu terminal access for operator
+   execution. This does not give the agent a remote connection. Do not substitute
+   the workspace database for production or claim operator commands ran here.
 
 The external backup evidence gap is recorded, not treated as the sole blocker
 under the user's alternative gate. No production mutation or GHL enablement was
