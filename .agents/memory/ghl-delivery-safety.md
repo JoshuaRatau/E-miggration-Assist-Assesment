@@ -7,7 +7,7 @@ GHL implementation approval is development-only, with mocked responses and a con
 
 **Why:** The configured token/location may identify real customer infrastructure; credential presence is not consent to write or test against it. Replit is development and AWS is production, but repository deployment notes do not verify the live AWS topology.
 
-**How to apply:** Keep tests off the application database. Do not replace the intentionally blocked live transport or enable production merely to make a demonstration run.
+**How to apply:** Keep tests off the application database. The user clarified that a real network client and guarded worker/setup wiring are approved development code; the restriction is on executing live writes, not implementing them. Keep enablement off unless separately authorised.
 
 Local leases cannot cancel a remote mutation after a timeout. Preserve an unresolved-mutation barrier until reconciliation or operator review establishes safety; never blindly replay creates or allow newer contact writes past an ambiguous older update.
 

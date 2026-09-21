@@ -2,26 +2,45 @@
 
 ## Safety and status
 
-This implementation is development-only and mock-only. It does not enable GHL
-delivery to the configured account. No application-database migration, live GHL
-write, historical replay, AWS change, push, or deployment was performed.
+This implementation remains restricted to development/test, but it is no longer
+mock-only: it now contains a real fixed-host HTTP client, a gated delivery
+runtime, startup/shutdown wiring, and a separately gated field-setup client.
+No live GHL call or change, application-database migration, historical replay,
+AWS change, push, or deployment was performed. Every HTTP path exercised by
+tests used an intercepted transport, and database tests used isolated PGlite.
 
 * `captureEnabled()` defaults to false. With capture disabled the routes use
   their original save path and never query the new tables.
 * Optional capture requires `NODE_ENV != production`,
   `EMA_GHL_CAPTURE_ENABLED=true`, and `EMA_GHL_TEST_LOCATION_ID`.
-  These variables were **not** set on the project. Only test-process variables
-  are temporarily stubbed and restored by tests.
-* `GHL_PRIVATE_INTEGRATION_TOKEN` is never read by the new implementation.
-* `liveGhlClient()` unconditionally throws `LIVE_GHL_WRITES_DISABLED`.
-  There is no network-capable client or credential-driven override.
-* The worker requires an explicitly supplied in-process `MockGhlClient` and
-  `GhlConfig`. It is not registered in server startup. No new timer runs against
-  the application database.
-* Pipeline, stage and custom-field IDs must be supplied explicitly through
-  `GhlConfig`. No production IDs are embedded or selected automatically.
+  Capture and delivery are independent: enabling either does not enable the
+  other.
+* Delivery defaults off unless `EMA_GHL_DELIVERY_ENABLED=true`. The disabled
+  path returns before reading credentials, importing/querying the database,
+  constructing the worker, scheduling a timer, or making an HTTP request. It
+  therefore has no dependency on the six new tables while disabled.
+* Enabled delivery additionally requires `NODE_ENV=development|test`,
+  `EMA_GHL_DELIVERY_APPROVAL=ALLOW_SYNTHETIC_TEST_DELIVERY`,
+  `GHL_LOCATION_ID` exactly equal to
+  `EMA_GHL_APPROVED_TEST_LOCATION_ID`, and, when set,
+  `EMA_GHL_TEST_LOCATION_ID` equal to that same destination. It also requires
+  `GHL_PRIVATE_INTEGRATION_TOKEN`, `EMA_GHL_PIPELINE_ID`,
+  `EMA_GHL_STAGE_ID`, and a complete `EMA_GHL_FIELD_IDS_JSON` mapping for all
+  22 definitions.
+* `HttpGhlClient` sends GHL v3 requests only to the fixed
+  `https://services.leadconnectorhq.com` host and an endpoint allowlist. It
+  refuses redirects, unsafe paths, destination mismatches, missing approval,
+  writes without explicit write allowance, and production environments before
+  transport. It validates provider response shapes and does not internally
+  retry mutations.
+* `src/index.ts` now calls `startGhlDelivery()` after the server starts and
+  stops it during graceful shutdown. Configuration failures are logged as a
+  startup configuration error; with delivery disabled, the runtime is inert.
+* Pipeline, stage and all custom-field IDs are supplied explicitly by
+  environment-derived `GhlConfig`. No production IDs are embedded or selected.
 * SQL environment checks accept development/test only. Production requires a
-  separate reviewed release; changing an environment switch cannot enable it.
+  separate reviewed code and schema release; changing an environment switch
+  cannot enable it.
 
 ## Changed behaviour and preservation
 
@@ -161,7 +180,7 @@ The status helper returns synced only when all six are confirmed.
 ### Late mutation safety
 
 Local fencing cannot cancel an already executing remote HTTP mutation. A durable
-scope barrier is persisted **before** each mock POST/PUT. Explicit success or
+scope barrier is persisted **before** each POST/PUT. Explicit success or
 client/auth/rate-limit rejection removes it; an ambiguous outcome leaves it.
 Other operations in that scope cannot advance while the barrier remains.
 
@@ -190,11 +209,14 @@ pnpm --filter @workspace/emigration-assist typecheck
 pnpm --filter @workspace/emigration-assist build
 ```
 
-The 47 focused tests pass. They use fresh **in-memory PGlite**, verify memory
-mode before schema writes, never import the connection-bearing DB entrypoint,
-and use synthetic `.invalid` identities. Route tests invoke registered handlers
-directly with mocked DB/notification dependencies; they start no HTTP server.
-No test reads `DATABASE_URL` or uses the application database.
+The final focused suite passes all 114 tests across four files, retaining the
+original database and delivery regressions. Database tests use fresh **in-memory
+PGlite**, verify memory mode before schema writes, never import the
+connection-bearing DB entrypoint, and use synthetic `.invalid` identities.
+Route tests invoke registered handlers directly with mocked DB/notification
+dependencies; they start no HTTP server. HTTP-client, runtime, and setup tests
+intercept every transport. No test reads `DATABASE_URL`, uses the application
+database, or makes a live GHL call.
 
 Coverage includes atomic commit/rollback, immutable snapshots, deferred
 completion, concurrent finalisation, unchanged duplicate 409/validation paths,
@@ -210,27 +232,47 @@ Generate the explicit setup plan locally:
 ```sh
 pnpm --filter @workspace/api-server exec esbuild scripts/ghl-setup.ts \
   --bundle --platform=node --format=esm --outfile=/tmp/ema-ghl-setup.mjs
-node /tmp/ema-ghl-setup.mjs --plan
+node /tmp/ema-ghl-setup.mjs --dry-run
 ```
 
-The output lists exact proposed request bodies and logical mapping identifiers.
-`--apply`, `--execute` or any other non-plan/help argument fails with exit 1 and
-`LIVE_GHL_WRITES_DISABLED`. Both apply/execute refusals were verified. The script
-has no network or credential access.
+No arguments, `--dry-run`, and its `--plan` alias are network-free defaults that
+list the exact 22 proposed request bodies and logical mapping identifiers
+without reading environment or credentials. Setup is no longer unconditionally
+blocked, but apply requires all of these explicit safeguards:
+
+* `--apply --location-id ID --approve-location ID`;
+* `NODE_ENV=development|test` and `EMA_GHL_SETUP_ENABLED=true`;
+* the same `ID` in both CLI arguments, `GHL_LOCATION_ID`, and
+  `EMA_GHL_TEST_LOCATION_ID`;
+* `GHL_PRIVATE_INTEGRATION_TOKEN`;
+* explicit `--reuse model.logical_key=FIELD_ID` for any compatible name/key
+  collision.
+
+Apply first reads both contact and opportunity fields, validates a complete
+collision/reuse plan before the first POST, never updates or deletes fields, and
+will not reuse any of the eight protected existing field IDs. It writes only
+missing proposed fields, reports each created mapping immediately, refuses
+redirects, uses a fixed test-location URL, and never blindly retries an
+ambiguous create. `--execute` remains invalid. These apply paths were verified
+only with intercepted HTTP; no setup command was run against GHL.
 
 ## Remaining decisions and limitations
 
-* Approve exact field semantics/options and verify provider field/response
-  contracts, limits and original-attribution ownership in a dedicated test
-  location before building/enabling a real transport.
+* Obtain explicit permission for a real end-to-end run in a dedicated GHL test
+  location, then verify the 22-field setup/mapping and provider field/response
+  contracts and limits there.
 * Review duplicate-contact settings, automations, consent/DND and re-entry
-  behaviour separately; field/pipeline reads do not establish them.
-* Approve pipeline/stage and existing-opportunity ownership policy. Decide how
-  future separate cases for the same person fit current duplicate-intake rules.
+  behaviour separately; field and pipeline reads do not establish them.
+* Select and verify the test pipeline/stage, automation isolation, and contact
+  and opportunity duplicate rules. Approve existing-opportunity ownership and
+  decide how future separate cases for the same person fit current intake rules.
 * Approve a manual ambiguous-PUT recovery process and any multipart history
   design. Current safe outcome is blocked review, not unattended availability.
-* Production runtime, secret injection, migration ownership and worker lifecycle
-  are still unverified. See `ghl-aws-rollout.md`; no AWS action occurred here.
-* Runtime delivery is intentionally not wired up and production is forbidden.
-  Future isolated GHL end-to-end testing needs separate explicit approval,
-  a test location/token, reviewed automations and a reviewed network adapter.
+* The real client and startup lifecycle exist, but no real end-to-end result is
+  claimed. It still needs explicit permission, a test location/token, field
+  setup and mapping, pipeline/stage selection, isolated automations, and reviewed
+  duplicate rules.
+* AWS topology, production secret injection, migration ownership, and production
+  worker behavior remain unverified. Production is denied by both runtime code
+  and the development/test-only SQL constraints until a later separately
+  reviewed scope changes them. See `ghl-aws-rollout.md`; no AWS action occurred.

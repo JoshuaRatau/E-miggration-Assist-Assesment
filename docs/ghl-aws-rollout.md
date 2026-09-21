@@ -43,25 +43,41 @@ the release commit. The current implementation contract is documented in
   and a separately configured `EMA_GHL_TEST_LOCATION_ID`.
 - The additive migration is `lib/db/drizzle/0001_ema_ghl_outbox.sql`; it has only
   been applied inside isolated in-memory tests, not the application database.
-- `artifacts/api-server/scripts/ghl-setup.ts` generates a plan only. Apply/execute
-  modes are unconditionally refused.
+- `artifacts/api-server/scripts/ghl-setup.ts` defaults to a network-free dry run
+  (`--dry-run`, alias `--plan`). Its real apply mode is restricted to
+  development/test and requires `--apply`, matching `--location-id` and
+  `--approve-location`, `EMA_GHL_SETUP_ENABLED=true`, matching
+  `GHL_LOCATION_ID` and `EMA_GHL_TEST_LOCATION_ID`, and
+  `GHL_PRIVATE_INTEGRATION_TOKEN`. `--execute` is invalid.
 - `GhlConfig` supplies location, pipeline, stage and model-prefixed field IDs.
   No production mappings are selected.
-- There is no network-capable delivery client or registered GHL startup worker.
-  The processor requires an injected mock client; production is excluded by
-  both the capture guard and SQL environment constraints.
+- A real fixed-host, endpoint-allowlisted GHL v3 HTTP client exists.
+  `src/index.ts` starts the delivery runtime after server startup and awaits its
+  stop during graceful shutdown. Delivery is independently default-off and the
+  disabled path does not access credentials, load/query the database, construct
+  a worker, schedule a timer, or require the new tables.
+- Enabled delivery requires `EMA_GHL_DELIVERY_ENABLED=true`,
+  `EMA_GHL_DELIVERY_APPROVAL=ALLOW_SYNTHETIC_TEST_DELIVERY`,
+  `NODE_ENV=development|test`,
+  `GHL_LOCATION_ID=EMA_GHL_APPROVED_TEST_LOCATION_ID`, and, if capture's
+  `EMA_GHL_TEST_LOCATION_ID` is set, that same value there too. It also requires
+  `GHL_PRIVATE_INTEGRATION_TOKEN`, pipeline/stage, and all 22 field IDs.
+  Production is excluded by runtime code and by the migration's
+  development/test-only environment constraints.
 
-This is therefore not an activation-ready production release. An approved live
-transport, worker lifecycle, production schema allowance and configuration are
-future release gates, not switches to turn on during this development step.
+This is therefore not an activation-ready production release. The transport and
+worker lifecycle now exist for an explicitly approved synthetic test, but no
+live call was made. Production runtime allowance, production schema allowance,
+AWS verification, and configuration are future reviewed code/release gates,
+not switches to turn on during this development step.
 
 ## Non-negotiable safety boundaries
 
-1. Development and tests use an isolated development/test database and mocked
-   GHL responses.
-2. All actual GHL writes, including the field setup script, stay disabled even
-   when valid GHL credentials are present. Credential presence must never imply
-   write enablement.
+1. Automated tests use an isolated development/test database and intercepted
+   GHL responses. Any later real test-location run requires separate permission.
+2. All actual GHL writes default disabled. Credentials alone never enable them.
+   Test delivery and test field setup each require their own exact flags,
+   approvals, destination equality, and non-production environment gates.
 3. No test targets the live GHL location. No live contact, opportunity, custom
    field, pipeline, stage, workflow, or automation may be changed during
    development verification.
@@ -158,16 +174,23 @@ Create production values independently in AWS Secrets Manager or the approved
 AWS secret store. Do not copy Replit Secrets wholesale, expose values in shell
 history, logs, task definitions, source control, tickets, or chat.
 
-At minimum, classify and provision:
+For a future production-capable release, classify and provision:
 
 - the production `DATABASE_URL`;
-- the exact GHL private token/credential required by the implementation;
-- the exact GHL location identifier;
-- the exact pipeline and business pipeline-stage identifiers;
-- the exact write-enable/feature configuration, initially set to **off**;
+- `GHL_PRIVATE_INTEGRATION_TOKEN`;
+- `GHL_LOCATION_ID`;
+- `EMA_GHL_PIPELINE_ID` and `EMA_GHL_STAGE_ID`;
+- `EMA_GHL_FIELD_IDS_JSON`, containing all 22 model-prefixed mappings;
+- `EMA_GHL_DELIVERY_ENABLED`, initially `false`;
 - existing API secrets required for unchanged functionality.
 
-The exact GHL environment-variable names must be taken from the release commit.
+The current synthetic-test-only approval controls are
+`EMA_GHL_DELIVERY_APPROVAL=ALLOW_SYNTHETIC_TEST_DELIVERY` and
+`EMA_GHL_APPROVED_TEST_LOCATION_ID`; they are not production approvals.
+`EMA_GHL_CAPTURE_ENABLED` and its `EMA_GHL_TEST_LOCATION_ID` destination are
+independent from delivery. The field setup gate is separately
+`EMA_GHL_SETUP_ENABLED=true` and is rejected in production. The exact names and
+semantics must be re-verified from the future production release commit.
 Inject secrets into the runtime process through the compute service's secret
 integration. Grant the task role read access only to its named secrets and any
 required AWS resources. Prefer task roles for AWS service access rather than
@@ -225,7 +248,8 @@ commit, and evidence link in the change record.
       lead, including retry, conflict, and reconciliation cases.
 - [ ] No ambiguous existing opportunity is automatically adopted.
 - [ ] Setup-script plan/output has been reviewed; any production execution has
-      its own approval and remains impossible while writes are disabled.
+      its own future implementation and approval. Current setup code rejects
+      production rather than accepting a production flag.
 
 ### Gate C — database safety
 
@@ -250,7 +274,9 @@ commit, and evidence link in the change record.
 - [ ] AWS production secrets were created independently, are least-privileged,
       and are not present in Replit or build output by virtue of this rollout.
 - [ ] GHL credentials and configuration resolve in the task, but all GHL writes
-      and the setup script remain disabled.
+      remain disabled. Do not enable current delivery merely to validate config:
+      its production environment gate intentionally rejects it. The setup script
+      also remains production-ineligible.
 - [ ] Deployment reaches healthy status on `/api/healthz`.
 - [ ] Existing individual, overstay, and business lead behavior is smoke-tested
       without GHL writes.

@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { Executor } from "./snapshots";
-import { GhlFailure, type GhlConfig, type OperationKind } from "./config";
-import { MockGhlClient, type Method } from "./client";
+import { GhlFailure, validateFieldMapping, type GhlConfig, type OperationKind } from "./config";
+import { type GhlClient, type Method } from "./client";
 import { customValues, standardValues, historyBody, type Assessment } from "./fields";
 
 async function rows<T = any>(db: Executor, query: ReturnType<typeof sql>): Promise<T[]> {
@@ -17,16 +17,17 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 const reviewCodes = new Set(["IDENTITY_CONFLICT", "AMBIGUOUS_CREATE", "UNRESOLVED_UPDATE_REVIEW", "REMOTE_IDENTITY_MISMATCH", "OPPORTUNITY_OWNERSHIP_REVIEW", "MULTIPLE_REMOTE_MATCHES", "HISTORY_SIZE_REVIEW_REQUIRED", "PAGINATION_REVIEW_REQUIRED", "READBACK_MISMATCH"]);
 
 /**
- * Explicit, mock-only processor. NOT registered in application startup.
- * Live transport does not exist. Durable capture is opt-in; delivery runs only
- * when a caller supplies this mock client and a test/development configuration.
+ * Processor shared by intercepted tests and explicitly enabled test delivery.
+ * Runtime and client independently guard actual network access.
  */
 export class GhlWorker {
-  constructor(private db: Executor, private client: MockGhlClient, private config: GhlConfig) {
-    if (client.mode !== "mock-only" || !["test", "development"].includes(config.environment))
+  constructor(private db: Executor, private client: GhlClient, private config: GhlConfig) {
+    validateFieldMapping(config.fieldIds);
+    if (!["test", "development"].includes(config.environment))
       throw new GhlFailure("LIVE_GHL_WRITES_DISABLED");
   }
   async tick(): Promise<boolean> {
+    validateFieldMapping(this.config.fieldIds);
     const { environment, locationId } = this.config;
     if (!locationId) throw new GhlFailure("LOCATION_REQUIRED");
     const token = randomUUID(), scope = `${environment}:${locationId}`;
@@ -80,14 +81,14 @@ export class GhlWorker {
           await this.db.execute(sql`UPDATE ema_ghl_attempts SET finished_at=now(),outcome='error',
             error_code=${e.code},http_status=${e.status ?? null} WHERE id=${id} AND ${fenced}`);
           // Explicit client/auth/rate-limit rejection is not an in-flight write.
-          if (method !== "GET" && e.status && e.status >= 400 && e.status < 500)
+           if (method !== "GET" && e.status && e.status >= 400 && e.status < 500 && e.status !== 408)
             await this.db.execute(sql`DELETE FROM ema_ghl_mutation_barriers WHERE scope=${scope} AND operation_id=${op.id} AND ${fenced}`);
           throw e;
         }
       };
       const ambiguous = async (action: string) => (await rows(this.db, sql`SELECT id FROM ema_ghl_attempts
         WHERE operation_id=${op.id} AND action=${action}
-        AND (outcome IN ('started','success') OR error_code='AMBIGUOUS_TRANSPORT' OR http_status>=500) LIMIT 1`)).length > 0;
+         AND (outcome IN ('started','success') OR error_code IN ('AMBIGUOUS_TRANSPORT','INVALID_REMOTE_RESPONSE') OR http_status>=500) LIMIT 1`)).length > 0;
       const result = await this.perform(op.kind, submission, request, ambiguous);
       await renew();
       if (result.contactId || result.opportunityId) {

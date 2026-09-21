@@ -5,6 +5,7 @@ import { bootstrapCommTemplates } from "./lib/templateBootstrap";
 import { bootstrapLifecycleRules } from "./lib/lifecycleBootstrap";
 import { startScoreWorker } from "./lib/scoreWorker";
 import { startQueue, stopQueue } from "./lib/queue";
+import { startGhlDelivery, type DeliveryRuntime } from "./lib/ghl/runtime";
 import {
   startCampaignScheduleWorker,
   stopCampaignScheduleWorker,
@@ -23,6 +24,7 @@ if (!rawPort) {
 }
 
 const port = Number(rawPort);
+let ghlRuntime: Promise<DeliveryRuntime> | undefined;
 
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
@@ -81,6 +83,11 @@ app.listen(port, (err) => {
   // Meta Analytics — scheduled 45-min sync of Facebook/Instagram data.
   // Self-skips every tick unless a Meta connection is active.
   startMetaSyncWorker();
+  ghlRuntime = startGhlDelivery({ onError: code => logger.error({ code }, "GHL delivery tick failed") })
+    .catch(() => {
+      logger.error({ code: "GHL_STARTUP_CONFIGURATION_ERROR" }, "GHL delivery did not start");
+      return { enabled: false, stop: async () => {} };
+    });
 });
 
 // Graceful shutdown — let in-flight jobs finish before exiting.
@@ -88,6 +95,7 @@ const shutdown = async (signal: string) => {
   logger.info({ signal }, "Shutdown signal received; stopping queue");
   stopCampaignScheduleWorker();
   stopMetaSyncWorker();
+  await (await ghlRuntime)?.stop();
   await stopQueue();
   process.exit(0);
 };
