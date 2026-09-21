@@ -1,0 +1,42 @@
+Continue the existing EMA → GHL work from the current checkpoint. Prepare a deployment that fits our existing EC2 server without increasing AWS storage costs.
+
+Confirmed EC2 facts:
+
+* Ubuntu; existing disk is 8 GB.
+* Root filesystem has approximately 319 MB available after package-cache cleanup.
+* /swapfile is 2 GB and actively used. Do not remove, disable or resize it.
+* PM2 runs immigration-api in fork mode; Nginx is running.
+* Repository: /home/ubuntu/E-miggration-Assist-Assesment
+* Branch: main
+* Last reported checkout commit: d317141
+* We currently deploy through GitHub using git pull.
+* The project uses pnpm.
+* Docker has no running containers.
+
+Complete the following preparation now:
+
+1. Report whether production-support code is complete. If incomplete, finish it in development, retaining NODE_ENV=production, explicit enablement controls and all existing integration protections. Keep live capture and delivery disabled.
+
+2. Inspect the actual API and frontend build configuration. Determine whether we can build in Replit and deploy compiled production files without installing dependencies or building on EC2. Verify runtime dependencies, Node/platform compatibility, frontend serving paths and required assets. Do not assume the API bundle is self-contained.
+
+3. Build and verify the production artifacts in Replit. Report their exact compressed and extracted sizes, any required runtime dependencies, and estimated peak EC2 disk usage during transfer, extraction and replacement. Include space for rollback, migration and continued application logging. If 319 MB is insufficient, say so clearly.
+
+4. Recommend one concrete deployment method compatible with the existing GitHub workflow and PM2/Nginx setup. Do not commit generated bundles merely to force them through git pull. Do not invent the PM2 entry point, Nginx document root or environment-file location. List any missing server facts together and provide one batch of read-only commands to obtain them. Do not print secrets or full environment dumps.
+
+5. Prepare exact deployment, migration, health-check and rollback steps using verified paths. Preserve existing secrets, uploads, database data and unrelated files. Avoid a full server reboot.
+
+6. Retain my existing bounded GHL test approval and its recipient restrictions. Report the specific unresolved gates without repeating completed checks or asking for the same approval again. Distinguish mocked tests, actual GHL delivery and full form-to-GHL verification.
+
+Authorised now: local development changes, builds, isolated tests and deployment preparation.
+
+Do not increase AWS storage, modify EC2, remove server files, alter swap, migrate the application database, push or deploy. Live GHL writes remain subject to the already agreed test gates.
+
+Finish with:
+
+* Production-code status and test evidence.
+* Exact artifact sizes and peak server-space estimate.
+* Whether this deployment fits safely on the existing disk.
+* One consolidated list of missing facts or blockers.
+* The concrete deployment procedure ready for review.
+
+Continue all preparation possible within these boundaries; do not stop at proposing a plan.

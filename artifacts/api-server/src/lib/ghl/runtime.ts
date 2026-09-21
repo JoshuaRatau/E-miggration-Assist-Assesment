@@ -4,6 +4,7 @@ import { fieldDefinitions } from "./fields";
 import { GhlWorker } from "./worker";
 import type { Executor } from "./snapshots";
 import { assertIsolatedControlledDatabase, preflightControlled } from "./controlled";
+import { prepareProductionDelivery } from "./production";
 
 export type DeliveryRuntime = { enabled: boolean; stop: () => Promise<void> };
 export async function startGhlDelivery(options: {
@@ -19,6 +20,8 @@ export async function startGhlDelivery(options: {
   // Must precede config, credential access, dynamic DB import and all scheduling.
   if (!deliveryEnabled(env)) return { enabled: false, stop: async () => {} };
   const config = deliveryConfig(env);
+  if (config.environment === "production" && (options.controlledDatabase || options.makeWorker))
+    throw new GhlFailure("PRODUCTION_RUNTIME_OVERRIDE_DENIED");
   if (config.controlled) {
     // The ordinary app startup has no isolated handle, so it cannot run this
     // mode even if somebody accidentally sets all approval variables.
@@ -31,10 +34,15 @@ export async function startGhlDelivery(options: {
   if (!env.GHL_PRIVATE_INTEGRATION_TOKEN) throw new GhlFailure("TOKEN_REQUIRED");
   const client = new HttpGhlClient({ enabled: true, allowWrites: true, environment: config.environment,
     locationId: config.locationId, approvedLocationId: config.controlled
-      ? env.EMA_GHL_CONTROLLED_LIVE_APPROVED_LOCATION_ID! : env.EMA_GHL_APPROVED_TEST_LOCATION_ID!,
+      ? env.EMA_GHL_CONTROLLED_LIVE_APPROVED_LOCATION_ID! : config.environment === "production"
+        ? env.EMA_GHL_APPROVED_PRODUCTION_LOCATION_ID! : env.EMA_GHL_APPROVED_TEST_LOCATION_ID!,
+    ...(config.environment === "production" ? { productionApproval: "ALLOW_PRODUCTION_DELIVERY" as const } : {}),
     getToken: () => env.GHL_PRIVATE_INTEGRATION_TOKEN, fetch: options.fetch });
   if (config.controlled) await preflightControlled(config, client);
   const db = options.controlledDatabase ?? await (options.loadDatabase ?? (async () => (await import("@workspace/db")).db))();
+  if (config.environment === "production") {
+    await prepareProductionDelivery(db, client, config);
+  }
   const worker = options.makeWorker ? options.makeWorker(db, client, config) : new GhlWorker(db, client, config);
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;

@@ -8,7 +8,8 @@ export interface GhlClient {
 export type HttpGhlClientOptions = {
   enabled: boolean;
   allowWrites: boolean;
-  environment: "development" | "test";
+  environment: "development" | "test" | "production";
+  productionApproval?: "ALLOW_PRODUCTION_DELIVERY";
   locationId: string;
   approvedLocationId: string;
   getToken: () => string | undefined;
@@ -27,7 +28,9 @@ export class HttpGhlClient implements GhlClient {
     const o = this.options;
     if (!o.enabled) throw new GhlFailure("DELIVERY_DISABLED");
     if (method !== "GET" && !o.allowWrites) throw new GhlFailure("LIVE_GHL_WRITES_DISABLED");
-    if (!["development", "test"].includes(o.environment)) throw new GhlFailure("TEST_ENVIRONMENT_REQUIRED");
+    if (o.environment === "production") {
+      if (o.productionApproval !== "ALLOW_PRODUCTION_DELIVERY") throw new GhlFailure("PRODUCTION_DELIVERY_APPROVAL_REQUIRED");
+    } else if (!["development", "test"].includes(o.environment)) throw new GhlFailure("TEST_ENVIRONMENT_REQUIRED");
     if (!o.locationId || o.approvedLocationId !== o.locationId) throw new GhlFailure("APPROVED_TEST_LOCATION_REQUIRED");
     if (!path.startsWith("/") || path.startsWith("//") || /[\\#\r\n]/.test(path) || /(^|\/)\.\.?($|\/|\?)/.test(path) ||
       /%2f|%5c|%2e/i.test(path)) throw new GhlFailure("INVALID_ENDPOINT");
@@ -41,6 +44,8 @@ export class HttpGhlClient implements GhlClient {
     const isSearch = p === "/opportunities/search";
     const isPipelines = p === "/opportunities/pipelines";
     const isOpportunity = /^\/opportunities\/[A-Za-z0-9_-]+$/.test(p) && !isSearch && !isPipelines;
+    if (o.environment === "production" && method !== "GET" && (isFields || p === "/contacts/upsert"))
+      throw new GhlFailure("PRODUCTION_SETUP_WRITE_DENIED");
     const allowed = method === "GET" ? isFields || isDuplicate || isContact || isNotes || isNote || isSearch || isPipelines || isOpportunity :
       method === "POST" ? isFields || p === "/contacts/upsert" || p === "/contacts/" || isNotes || p === "/opportunities/" :
       method === "PUT" && (isContact || isOpportunity);

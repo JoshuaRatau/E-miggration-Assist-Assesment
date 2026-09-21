@@ -5,6 +5,7 @@ import type { Executor } from "./snapshots";
 import { GhlFailure, validateFieldMapping, type GhlConfig, type OperationKind } from "./config";
 import { type GhlClient, type Method } from "./client";
 import { customValues, standardValues, historyBody, type Assessment } from "./fields";
+import { assertProductionDeliveryReady } from "./production";
 
 async function rows<T = any>(db: Executor, query: ReturnType<typeof sql>): Promise<T[]> {
   const result: any = await db.execute(query);
@@ -18,16 +19,18 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 const reviewCodes = new Set(["IDENTITY_CONFLICT", "AMBIGUOUS_CREATE", "UNRESOLVED_UPDATE_REVIEW", "REMOTE_IDENTITY_MISMATCH", "OPPORTUNITY_OWNERSHIP_REVIEW", "MULTIPLE_REMOTE_MATCHES", "HISTORY_SIZE_REVIEW_REQUIRED", "PAGINATION_REVIEW_REQUIRED", "READBACK_MISMATCH"]);
 
 /**
- * Processor shared by intercepted tests and explicitly enabled test delivery.
+ * Processor shared by intercepted tests and explicitly approved delivery.
  * Runtime and client independently guard actual network access.
  */
 export class GhlWorker {
   constructor(private db: Executor, private client: GhlClient, private config: GhlConfig) {
     validateFieldMapping(config.fieldIds);
-    if (!["test", "development"].includes(config.environment))
+    if (config.environment === "production") assertProductionDeliveryReady(db, client, config);
+    else if (!["test", "development"].includes(config.environment))
       throw new GhlFailure("LIVE_GHL_WRITES_DISABLED");
   }
   async tick(): Promise<boolean> {
+    if (this.config.environment === "production") assertProductionDeliveryReady(this.db, this.client, this.config);
     validateFieldMapping(this.config.fieldIds);
     await checkControlledDatabase(this.config, this.db);
     const { environment, locationId } = this.config;
@@ -225,7 +228,7 @@ export class GhlWorker {
         if (await ambiguous("contact.create")) throw new GhlFailure("AMBIGUOUS_CREATE");
         // Controlled live tests must never upsert a contact that appeared after
         // preflight. Create-only fails on a duplicate rather than updating it.
-        const created = await call("contact.create", "POST", c.controlled ? "/contacts/" : "/contacts/upsert", { ...standard, locationId: c.locationId, customFields: fields });
+        const created = await call("contact.create", "POST", c.controlled || c.environment === "production" ? "/contacts/" : "/contacts/upsert", { ...standard, locationId: c.locationId, customFields: fields });
         remote = created.contact;
         if (!remote?.id) throw new GhlFailure("AMBIGUOUS_CREATE");
       }

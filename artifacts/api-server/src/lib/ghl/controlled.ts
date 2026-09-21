@@ -38,6 +38,7 @@ export function parseControlledManifest(raw: string | undefined, locationId: str
   return { locationId, records: records.map(r => ({ flow: r.flow, leadId: r.leadId, submissionId: r.submissionId, email: r.email, phone: r.phone })) };
 }
 export function controlledConfig(env: GhlEnvironment, locationId: string) {
+  if (!["development", "test"].includes(env.NODE_ENV ?? "")) throw new GhlFailure("TEST_ENVIRONMENT_REQUIRED");
   if (env.EMA_GHL_CONTROLLED_LIVE_APPROVED_LOCATION_ID !== locationId ||
     env.EMA_GHL_CONTROLLED_LIVE_APPROVAL !== "ALLOW_THREE_SYNTHETIC_RECORDS_IN_LIVE_ACCOUNT")
     throw new GhlFailure("CONTROLLED_LIVE_APPROVAL_REQUIRED");

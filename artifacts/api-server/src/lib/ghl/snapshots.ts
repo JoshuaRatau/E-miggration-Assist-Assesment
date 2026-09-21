@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { captureConfig, captureEnabled, operationKinds, type GhlConfig } from "./config";
+import { validateProductionSchema } from "./production";
 
 // Structural interface works with node-postgres and isolated PGlite Drizzle transactions.
 export interface Executor { execute(query: ReturnType<typeof sql>): Promise<unknown> }
@@ -50,6 +51,7 @@ export async function saveAssessment<DB extends Executor, Lead extends { id: str
   if (!captureEnabled()) return save(database);
   const config = captureConfig();
   return database.transaction(async (tx) => {
+    if (config.environment === "production") await validateProductionSchema(tx);
     const leads = await save(tx);
     const lead = leads[0];
     if (!lead) throw new Error("ASSESSMENT_LEAD_SAVE_FAILED");
@@ -60,5 +62,9 @@ export async function saveAssessment<DB extends Executor, Lead extends { id: str
 }
 export async function finalizeAssessment(database: Transactional, leadId: string) {
   if (!captureEnabled()) return;
-  await database.transaction(tx => complete(tx, leadId, captureConfig()));
+  const config = captureConfig();
+  await database.transaction(async tx => {
+    if (config.environment === "production") await validateProductionSchema(tx);
+    await complete(tx, leadId, config);
+  });
 }
