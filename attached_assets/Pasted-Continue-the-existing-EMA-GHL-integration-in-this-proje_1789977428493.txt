@@ -1,0 +1,52 @@
+Continue the existing EMA → GHL integration in this project. Prepare a controlled end-to-end test using our current E-Migration Assist GHL sub-account.
+
+This is a LIVE GHL sub-account. We do not have a separate GHL test account. Replit remains the development environment; AWS hosts production.
+
+Confirmed from GHL screenshots:
+- Allow Duplicate Contact: OFF.
+- Primary contact matching: Email.
+- Secondary matching: Phone.
+- The displayed published workflow is “Emigration Facebook Leads Capture”.
+- Its trigger is Facebook Lead Form Submitted, filtered to the E-Migration Assist page and selected form.
+- Its actions are Update contact field → Email.
+- The other four displayed workflows are drafts.
+- These screenshots do not prove that all possible outbound automations are absent.
+
+Authorised now: prepare the controlled-test implementation and configuration, run isolated tests, and perform necessary read-only configuration checks.
+
+1. Inspect the existing implementation and documentation. Reuse completed work; do not rebuild the integration or alter unrelated features.
+
+2. Adapt the existing test-location safeguards to explicitly support a controlled test against the live sub-account. Do not label it as a separate test account or bypass destination checks. Use the existing saved token and location ID without printing secrets.
+
+3. Restrict test delivery to exactly three explicitly allowlisted synthetic EMA leads/submissions: one individual, one overstay and one business assessment. Reject all other deliveries in this mode. Use contact details I control; request these if missing. Check that the proposed test email addresses and phone numbers do not match existing GHL contacts before any writes.
+
+4. Use a confirmed isolated EMA test database. Verify that its connection is separate from the existing application and AWS production databases before applying the integration migration there. If a separate database is unavailable, report that specific blocker. Do not modify the application database.
+
+5. Respect the confirmed email-first, phone-second matching configuration. If email and phone identify different contacts, pause that record for review. Preserve existing attribution, consent/DND settings, assessment history and newer answers.
+
+6. Produce the exact GHL setup plan:
+   - The 22 proposed fields already documented.
+   - Any existing fields proposed for reuse and why.
+   - Preserve the eight protected existing fields.
+   - Propose Marketing Pipeline → New Lead, status open, for these new test opportunities, after verifying the IDs.
+   - Keep one opportunity per EMA lead.
+
+7. Prepare a test procedure covering all three assessment flows:
+   - Successful save and finalisation in the isolated EMA database.
+   - Contact details, assessment answers, attribution and dated history in GHL.
+   - Correct opportunity linkage.
+   - Retry/replay without duplicate contacts, opportunities or history notes.
+   - No delivery for non-allowlisted records.
+   - No unintended email, SMS or WhatsApp sends.
+   Identify any notification paths that cannot yet be ruled out.
+
+8. Keep live GHL setup and delivery disabled while preparing this work. Do not create fields, contacts, notes or opportunities yet. Do not change existing GHL workflows or account settings. Do not push, deploy or change AWS.
+
+Finish with:
+- What you prepared and verified.
+- The exact proposed live GHL changes.
+- The proposed pipeline/stage and field mappings.
+- Any missing test contact details or configuration.
+- One consolidated approval request for the bounded live test, only after the preparation is complete.
+
+Distinguish isolated test results from real GHL delivery evidence. Do not claim end-to-end success before the approved live test runs.

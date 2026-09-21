@@ -1,5 +1,7 @@
 import { pathToFileURL } from "node:url";
 import { fieldDefinitions, type FieldDefinition } from "../src/lib/ghl/fields";
+import { controlledConfig, preflightControlled } from "../src/lib/ghl/controlled";
+import { HttpGhlClient } from "../src/lib/ghl/client";
 
 type Environment = Record<string, string | undefined>;
 type RemoteField = { id: string; name: string; fieldKey: string; dataType: string; model: string; options?: string[] };
@@ -25,16 +27,17 @@ const protectedIds = new Set([
   "RtXtcvdzU42voJDLm9qS", "gZtaUo0SSLXhQcJAGJ77", "ojsDWQfgXKvIZrKW0Uur",
   "orEkAgxqn2IMek7lhmHS", "qGcf3BK7GKqMpJ6ZqKzc",
 ]);
-export const setupUsage = "Default: --dry-run (alias --plan). Apply: --apply --location-id ID --approve-location ID [--reuse contact.ema_lead_id=FIELD_ID ...]. Requires NODE_ENV=development|test, EMA_GHL_SETUP_ENABLED=true, GHL_LOCATION_ID=ID, EMA_GHL_TEST_LOCATION_ID=ID and GHL_PRIVATE_INTEGRATION_TOKEN. Reuse explicitly approves semantic purpose, not just a matching name.";
+export const setupUsage = "Default: --dry-run (alias --plan). Apply: --apply --location-id ID --approve-location ID [--reuse contact.ema_lead_id=FIELD_ID ...]. Requires NODE_ENV=development|test, EMA_GHL_SETUP_ENABLED=true, GHL_LOCATION_ID=ID, EMA_GHL_TEST_LOCATION_ID=ID and GHL_PRIVATE_INTEGRATION_TOKEN. Controlled LIVE account: additionally specify --controlled-live-account, matching EMA_GHL_CONTROLLED_LIVE_APPROVED_LOCATION_ID, manifest/three-record approval and EMA_GHL_CONTROLLED_SETUP_APPROVAL=ALLOW_22_EMA_FIELDS_IN_LIVE_ACCOUNT; this replaces only the separate test-location check. All six identities must preflight empty before fields are created. Reuse explicitly approves semantic purpose, not just a matching name.";
 
 function parse(args: string[]) {
-  let apply = false, dry = false, help = false, location: string | undefined, approval: string | undefined;
+  let apply = false, dry = false, help = false, controlledLive = false, location: string | undefined, approval: string | undefined;
   const reuse = new Map<string, string>();
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (arg === "--apply") { if (apply) fail("DUPLICATE_ARGUMENT"); apply = true; }
     else if (arg === "--dry-run" || arg === "--plan") dry = true;
     else if (arg === "--help") help = true;
+    else if (arg === "--controlled-live-account") controlledLive = true;
     else if (["--location-id", "--approve-location", "--reuse"].includes(arg)) {
       const value = args[++i];
       if (!value || value.startsWith("--")) fail("ARGUMENT_VALUE_REQUIRED");
@@ -49,7 +52,7 @@ function parse(args: string[]) {
     } else fail("UNKNOWN_ARGUMENT");
   }
   if (apply && (dry || help)) fail("CONFLICTING_MODES");
-  return { apply, help, location, approval, reuse };
+  return { apply, help, location, approval, reuse, controlledLive };
 }
 
 function remote(value: unknown): RemoteField {
@@ -72,7 +75,7 @@ export async function runGhlSetup(args: string[] = [], deps: SetupDependencies =
   const options = parse(args);
   if (options.help) return { mode: "help", instructions: setupUsage };
   if (!options.apply) return {
-    mode: "dry-run", version: "v3", networkCalls: 0,
+    mode: "dry-run", destinationType: options.controlledLive ? "controlled-live-account" : "separate-test-account", version: "v3", networkCalls: 0,
     instructions: setupUsage,
     definitions: fieldDefinitions.map(({ key, ...requestBody }) => ({
       logicalMappingKey: `${requestBody.model}.${key}`, requestBody,
@@ -83,12 +86,20 @@ export async function runGhlSetup(args: string[] = [], deps: SetupDependencies =
   if (env.EMA_GHL_SETUP_ENABLED !== "true") fail("SETUP_DISABLED");
   const location = options.location;
   if (!location || !identifier.test(location) || location !== options.approval ||
-    location !== env.GHL_LOCATION_ID || location !== env.EMA_GHL_TEST_LOCATION_ID)
+    location !== env.GHL_LOCATION_ID || (!options.controlledLive && location !== env.EMA_GHL_TEST_LOCATION_ID))
     fail("DESTINATION_APPROVAL_REQUIRED");
   const token = env.GHL_PRIVATE_INTEGRATION_TOKEN;
   if (!token || /[\r\n]/.test(token)) fail("TOKEN_REQUIRED");
   if (new Set(options.reuse.values()).size !== options.reuse.size ||
     [...options.reuse.values()].some(id => protectedIds.has(id))) fail("INVALID_REUSE_APPROVAL");
+  if (options.controlledLive) {
+    if (env.EMA_GHL_CONTROLLED_SETUP_APPROVAL !== "ALLOW_22_EMA_FIELDS_IN_LIVE_ACCOUNT")
+      fail("CONTROLLED_SETUP_APPROVAL_REQUIRED");
+    const controlled = controlledConfig(env, location);
+    const readClient = new HttpGhlClient({ enabled: true, allowWrites: false, environment: env.NODE_ENV as "test" | "development",
+      locationId: location, approvedLocationId: location, getToken: () => token, fetch: deps.fetch, timeoutMs: deps.timeoutMs });
+    await preflightControlled({ environment: env.NODE_ENV as "test" | "development", locationId: location, fieldIds: {}, controlled }, readClient);
+  }
 
   const transport = deps.fetch ?? globalThis.fetch;
   const endpoint = `https://services.leadconnectorhq.com/locations/${encodeURIComponent(location)}/customFields`;

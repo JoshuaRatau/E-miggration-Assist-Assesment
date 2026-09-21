@@ -42,14 +42,14 @@ export class HttpGhlClient implements GhlClient {
     const isPipelines = p === "/opportunities/pipelines";
     const isOpportunity = /^\/opportunities\/[A-Za-z0-9_-]+$/.test(p) && !isSearch && !isPipelines;
     const allowed = method === "GET" ? isFields || isDuplicate || isContact || isNotes || isNote || isSearch || isPipelines || isOpportunity :
-      method === "POST" ? isFields || p === "/contacts/upsert" || isNotes || p === "/opportunities/" :
+      method === "POST" ? isFields || p === "/contacts/upsert" || p === "/contacts/" || isNotes || p === "/opportunities/" :
       method === "PUT" && (isContact || isOpportunity);
     if (!allowed || url.origin !== "https://services.leadconnectorhq.com") throw new GhlFailure("INVALID_ENDPOINT");
     if ((isFields && p.split("/")[2] !== o.locationId) ||
       ((isDuplicate || isSearch || isPipelines) && url.searchParams.get("locationId") !== o.locationId) ||
       (body?.locationId !== undefined && body.locationId !== o.locationId))
       throw new GhlFailure("DESTINATION_MISMATCH");
-    if ((p === "/contacts/upsert" || p === "/opportunities/") && body?.locationId !== o.locationId)
+    if ((p === "/contacts/upsert" || p === "/contacts/" || p === "/opportunities/") && body?.locationId !== o.locationId)
       throw new GhlFailure("DESTINATION_MISMATCH");
     const token = o.getToken();
     if (!token) throw new GhlFailure("TOKEN_REQUIRED");
@@ -79,7 +79,7 @@ export class HttpGhlClient implements GhlClient {
           const valid = object(data) && (
             isFields ? method === "GET" ? Array.isArray(data.customFields) && data.customFields.every(f => entity(f) && typeof f.name === "string" && typeof f.dataType === "string") : entity(data.customField) :
             isDuplicate ? Object.hasOwn(data, "contact") && (data.contact === null || contactValid(data.contact)) :
-            isContact || p === "/contacts/upsert" ? contactValid(data.contact) :
+            isContact || p === "/contacts/upsert" || p === "/contacts/" ? contactValid(data.contact) :
             isNotes && method === "GET" ? Array.isArray(data.notes) && data.notes.every(noteValid) :
             isNotes || isNote ? noteValid(data.note) :
             isSearch ? Array.isArray(data.opportunities) && data.opportunities.every(opportunityValid) :

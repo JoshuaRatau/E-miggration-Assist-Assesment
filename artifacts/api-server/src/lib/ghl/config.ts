@@ -1,3 +1,4 @@
+import { controlledConfig, type ControlledManifest } from "./controlled";
 export const operationKinds = ["contact", "contact_verify", "history", "history_verify", "opportunity", "opportunity_verify"] as const;
 export type OperationKind = typeof operationKinds[number];
 export type GhlConfig = {
@@ -6,6 +7,7 @@ export type GhlConfig = {
   pipelineId?: string;
   stageId?: string;
   fieldIds: Record<string, string>;
+  controlled?: ControlledManifest;
 };
 
 // Capture is separately enabled only AFTER the additive migration is deliberately applied.
@@ -46,11 +48,12 @@ export function deliveryConfig(env: GhlEnvironment = process.env): GhlConfig {
   // Production requires a separately reviewed release and schema allowance.
   if (!["development", "test"].includes(env.NODE_ENV ?? "")) throw new GhlFailure("TEST_ENVIRONMENT_REQUIRED");
   const locationId = env.GHL_LOCATION_ID;
-  if (!locationId || env.EMA_GHL_APPROVED_TEST_LOCATION_ID !== locationId)
+  const controlled = env.EMA_GHL_DELIVERY_MODE === "controlled-live";
+  if (!locationId || (!controlled && env.EMA_GHL_APPROVED_TEST_LOCATION_ID !== locationId))
     throw new GhlFailure("APPROVED_TEST_LOCATION_REQUIRED");
   if (env.EMA_GHL_TEST_LOCATION_ID && env.EMA_GHL_TEST_LOCATION_ID !== locationId)
     throw new GhlFailure("CAPTURE_DESTINATION_MISMATCH");
-  if (env.EMA_GHL_DELIVERY_APPROVAL !== "ALLOW_SYNTHETIC_TEST_DELIVERY")
+  if (!controlled && env.EMA_GHL_DELIVERY_APPROVAL !== "ALLOW_SYNTHETIC_TEST_DELIVERY")
     throw new GhlFailure("DELIVERY_APPROVAL_REQUIRED");
   if (!env.EMA_GHL_PIPELINE_ID || !env.EMA_GHL_STAGE_ID) throw new GhlFailure("PIPELINE_STAGE_REQUIRED");
   let fieldIds: unknown;
@@ -60,7 +63,8 @@ export function deliveryConfig(env: GhlEnvironment = process.env): GhlConfig {
     throw new GhlFailure("FIELD_MAPPING_REQUIRED");
   validateFieldMapping(fieldIds as Record<string, string>);
   return { environment: env.NODE_ENV as "development" | "test", locationId,
-    pipelineId: env.EMA_GHL_PIPELINE_ID, stageId: env.EMA_GHL_STAGE_ID, fieldIds: fieldIds as Record<string, string> };
+    pipelineId: env.EMA_GHL_PIPELINE_ID, stageId: env.EMA_GHL_STAGE_ID, fieldIds: fieldIds as Record<string, string>,
+    ...(controlled ? { controlled: controlledConfig(env, locationId) } : {}) };
 }
 export function liveGhlClient(): never {
   // Intentionally unconditional. No credential reads, fetch, SDK, or override switch.

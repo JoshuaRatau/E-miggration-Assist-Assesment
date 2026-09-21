@@ -1,3 +1,4 @@
+import { assertControlledMutation, assertControlledRecord, checkControlledDatabase } from "./controlled";
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { Executor } from "./snapshots";
@@ -28,6 +29,7 @@ export class GhlWorker {
   }
   async tick(): Promise<boolean> {
     validateFieldMapping(this.config.fieldIds);
+    await checkControlledDatabase(this.config, this.db);
     const { environment, locationId } = this.config;
     if (!locationId) throw new GhlFailure("LOCATION_REQUIRED");
     const token = randomUUID(), scope = `${environment}:${locationId}`;
@@ -48,6 +50,9 @@ export class GhlWorker {
         lease_token=${token},lease_until=now()+interval '60 seconds',attempts=attempts+1
         WHERE o.id=(SELECT q.id FROM ema_ghl_operations q
           WHERE q.environment=${environment} AND q.location_id=${locationId}
+          AND ${this.config.controlled
+            ? sql`q.submission_id IN (${sql.join(this.config.controlled.records.map(r => sql`${r.submissionId}::uuid`), sql`,`)})`
+            : sql`true`}
           AND ((q.state IN ('pending','retry') AND q.available_at<=now()) OR (q.state='running' AND q.lease_until<now()))
           AND NOT EXISTS(SELECT 1 FROM ema_ghl_mutation_barriers b WHERE b.scope=${scope} AND b.operation_id<>q.id)
           AND NOT EXISTS(SELECT 1 FROM ema_ghl_operations earlier WHERE earlier.submission_id=q.submission_id
@@ -59,7 +64,10 @@ export class GhlWorker {
       if (!op) return false;
       const [submission] = await rows<Assessment>(this.db, sql`SELECT * FROM ema_assessment_submissions WHERE id=${op.submission_id}`);
       if (!submission?.completed_at) throw new GhlFailure("SUBMISSION_NOT_COMPLETED");
+      if (this.config.controlled) assertControlledRecord(this.config.controlled, submission);
+      let verifiedContactId: string | undefined;
       const request = async (action: string, method: Method, path: string, body?: Record<string, unknown>) => {
+        assertControlledMutation(this.config, submission, method, path, body, verifiedContactId);
         await renew();
         const id = randomUUID();
         await this.db.execute(sql`INSERT INTO ema_ghl_attempts(id,operation_id,action) VALUES(${id},${op.id},${action})`);
@@ -71,6 +79,14 @@ export class GhlWorker {
         }
         try {
           const response = await this.client.request(method, path, body);
+          if (this.config.controlled && method === "GET" && !path.startsWith("/contacts/search/") && response.body?.contact) {
+            const c = response.body.contact;
+            const owner = c.customFields?.find((f: any) => f.id === this.config.fieldIds["contact.ema_lead_id"])?.value;
+            if (owner !== submission.lead_id || c.locationId !== this.config.locationId ||
+              c.email?.toLowerCase() !== submission.answers.email)
+              throw new GhlFailure("CONTROLLED_REMOTE_OWNERSHIP_CONFLICT");
+            verifiedContactId = c.id;
+          }
           await renew();
           await this.db.execute(sql`UPDATE ema_ghl_attempts SET finished_at=now(),outcome='success',http_status=${response.status} WHERE id=${id} AND ${fenced}`);
           if (method !== "GET") await this.db.execute(sql`DELETE FROM ema_ghl_mutation_barriers
@@ -110,7 +126,7 @@ export class GhlWorker {
         error instanceof Error && error.message === "HISTORY_SIZE_REVIEW_REQUIRED" ? error.message : "INTERNAL_DELIVERY_ERROR");
       if (op) {
         const permanent = e.status === 400 || e.status === 401 || e.status === 403 || e.status === 404 || e.code.endsWith("_REQUIRED");
-        const state = reviewCodes.has(e.code) || op.attempts >= 8 ? "review" : permanent ? "blocked" : "retry";
+        const state = reviewCodes.has(e.code) || e.code.startsWith("CONTROLLED_") || op.attempts >= 8 ? "review" : permanent ? "blocked" : "retry";
         const delay = Math.max(e.retryAfterMs ?? 0, Math.min(3_600_000, 1000 * 2 ** Math.min(op.attempts, 12)) + Math.floor(Math.random() * 1000));
         await this.db.execute(sql`UPDATE ema_ghl_operations SET state=${state},error_code=${e.code},
           available_at=now()+${delay}*interval '1 millisecond',lease_until=NULL
@@ -144,6 +160,9 @@ export class GhlWorker {
       if (!result || result.id !== id || result.locationId !== c.locationId) throw new GhlFailure("REMOTE_IDENTITY_MISMATCH");
       return result;
     };
+    // Every operation must re-establish remote ownership, including note and
+    // opportunity operations which ordinarily use persisted local links.
+    if (c.controlled && contactId) await getContact(contactId);
     if (kind === "contact") {
       const standard = standardValues(s), values = customValues(s);
       let fields = Object.entries(values).map(([key, fieldValue]) => ({ id: idFor(key), fieldValue }));
@@ -186,7 +205,9 @@ export class GhlWorker {
       } else {
         if (!standard.email && !standard.phone) throw new GhlFailure("CONTACT_IDENTITY_REQUIRED");
         if (await ambiguous("contact.create")) throw new GhlFailure("AMBIGUOUS_CREATE");
-        const created = await call("contact.create", "POST", "/contacts/upsert", { ...standard, locationId: c.locationId, customFields: fields });
+        // Controlled live tests must never upsert a contact that appeared after
+        // preflight. Create-only fails on a duplicate rather than updating it.
+        const created = await call("contact.create", "POST", c.controlled ? "/contacts/" : "/contacts/upsert", { ...standard, locationId: c.locationId, customFields: fields });
         remote = created.contact;
         if (!remote?.id) throw new GhlFailure("AMBIGUOUS_CREATE");
       }

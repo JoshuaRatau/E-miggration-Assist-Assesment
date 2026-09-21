@@ -14,9 +14,9 @@ export function cleanAnswers(data: Record<string, unknown>) {
 }
 export async function snapshot(
   tx: Executor, lead: { id: string; referenceNumber: string; consentTimestamp?: Date | null },
-  flow: Flow, answers: Record<string, unknown>, attribution: Record<string, unknown>,
+  flow: Flow, answers: Record<string, unknown>, attribution: Record<string, unknown>, submissionId?: string,
 ) {
-  const id = randomUUID();
+  const id = submissionId ?? randomUUID();
   await tx.execute(sql`INSERT INTO ema_assessment_submissions(id,lead_id,flow,answers,attribution)
     VALUES(${id},${lead.id},${flow},${JSON.stringify({
       ...cleanAnswers(answers), referenceNumber: lead.referenceNumber,

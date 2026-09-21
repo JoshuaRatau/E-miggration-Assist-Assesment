@@ -2,6 +2,11 @@
 
 ## Safety and status
 
+For the newly prepared bounded test in the **live** E-Migration Assist account,
+see `docs/ghl-controlled-live-test.md`. Its separate controlled-live gates require
+exactly three approved identities and isolated embedded storage; they do not
+authorise execution or relabel the live account as a separate test account.
+
 This implementation remains restricted to development/test, but it is no longer
 mock-only: it now contains a real fixed-host HTTP client, a gated delivery
 runtime, startup/shutdown wiring, and a separately gated field-setup client.
