@@ -28,17 +28,21 @@ Proposed destination for the three new opportunities:
 - Status: open; no monetary value, qualification, booking or won/lost rules.
 - One opportunity per explicitly allowlisted EMA lead.
 
-No contact collision searches were performed: the three user-controlled test
-identities have not been supplied. No contacts or other personal records were
-retrieved during this preparation.
+The user has supplied one controlled email/phone pair for all three assessments.
+Do not copy the user's personal contact details into source, fixtures or this
+document. Separate read-only email and phone requests on 2026-09-21 each returned
+HTTP 200 with no matching contact. This is point-in-time evidence only; repeat
+both checks immediately before any approved writes. A supplied identity is not
+permission to adopt or modify an existing contact or send messages.
 
 ## Exact proposed live changes
 
 Subject to fresh inventory/collision checks and a single later bounded approval:
 
 1. Create the 22 fields below. Reuse **zero** existing fields.
-2. Create exactly three new synthetic contacts: individual, overstay, business.
-3. Create one dated assessment-history note on each of those contacts.
+2. If both identity searches find no contact, create exactly one new synthetic
+   contact shared by the individual, overstay and business harness assessments.
+3. Create three dated assessment-history notes on that shared contact.
 4. Create one linked open New Lead opportunity per allowlisted EMA lead.
 5. Retry/replay only those records; no additional records, existing-contact
    adoption, historical backfill, account/workflow edits or cleanup deletion.
@@ -90,7 +94,8 @@ Controlled mode explicitly identifies a live account. It requires:
 - Existing `GHL_LOCATION_ID`, matching `EMA_GHL_CONTROLLED_LIVE_APPROVED_LOCATION_ID`.
 - `EMA_GHL_CONTROLLED_LIVE_APPROVAL=ALLOW_THREE_SYNTHETIC_RECORDS_IN_LIVE_ACCOUNT`.
 - `EMA_GHL_CONTROLLED_MANIFEST_JSON`: exactly three unique EMA lead/submission
-  UUID pairs, one per flow, with unique user-controlled emails and E.164 phones.
+  UUID pairs, one per flow, all with the identical normalized user-controlled
+  email and E.164 phone. Mixed identities are rejected in this bounded mode.
 - Existing delivery enablement, approved pipeline/stage and returned field IDs.
 - An isolated controlled-database handle, not the application database loader.
 
@@ -99,10 +104,23 @@ Setup is independently disabled by default. Future controlled setup requires
 `EMA_GHL_CONTROLLED_SETUP_APPROVAL=ALLOW_22_EMA_FIELDS_IN_LIVE_ACCOUNT`.
 These are descriptions of safeguards, not instructions to enable them now.
 
-All six email/phone lookups must establish no match before writes. The
+Two separate lookups (email first, phone second) must establish no match before writes. The
 in-process preflight receipt binds to the destination and exact manifest, expires
 after 30 minutes and becomes invalid if the manifest changes. A match, ambiguous
-response or email/phone conflict blocks the affected preparation.
+response or email/phone conflict blocks preparation. Both searches are performed
+so different matching contacts can be reported as an identity conflict.
+
+The first assessment creates the shared contact. Later assessments may use only
+that contact's persisted run-owned link, with the remote manifest markers and
+email/phone reverified. A matching contact appearing after preflight is not adopted,
+even if it has similarly named EMA fields. Ambiguous creation may only reconcile
+the current recorded create attempt with the exact expected submission markers.
+
+All six operations of the oldest completed submission must be confirmed before
+the next submission advances. Controlled completion timestamps are monotonically
+ordered at millisecond precision and are immutable after completion. The last
+completed assessment controls latest-answer fields; all three histories remain.
+First-touch attribution and unrelated/DND fields are preserved.
 
 ## Database isolation: verified and limited
 
@@ -116,32 +134,58 @@ snapshot/completion functions. It verifies individual deferred finalisation and
 atomic overstay/business completion; it is **not** a persistent standalone EMA
 deployment or a full HTTP/form end-to-end environment.
 
+`createControlledRun(config)` retains the same database/run handle throughout
+save, finalisation, delivery and replay. Its normal `close()` rejects until
+`verifyReplay(worker)` confirms 18 operations, three run links, one shared
+contact ID, three distinct opportunity IDs and an unchanged no-op replay.
+There is no automatic close between assessments or delivery/replay.
+
 Restart loses the isolated records, remote links and preflight receipt. A later
 new session must not adopt existing test contacts automatically; collisions
 require review. A persistent full-application isolated database has not been
 provisioned or verified. Full HTTP/form E2E remains blocked on that environment
 and provider-isolation work if that broader test is required.
 
+### Actual EMA duplicate rules and expected counts
+
+All three production intake routes retain their email-OR-canonical-WhatsApp
+duplicate checks and `409 already_registered` behaviour. Three submissions using
+the same pair cannot produce three new leads through the ordinary forms: after
+the first accepted lead, the other two submissions are rejected.
+
+The integration harness deliberately seeds three explicitly approved synthetic
+lead fixtures into its isolated minimal table; it is not pretending those records
+passed production intake validation. Expected harness counts are **3 EMA leads,
+3 immutable submissions, 1 GHL contact, 3 dated notes and 3 opportunities**.
+The three opportunities follow the existing one-opportunity-per-EMA-lead policy.
+An ordinary browser test using this one identity can produce at most **1 accepted
+EMA lead, 1 completed submission, 1 contact, 1 history note and 1 opportunity**
+from these three attempts (subject to finalisation and collision approval).
+No duplicate-handling or production validation bypass is included.
+
 ## Proposed test procedure (not executed live)
 
-1. Obtain three unique email/phone pairs controlled by the user, synthetic
-   assessment details and explicit ownership confirmation.
+1. Use the user's one approved normalized email/E.164-phone pair in all three
+   manifest entries; obtain exact synthetic assessment answers without inventing
+   additional contact details. Do not store the pair in repository fixtures.
 2. Bind the three lead/submission UUID pairs and destination into the manifest.
 3. Inspect all outbound automation paths with an account owner. Resolve the
    notification blocker below before live execution approval.
-4. Repeat read-only inventory and six identity-collision checks; stop on matches.
+4. Repeat read-only inventory and the two identity-collision checks; stop on matches.
 5. Present one consolidated approval covering exactly the fields and records
    above, the manifest, destination, pipeline and unresolved risks.
-6. Only after approval, use a single isolated harness session; never the ordinary
-   app server, frontend, startup jobs or application database.
+6. Only after approval, create and retain one controlled run handle; never use the
+   ordinary app server, frontend, startup jobs or application database. Retain
+   that same handle until delivery and no-op replay both finish.
 7. Save individual answers; verify immutable snapshot and no queued delivery
    before finalisation. Finalise and verify the six-operation queue.
 8. Save overstay/business and verify atomic lead/snapshot/queue completion.
 9. Execute approved setup, record field mappings, then process only the manifest.
 10. Read back contact values, captured attribution, dated complete notes and
     opportunity links. Confirm no records outside the manifest were touched.
-11. Replay finalisation and delivery; verify the same three contacts, notes and
-    opportunities remain. Inject retry/timeout cases with intercepted transport,
+11. Replay finalisation and delivery; verify the same one contact, three notes and
+    three opportunities remain, together with all local links. Call
+    `verifyReplay(worker)` before closing the handle. Inject retry/timeout cases with intercepted transport,
     not deliberate uncontrolled failures in the live account.
 12. Reconcile any ambiguous live outcome read-only; stop rather than blindly retry
     or remove a mutation barrier. Report observed provider sends separately.
@@ -172,6 +216,6 @@ Isolated/intercepted tests are evidence about code, not live GHL delivery.
 See `docs/ghl-development.md` for the core regression suite and
 `src/lib/ghl/controlled.test.ts` for controlled-mode coverage.
 
-Pending: three owned contact pairs, exact synthetic answers/manifest,
-no-collision checks, account-side notification review and one final bounded
+Pending: exact synthetic answers/manifest using the supplied shared identity,
+no-collision check results, account-side notification review and one final bounded
 approval. No live E2E success is claimed.

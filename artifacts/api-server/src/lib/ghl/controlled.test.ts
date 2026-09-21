@@ -7,12 +7,12 @@ import { HttpGhlClient, MockGhlClient } from "./client";
 import { GhlWorker } from "./worker";
 import { startGhlDelivery } from "./runtime";
 import { assertControlledMutation, assertControlledRecord, assertIsolatedControlledDatabase,
-  createControlledDatabase, parseControlledManifest, preflightControlled, requireControlledPreflight,
+  createControlledDatabase, createControlledRun, parseControlledManifest, preflightControlled, requireControlledPreflight,
   saveControlledFixture, finalizeControlledFixture } from "./controlled";
 const location = "controlled-live-location";
 function manifest() {
-  return { locationId: location, records: (["individual", "overstay", "business"] as const).map((flow, i) =>
-    ({ flow, leadId: randomUUID(), submissionId: randomUUID(), email: `${flow}@controlled.invalid`, phone: `+2782000000${i}` })) };
+  return { locationId: location, records: (["individual", "overstay", "business"] as const).map(flow =>
+    ({ flow, leadId: randomUUID(), submissionId: randomUUID(), email: "shared@controlled.invalid", phone: "+27820000000" })) };
 }
 function configuration(): GhlConfig {
   return { environment: "test", locationId: location, pipelineId: "pipeline", stageId: "new-lead",
@@ -33,8 +33,11 @@ describe("controlled LIVE-account preparation; no actual GHL calls", () => {
     expect(parseControlledManifest(JSON.stringify(m), location)).toEqual(m);
     for (const records of [m.records.slice(0, 2), [...m.records, m.records[0]], [m.records[0], m.records[0], m.records[2]]])
       expect(() => parseControlledManifest(JSON.stringify({ ...m, records }), location)).toThrow();
+    m.records[1].phone = "+27820000001";
+    expect(() => parseControlledManifest(JSON.stringify(m), location)).toThrow("CONTROLLED_SHARED_IDENTITY_REQUIRED");
     m.records[1].phone = m.records[0].phone;
-    expect(() => parseControlledManifest(JSON.stringify(m), location)).toThrow("CONTROLLED_IDENTITIES_NOT_UNIQUE");
+    m.records[1].email = "different@controlled.invalid";
+    expect(() => parseControlledManifest(JSON.stringify(m), location)).toThrow("CONTROLLED_SHARED_IDENTITY_REQUIRED");
   });
   it("requires explicit LIVE acknowledgement and exact destination without pretending separate account", () => {
     const e = env(configuration());
@@ -53,15 +56,16 @@ describe("controlled LIVE-account preparation; no actual GHL calls", () => {
     expect(load).not.toHaveBeenCalled(); expect(fetch).not.toHaveBeenCalled();
     expect(() => assertIsolatedControlledDatabase({ execute: vi.fn() })).toThrow();
   });
-  it("preflights all six identities with GET only, binds receipt to immutable manifest and expires", async () => {
+  it("preflights shared email and phone separately, binds receipt to immutable manifest and expires", async () => {
     const config = configuration(), calls: any[] = [];
     const client = new MockGhlClient(async r => { calls.push(r); return { status: 200, body: { contact: null } }; });
     await preflightControlled(config, client);
-    expect(calls).toHaveLength(6); expect(calls.every(r => r.method === "GET")).toBe(true);
+    expect(calls).toHaveLength(2); expect(calls.every(r => r.method === "GET")).toBe(true);
     expect(calls[0].path).toContain("&email="); expect(calls[1].path).toContain("&number=");
     expect(() => requireControlledPreflight(config)).not.toThrow();
     config.controlled!.records[0].email = "other@controlled.invalid";
     expect(() => requireControlledPreflight(config)).toThrow("CONTROLLED_PREFLIGHT_REQUIRED");
+    config.controlled!.records[0].email = config.controlled!.records[1].email;
     await preflightControlled(config, client);
     const now = vi.spyOn(Date, "now").mockReturnValue(Date.now() + 31 * 60_000);
     expect(() => requireControlledPreflight(config)).toThrow("CONTROLLED_PREFLIGHT_REQUIRED"); now.mockRestore();
@@ -69,6 +73,15 @@ describe("controlled LIVE-account preparation; no actual GHL calls", () => {
   it.each([{ contact: { id: "existing" } }, {}, { contact: undefined }])("blocks collisions or uncertain matches", async body => {
     const config = configuration();
     await expect(preflightControlled(config, new MockGhlClient(async () => ({ status: 200, body })))).rejects.toThrow();
+    expect(() => requireControlledPreflight(config)).toThrow();
+  });
+  it("reports email/phone identity conflicts without adopting either contact", async () => {
+    const config = configuration(), calls: string[] = [];
+    await expect(preflightControlled(config, new MockGhlClient(async r => {
+      calls.push(r.method);
+      return { status: 200, body: { contact: { id: r.path.includes("&email=") ? "email-contact" : "phone-contact" } } };
+    }))).rejects.toThrow("IDENTITY_CONFLICT");
+    expect(calls).toEqual(["GET", "GET"]);
     expect(() => requireControlledPreflight(config)).toThrow();
   });
   it("rejects changed contact identities and arbitrary notes/opportunities before transport", async () => {
@@ -80,6 +93,35 @@ describe("controlled LIVE-account preparation; no actual GHL calls", () => {
     expect(() => assertControlledMutation(config, s, "PUT", "/opportunities/unrelated", {}, "owned")).toThrow();
     expect(() => assertControlledMutation(config, s, "POST", "/locations/other/customFields", {}, "owned")).toThrow();
   });
+  it("never adopts a contact appearing after preflight and pauses subsequent shared assessments", async () => {
+    const isolated = await createControlledDatabase(), config = configuration();
+    try {
+      for (const r of config.controlled!.records)
+        await saveControlledFixture(isolated.db, config, r.submissionId,
+          { email: r.email, whatsapp: r.phone, consentAccepted: true }, {});
+      await finalizeControlledFixture(isolated.db, config, config.controlled!.records[0].submissionId);
+      await preflightControlled(config, noMatches());
+      const first = config.controlled!.records[1], methods: string[] = [];
+      const worker = new GhlWorker(isolated.db, new MockGhlClient(async r => {
+        methods.push(r.method);
+        return { status: 200, body: { contact: {
+          id: "existing-after-preflight", locationId: location, email: first.email, phone: first.phone,
+          customFields: [
+            { id: config.fieldIds["contact.ema_lead_id"], value: first.leadId },
+            { id: config.fieldIds["contact.ema_latest_submission_id"], value: first.submissionId },
+          ],
+        } } };
+      }), config);
+      await worker.tick();
+      for (let i = 0; i < 8; i++) expect(await worker.tick()).toBe(false);
+      expect(methods.every(m => m === "GET")).toBe(true);
+      expect((await isolated.pg.query("SELECT * FROM ema_ghl_links")).rows).toHaveLength(0);
+      const reviews: any[] = (await isolated.pg.query("SELECT * FROM ema_ghl_operations WHERE state='review'")).rows;
+      expect(reviews).toHaveLength(1);
+      expect(reviews[0].error_code).toBe("CONTROLLED_REMOTE_OWNERSHIP_CONFLICT");
+      expect((await isolated.pg.query("SELECT * FROM ema_ghl_operations WHERE state='pending'")).rows).toHaveLength(17);
+    } finally { await isolated.close(); }
+  }, 30000);
   it("isolated save/finalisation is atomic and nonallowlisted operations remain untouched", async () => {
     const isolated = await createControlledDatabase();
     try {
@@ -115,7 +157,7 @@ describe("controlled LIVE-account preparation; no actual GHL calls", () => {
     } finally { await isolated.close(); }
   }, 30000);
   it("delivers exactly three records via intercepted real HTTP; replay creates nothing", async () => {
-    const isolated = await createControlledDatabase(), config = configuration();
+    const config = configuration(), isolated = await createControlledRun(config);
     const contacts: any[] = [], notes: any[] = [], opportunities: any[] = [], mutations: string[] = [];
     const transport: typeof fetch = vi.fn(async (input, init) => {
       const u = new URL(String(input)), p = u.pathname, method = init?.method ?? "GET";
@@ -127,7 +169,15 @@ describe("controlled LIVE-account preparation; no actual GHL calls", () => {
       else if (p === "/contacts/" && method === "POST") {
         const contact = { ...body, id: `contact-${contacts.length}`, customFields: body.customFields.map((f: any) => ({ id: f.id, value: f.fieldValue })) };
         contacts.push(contact); output = { contact };
-      } else if (/^\/contacts\/[^/]+$/.test(p)) output = { contact: contacts.find(c => c.id === p.split("/")[2]) };
+      } else if (/^\/contacts\/[^/]+$/.test(p)) {
+        const contact = contacts.find(c => c.id === p.split("/")[2]);
+        if (method === "PUT") {
+          const fields = new Map(contact.customFields.map((f: any) => [f.id, f]));
+          for (const f of body.customFields) fields.set(f.id, { id: f.id, value: f.fieldValue });
+          Object.assign(contact, body, { customFields: [...fields.values()] });
+        }
+        output = { contact };
+      }
       else if (/\/notes$/.test(p)) {
         const contactId = p.split("/")[2];
         if (method === "POST") { const note = { id: `note-${notes.length}`, contactId, body: body.body }; notes.push(note); output = { note }; }
@@ -155,7 +205,13 @@ describe("controlled LIVE-account preparation; no actual GHL calls", () => {
       for (let i = 0; i < 18; i++) await worker.tick();
       const states: any[] = (await isolated.pg.query("SELECT state,error_code FROM ema_ghl_operations")).rows;
       expect(states.filter(s => s.state !== "confirmed")).toEqual([]);
-      expect(contacts).toHaveLength(3); expect(notes).toHaveLength(3); expect(opportunities).toHaveLength(3);
+      expect(contacts).toHaveLength(1); expect(notes).toHaveLength(3); expect(opportunities).toHaveLength(3);
+      const completions: any[] = (await isolated.pg.query("SELECT id,completed_at FROM ema_assessment_submissions ORDER BY completed_at")).rows;
+      expect(new Set(completions.map(s => new Date(s.completed_at).toISOString())).size).toBe(3);
+      expect(notes.map(n => n.body.match(/\[ema-submission:([^\]]+)\]/)[1])).toEqual(completions.map(s => s.id));
+      expect(contacts[0].customFields.find((f: any) => f.id === config.fieldIds["contact.ema_latest_submission_id"]).value).toBe(completions[2].id);
+      expect(notes.every(n => n.contactId === contacts[0].id)).toBe(true);
+      expect(opportunities.every(o => o.contactId === contacts[0].id)).toBe(true);
       expect(notes.every(n => n.body.includes("Captured attribution:") && n.body.includes("[ema-submission:"))).toBe(true);
       expect(opportunities.every(o => o.pipelineId === "pipeline" && o.pipelineStageId === "new-lead" && o.status === "open")).toBe(true);
       const before = [...mutations];
@@ -166,7 +222,11 @@ describe("controlled LIVE-account preparation; no actual GHL calls", () => {
       }
       for (let i = 0; i < 6; i++) await worker.tick();
       expect(mutations).toEqual(before);
+      expect((await isolated.pg.query("SELECT * FROM ema_ghl_links")).rows).toHaveLength(3);
       expect(mutations.some(m => m.includes("upsert"))).toBe(false);
+      await expect(isolated.close()).rejects.toThrow("CONTROLLED_REPLAY_REQUIRED_BEFORE_CLOSE");
+      await isolated.verifyReplay(worker);
+      expect(mutations).toEqual(before);
     } finally { await isolated.close(); }
   }, 30000);
   it("controlled setup defaults offline and refuses incomplete live approval", async () => {

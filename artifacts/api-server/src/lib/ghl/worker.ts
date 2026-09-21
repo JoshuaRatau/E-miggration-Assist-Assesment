@@ -51,7 +51,15 @@ export class GhlWorker {
         WHERE o.id=(SELECT q.id FROM ema_ghl_operations q
           WHERE q.environment=${environment} AND q.location_id=${locationId}
           AND ${this.config.controlled
-            ? sql`q.submission_id IN (${sql.join(this.config.controlled.records.map(r => sql`${r.submissionId}::uuid`), sql`,`)})`
+            ? sql`q.submission_id IN (${sql.join(this.config.controlled.records.map(r => sql`${r.submissionId}::uuid`), sql`,`)})
+              AND NOT EXISTS (
+                SELECT 1 FROM ema_assessment_submissions prior
+                JOIN ema_ghl_operations pending ON pending.submission_id=prior.id
+                JOIN ema_assessment_submissions current ON current.id=q.submission_id
+                WHERE prior.id IN (${sql.join(this.config.controlled.records.map(r => sql`${r.submissionId}::uuid`), sql`,`)})
+                AND (prior.completed_at,prior.id)<(current.completed_at,current.id)
+                AND pending.environment=q.environment AND pending.location_id=q.location_id
+                AND pending.state<>'confirmed')`
             : sql`true`}
           AND ((q.state IN ('pending','retry') AND q.available_at<=now()) OR (q.state='running' AND q.lease_until<now()))
           AND NOT EXISTS(SELECT 1 FROM ema_ghl_mutation_barriers b WHERE b.scope=${scope} AND b.operation_id<>q.id)
@@ -82,8 +90,18 @@ export class GhlWorker {
           if (this.config.controlled && method === "GET" && !path.startsWith("/contacts/search/") && response.body?.contact) {
             const c = response.body.contact;
             const owner = c.customFields?.find((f: any) => f.id === this.config.fieldIds["contact.ema_lead_id"])?.value;
-            if (owner !== submission.lead_id || c.locationId !== this.config.locationId ||
-              c.email?.toLowerCase() !== submission.answers.email)
+            const manifest = this.config.controlled;
+            const ownerSubmission = c.customFields?.find((f: any) => f.id === this.config.fieldIds["contact.ema_latest_submission_id"])?.value;
+            const known = await rows(this.db, sql`SELECT lead_id FROM ema_ghl_links
+              WHERE environment=${environment} AND location_id=${locationId} AND contact_id=${c.id}
+              AND lead_id IN (${sql.join(manifest.records.map(r => sql`${r.leadId}::uuid`), sql`,`)})`);
+            const attempted = await rows(this.db, sql`SELECT id FROM ema_ghl_attempts
+              WHERE operation_id=${op.id} AND action='contact.create'
+              AND (outcome IN ('started','success') OR error_code IN ('AMBIGUOUS_TRANSPORT','INVALID_REMOTE_RESPONSE') OR http_status>=500)`);
+            const ownedMarker = manifest.records.some(r => r.leadId === owner && r.submissionId === ownerSubmission);
+            const reconcilingOwnCreate = attempted.length > 0 && owner === submission.lead_id && ownerSubmission === submission.id;
+            if ((!known.length && !reconcilingOwnCreate) || !ownedMarker || c.locationId !== this.config.locationId ||
+              c.email?.toLowerCase() !== submission.answers.email || c.phone !== manifest.records[0].phone)
               throw new GhlFailure("CONTROLLED_REMOTE_OWNERSHIP_CONFLICT");
             verifiedContactId = c.id;
           }
@@ -267,7 +285,14 @@ export class GhlWorker {
       const matching = all.filter(o => o.name?.includes(marker) && opportunityValue(o, leadField) === s.lead_id);
       if (matching.length > 1) throw new GhlFailure("MULTIPLE_REMOTE_MATCHES");
       if (matching.length === 1) return { remoteId: matching[0].id, opportunityId: matching[0].id };
-      if (all.length) throw new GhlFailure("OPPORTUNITY_OWNERSHIP_REVIEW");
+      if (all.length) {
+        // Shared-contact controlled assessments may see earlier opportunities,
+        // but only those already linked to this same run's allowlisted leads.
+        const known = c.controlled ? await rows(this.db, sql`SELECT opportunity_id FROM ema_ghl_links
+          WHERE environment=${c.environment} AND location_id=${c.locationId} AND contact_id=${contactId}
+          AND lead_id IN (${sql.join(c.controlled.records.map(r => sql`${r.leadId}::uuid`), sql`,`)})`) : [];
+        if (all.some(o => !known.some(k => k.opportunity_id === o.id))) throw new GhlFailure("OPPORTUNITY_OWNERSHIP_REVIEW");
+      }
       if (await ambiguous("opportunity.create")) throw new GhlFailure("AMBIGUOUS_CREATE");
       const result = await call("opportunity.create", "POST", "/opportunities/", {
         locationId: c.locationId, contactId, pipelineId: c.pipelineId, pipelineStageId: c.stageId,

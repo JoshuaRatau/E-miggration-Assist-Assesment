@@ -31,8 +31,10 @@ export function parseControlledManifest(raw: string | undefined, locationId: str
     typeof r.email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email) ||
     r.email !== r.email.trim().toLowerCase() || !/^\+[1-9]\d{6,14}$/.test(r.phone)))
     throw new GhlFailure("CONTROLLED_MANIFEST_INVALID");
-  for (const key of ["leadId", "submissionId", "email", "phone"] as const)
+  for (const key of ["leadId", "submissionId"] as const)
     if (new Set(records.map(r => r[key])).size !== 3) throw new GhlFailure("CONTROLLED_IDENTITIES_NOT_UNIQUE");
+  if (new Set(records.map(r => r.email)).size !== 1 || new Set(records.map(r => r.phone)).size !== 1)
+    throw new GhlFailure("CONTROLLED_SHARED_IDENTITY_REQUIRED");
   return { locationId, records: records.map(r => ({ flow: r.flow, leadId: r.leadId, submissionId: r.submissionId, email: r.email, phone: r.phone })) };
 }
 export function controlledConfig(env: GhlEnvironment, locationId: string) {
@@ -55,7 +57,7 @@ export function requireControlledPreflight(config: GhlConfig) {
   if (!receipt || receipt.fingerprint !== digest(config.controlled) || receipt.expires <= Date.now())
     throw new GhlFailure("CONTROLLED_PREFLIGHT_REQUIRED");
 }
-/** All six identity searches must succeed with no contact before any writes.
+/** Separate email and phone searches must both return no contact before writes.
  * In-memory receipt deliberately expires after 30 minutes and cannot be supplied
  * through environment JSON. Restart/reapproval requires operator review if prior
  * synthetic records now exist; do not treat a collision as permission to adopt.
@@ -64,14 +66,17 @@ export async function preflightControlled(config: GhlConfig, readClient: GhlClie
   const manifest = config.controlled;
   if (!manifest) throw new GhlFailure("CONTROLLED_MANIFEST_REQUIRED");
   receipts.delete(config);
+  parseControlledManifest(JSON.stringify(manifest), config.locationId);
   const fingerprint = digest(manifest);
-  for (const record of manifest.records) {
+  const record = manifest.records[0];
+  const found: any[] = [];
     for (const [key, value] of [["email", record.email], ["number", record.phone]]) {
       const response = await readClient.request("GET", `/contacts/search/duplicate?locationId=${encodeURIComponent(config.locationId)}&${key}=${encodeURIComponent(value)}`);
       if (!response.body || !Object.hasOwn(response.body, "contact")) throw new GhlFailure("CONTROLLED_PREFLIGHT_UNCERTAIN");
-      if (response.body.contact !== null) throw new GhlFailure("CONTROLLED_IDENTITY_ALREADY_EXISTS");
+      found.push(response.body.contact);
     }
-  }
+  if (found.every(c => c?.id) && found[0].id !== found[1].id) throw new GhlFailure("IDENTITY_CONFLICT");
+  if (found.some(c => c !== null)) throw new GhlFailure("CONTROLLED_IDENTITY_ALREADY_EXISTS");
   if (fingerprint !== digest(manifest)) throw new GhlFailure("CONTROLLED_MANIFEST_CHANGED");
   receipts.set(config, { fingerprint, expires: Date.now() + 30 * 60_000 });
 }
@@ -108,6 +113,41 @@ export async function createControlledDatabase() {
   const db = drizzle(pg);
   isolated.add(db);
   return { db, pg, isolation: "fresh-in-memory-no-network" as const, close: async () => { isolated.delete(db); await pg.close(); } };
+}
+/** Retain ONE isolated run through delivery and replay. There is no automatic
+ * shutdown/cleanup: normal close is permitted only after a verified no-op replay.
+ * This does not survive process death; never restart and adopt a remote contact.
+ */
+export async function createControlledRun(config: GhlConfig) {
+  if (!config.controlled) throw new GhlFailure("CONTROLLED_MANIFEST_REQUIRED");
+  parseControlledManifest(JSON.stringify(config.controlled), config.locationId);
+  const session = await createControlledDatabase();
+  let replayVerified = false;
+  return {
+    db: session.db, pg: session.pg, isolation: session.isolation,
+    async verifyReplay(worker: { tick(): Promise<boolean> }) {
+      requireControlledPreflight(config);
+      const before = await session.pg.query("SELECT * FROM ema_ghl_operations ORDER BY id");
+      const links = await session.pg.query("SELECT * FROM ema_ghl_links ORDER BY lead_id");
+      if (before.rows.length !== 18 || before.rows.some((r: any) => r.state !== "confirmed") ||
+        links.rows.length !== 3 || new Set(links.rows.map((r: any) => r.contact_id)).size !== 1 ||
+        links.rows.some((r: any) => !r.contact_id || !r.opportunity_id) ||
+        new Set(links.rows.map((r: any) => r.opportunity_id)).size !== 3)
+        throw new GhlFailure("CONTROLLED_DELIVERY_NOT_COMPLETE");
+      for (const r of config.controlled!.records)
+        await session.db.transaction(tx => complete(tx, r.leadId, config));
+      if (await worker.tick()) throw new GhlFailure("CONTROLLED_REPLAY_NOT_NOOP");
+      const after = await session.pg.query("SELECT * FROM ema_ghl_operations ORDER BY id");
+      const afterLinks = await session.pg.query("SELECT * FROM ema_ghl_links ORDER BY lead_id");
+      if (JSON.stringify(before.rows) !== JSON.stringify(after.rows) || JSON.stringify(links.rows) !== JSON.stringify(afterLinks.rows))
+        throw new GhlFailure("CONTROLLED_REPLAY_NOT_NOOP");
+      replayVerified = true;
+    },
+    async close() {
+      if (!replayVerified) throw new GhlFailure("CONTROLLED_REPLAY_REQUIRED_BEFORE_CLOSE");
+      await session.close();
+    },
+  };
 }
 export async function saveControlledFixture(db: Transactional, config: GhlConfig, submissionId: string,
   answers: Record<string, unknown>, attribution: Record<string, unknown>) {

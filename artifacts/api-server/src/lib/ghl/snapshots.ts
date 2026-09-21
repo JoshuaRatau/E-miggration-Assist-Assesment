@@ -26,7 +26,12 @@ export async function snapshot(
 }
 export async function complete(tx: Executor, leadId: string, config: GhlConfig) {
   // An absent snapshot means pre-feature lead. Never reconstruct/backfill mutable records.
-  await tx.execute(sql`UPDATE ema_assessment_submissions SET completed_at=now()
+  // The single-session controlled harness needs a stable millisecond ordering
+  // even when synthetic completions occur within the same clock tick.
+  const completedAt = config.controlled
+    ? sql`GREATEST(now(), COALESCE((SELECT max(completed_at) + interval '1 millisecond' FROM ema_assessment_submissions), now()))`
+    : sql`now()`;
+  await tx.execute(sql`UPDATE ema_assessment_submissions SET completed_at=${completedAt}
     WHERE lead_id=${leadId} AND completed_at IS NULL`);
   for (const [ordinal, kind] of operationKinds.entries()) {
     await tx.execute(sql`INSERT INTO ema_ghl_operations(id,submission_id,environment,location_id,kind,ordinal)
