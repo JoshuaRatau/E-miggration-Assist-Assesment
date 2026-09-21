@@ -25,3 +25,24 @@ before it could establish the existing database state.
 **How to apply:** Carry reviewed expected migration hashes inside the diagnostic;
 use existing installed database dependencies and read-only catalog queries.
 Compare ledger entries to the candidate, not to an assumed updated host checkout.
+
+Use the team's established GitHub/backend deployment and existing Vercel project;
+do not propose alternative release directories or symlink activation.
+
+**Why:** The user explicitly rejected the earlier operator archive/symlink
+handoff in favor of the team's existing deployment arrangements.
+
+**How to apply:** Prepare source and migration/operator tools for the same
+application path; unknown team deployment job details are not license to invent
+a new transport or hosting layout.
+
+PM2 environment updates merge values; removing a key from the caller environment
+does not reliably clear an already-managed value.
+
+**Why:** Production rejects stale controlled-test approvals. Omitting those keys
+can leave them active after a restart even though the proposed environment looks
+clean.
+
+**How to apply:** Explicitly overwrite obsolete integration values with empty or
+disabled values while preserving the verified active environment. Never save
+all PM2 processes blindly while unrelated developer changes are pending.

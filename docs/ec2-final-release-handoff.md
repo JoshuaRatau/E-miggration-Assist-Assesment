@@ -1,5 +1,10 @@
 # API release preparation after cache cleanup
 
+**Superseded execution arrangement:** use `ema-ghl-team-release.md` for the
+current GitHub/team deployment process. The user rejected alternative release
+staging, directory replacement and symlink activation. Commands below remain
+historical preparation notes and must not be used for the current rollout.
+
 Nothing in this document authorizes execution. No EC2 changes, migration,
 publication, pushes or real-lead activation were performed.
 

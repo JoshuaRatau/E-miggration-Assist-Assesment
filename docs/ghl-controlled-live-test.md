@@ -19,7 +19,10 @@ paths or send extra diagnostic messages merely because receipt is permitted.
 The user supplied duplicate settings: duplicates OFF, email primary, phone
 secondary. The attached duplicate-settings screenshot supports these settings.
 The user also reports a published Facebook-lead-triggered workflow and four draft
-workflows. That is not a verified inventory of every outbound automation.
+workflows. The user subsequently confirmed this is the complete five-workflow
+inventory; do not request that inventory again. Remaining recipient evidence is
+other staff notification coverage and Ticket System's relevant subscriptions/
+downstream recipients, as reconciled in `ema-ghl-team-release.md`.
 
 ## Read-only configuration evidence
 
