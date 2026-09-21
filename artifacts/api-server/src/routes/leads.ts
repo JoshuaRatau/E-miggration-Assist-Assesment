@@ -1,3 +1,4 @@
+import { saveAssessment, finalizeAssessment } from "../lib/ghl/snapshots";
 import { Router, type IRouter } from "express";
 import {
   db,
@@ -417,7 +418,7 @@ router.post("/leads", async (req, res) => {
 
   const referenceNumber = generateReferenceNumber();
 
-  const [inserted] = await db
+  const [inserted] = await saveAssessment(db, (tx) => tx
     .insert(prelaunchLeadsTable)
     .values({
       referenceNumber,
@@ -457,7 +458,11 @@ router.post("/leads", async (req, res) => {
         (req.body as { funnelContext?: unknown }).funnelContext,
       ),
     })
-    .returning();
+    .returning(), "individual", data, {
+      source: normalizeSource(data.source) ?? "web_form",
+      sourceCampaign: normalizeCampaign(data.sourceCampaign),
+      funnelContext: sanitizeFunnelContext((req.body as { funnelContext?: unknown }).funnelContext),
+    }, false);
 
   if (!inserted) {
     return res.status(500).json({ error: "Failed to create lead" });
@@ -544,6 +549,10 @@ router.post("/leads/:id/finalize", async (req, res) => {
   if (!lead) {
     return res.status(404).json({ error: "Lead not found" });
   }
+
+  // Durable completion is independent of notification delivery. An exception
+  // propagates as failure; the frontend retains the saved reference for retry.
+  await finalizeAssessment(db, lead.id);
 
   // At-most-once defense.  The route is unauthenticated (anyone holding
   // a valid lead UUID can call it), so we explicitly suppress repeated

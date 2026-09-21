@@ -1,0 +1,29 @@
+Proceed with development implementation of the revised direct API integration in this Pre-launch tool project.
+
+Replit remains development; AWS remains production.
+
+Approved development scope:
+
+* Integrate all three audited assessment flows.
+* Preserve existing forms, design, validation, CRM behaviour and duplicate-submission responses.
+* Preserve the eight existing GHL custom fields.
+* Implement the proposed EMA field mappings as configuration and prepare an explicit setup script. Do not execute it against GHL yet.
+* Add separate captured UTM source, medium and campaign fields alongside the full funnel context. Preserve original attribution and do not invent missing values.
+* Capture the individual assessment’s immutable answers at initial save; record completion and queue delivery only after successful finalisation. Implement the narrow finalisation error-handling fix.
+* For overstay/business, save the lead, immutable assessment and delivery event atomically.
+* Implement durable delivery operations, contact/opportunity links, retries, lease recovery, conflict handling and remote reconciliation.
+* Preserve consent, DND, assessment history and newer field values.
+* Implement configurable pipeline/stage selection and one opportunity per EMA lead. Do not activate production mappings or adopt ambiguous existing opportunities automatically.
+* Do not invent qualification, booking or won/lost rules.
+
+Use an isolated development/test database and mocked GHL responses. Confirm database isolation before running migrations or write tests. Keep all actual GHL writes disabled, including setup scripts, regardless of the token’s presence.
+
+Complete the proposed meaningful tests, build/type checks and prepare:
+
+1. Changed-file summary and test evidence.
+2. Exact proposed GHL field definitions.
+3. Reviewed additive migrations.
+4. AWS deployment/configuration instructions, clearly identifying anything still unverified.
+5. Remaining decisions needed for an isolated GHL end-to-end test and production rollout.
+
+Do not send leads, change GHL records or automations, backfill historical data, modify AWS, push code or deploy. Continue all development work that can safely be completed within these boundaries without repeating the completed audit.

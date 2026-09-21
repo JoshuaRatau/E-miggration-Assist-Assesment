@@ -14,3 +14,4 @@
 - [Meta leadgen webhook](meta-webhook-subscription.md) — instant lead delivery needs app+page subscriptions (both automated via POST /api/meta/webhook/subscribe); Meta GET-verifies the deployed callback URL, so activation requires a republish first.
 - [Meta Analytics module](meta-analytics-module.md) — dashboard reads cached DB only; token_expired aborts sync; SESSION_SECRET rotation kills stored Meta tokens; lib/db needs `tsc -b` after schema adds.
 - [E2E suite gotchas](e2e-suite-gotchas.md) — dev bypass envs, fire-and-forget audit needs polling, /convert inquiryType gate, 50-row list cap, leadStatus field, chunked runs.
+- [GHL delivery safety](ghl-delivery-safety.md) — development-only approval; ambiguous remote writes require barriers, not just local leases; preserve first-touch attribution.

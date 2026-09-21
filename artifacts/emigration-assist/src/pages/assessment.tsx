@@ -1,3 +1,4 @@
+import { confirmAssessmentCompletion } from "../lib/finalize-assessment";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, Link } from "wouter";
 import { z } from "zod";
@@ -142,6 +143,7 @@ export function Assessment() {
   const [documentsUploaded, setDocumentsUploaded] = useState(0);
   const [finalizing, setFinalizing] = useState(false);
   const [finalized, setFinalized] = useState(false);
+  const [finalizationError, setFinalizationError] = useState<string | null>(null);
 
   // Session-local cutoff for the document scope filter. Anything uploaded
   // BEFORE this moment (e.g. by a previous session for the same email)
@@ -429,28 +431,23 @@ export function Assessment() {
   const finalizeAndShowSummary = async () => {
     if (!createdLead || finalizing) return;
     setFinalizing(true);
+    setFinalizationError(null);
     try {
       if (!finalized) {
         try {
-          const res = await fetch(
+          await confirmAssessmentCompletion(
             `${BASE_URL}/api/leads/${createdLead.id}/finalize`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-            },
           );
           setFinalized(true);
           // Meta Pixel: only count a Lead on a genuine success response
           // (fetch resolves on 4xx/5xx too). No PII — descriptive params only.
-          if (res.ok) {
-            trackPixel("Lead", {
-              content_name: "Assessment Submission",
-              content_category: "assessment",
-            });
-          }
+          trackPixel("Lead", {
+            content_name: "Assessment Submission",
+            content_category: "assessment",
+          });
         } catch (err) {
-          // Confirmation send is non-blocking — never let a network blip
-          // strand the user on the upload screen.
+          setFinalizationError("Your answers are saved, but completion could not be confirmed. Please try again.");
+          return;
         }
       }
       // Phase 1 (Q2 = X): the reference number is intentionally never
@@ -1376,6 +1373,7 @@ export function Assessment() {
                     {finalizing ? "Submitting…" : "Finish & view summary"}
                   </Button>
                 )}
+                {step === 7 && finalizationError && <p role="alert" className="text-sm text-destructive">{finalizationError}</p>}
 
                 {onSummaryStep && (
                   <div className="flex gap-3">

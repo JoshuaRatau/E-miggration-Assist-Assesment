@@ -1,3 +1,4 @@
+import { saveAssessment } from "../lib/ghl/snapshots";
 import { type IRouter, Router } from "express";
 import { z } from "zod";
 import { or, eq, desc, sql } from "drizzle-orm";
@@ -331,7 +332,7 @@ router.post("/business-intake", async (req, res) => {
 
   let inserted;
   try {
-    [inserted] = await db
+    [inserted] = await saveAssessment(db, (tx) => tx
       .insert(prelaunchLeadsTable)
       .values({
         referenceNumber,
@@ -377,7 +378,10 @@ router.post("/business-intake", async (req, res) => {
             : null,
         estimatedClientVolume: bandToEstimatedVolume(data.casesLast12mBand),
       })
-      .returning();
+      .returning(), "business", data, {
+        source: "business_intake",
+        funnelContext: sanitizeFunnelContext((req.body as { funnelContext?: unknown }).funnelContext),
+      }, true);
   } catch (err) {
     req.log.error({ err }, "Failed to insert business intake lead");
     return res.status(500).json({ error: "Failed to record intake" });
