@@ -1,5 +1,9 @@
 # EC2 API-only compiled release handoff
 
+**Latest handoff:** `docs/ec2-final-release-handoff.md` supersedes the capacity
+blocker and tentative activation strategy below after the user's confirmed
+cache cleanup. Historical artifact measurements remain valid.
+
 Preparation only. No EC2 change, install, migration, push, deployment, environment
 change, database/network access, or GHL write was performed.
 

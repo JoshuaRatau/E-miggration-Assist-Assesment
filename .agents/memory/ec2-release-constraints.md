@@ -14,3 +14,14 @@ Keep EC2 release preparation API-only until the frontend's actual hosting destin
 **Why:** The user confirmed Nginx proxies the API host to localhost:5000 without frontend static-serving directives. A candidate frontend build is not evidence that it belongs on this server.
 
 **How to apply:** Do not change frontend routing/hosting or deploy the candidate `/assessment/` assets as part of an API release.
+
+Pre-deployment host diagnostics must work against the old checkout without
+requiring the new source or migration files to have been deployed first.
+
+**Why:** Host evidence is needed before any git pull or release transfer is
+authorized. Depending on a newly added migration file would stop the diagnostic
+before it could establish the existing database state.
+
+**How to apply:** Carry reviewed expected migration hashes inside the diagnostic;
+use existing installed database dependencies and read-only catalog queries.
+Compare ledger entries to the candidate, not to an assumed updated host checkout.
