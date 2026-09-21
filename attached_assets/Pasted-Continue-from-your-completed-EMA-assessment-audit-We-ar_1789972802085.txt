@@ -1,0 +1,38 @@
+Continue from your completed EMA assessment audit.
+
+We are now using the GHL direct API with a Private Integration Token, replacing the proposed inbound-webhook approach. Replit remains development; AWS remains production.
+
+GHL_PRIVATE_INTEGRATION_TOKEN is saved in Replit Secrets. Never print, log or expose its value.
+
+Approved for this step:
+
+1. Revise the implementation plan for direct API delivery.
+2. Ask me to configure GHL_LOCATION_ID if it is missing. Do not guess it.
+3. Once the location is configured, make read-only API checks to verify access to custom-field definitions and pipelines. Report HTTP outcomes and configuration findings without exposing personal data or credentials.
+4. Check current official GHL documentation and list the exact endpoints, API versions and scopes required.
+
+The token has these scopes:
+
+* contacts.readonly
+* contacts.write
+* opportunities.readonly
+* opportunities.write
+* locations/customFields.readonly
+* locations/customFields.write
+
+The revised plan must cover:
+
+* All three audited assessment flows and their correct completion boundaries.
+* The narrow individual-finalisation fix identified in the audit.
+* Existing EMA database saves plus immutable assessment snapshots and a transactional delivery queue.
+* Contact matching, identity conflicts and saved GHL contact/opportunity IDs.
+* Mapping actual assessment answers, consent and captured attribution.
+* Assessment history in GHL, not only overwritten latest-answer fields.
+* Retries, concurrent workers and recovery after ambiguous timeouts, including avoiding duplicate notes or opportunities.
+* Tracking each API operation separately and confirming all required records before marking a submission synced.
+* Development isolation, with outbound writes disabled by default.
+* The verified AWS deployment and migration requirements.
+
+Do not create or update GHL contacts, fields, opportunities or workflows during this step. Do not send assessments, modify application code or database schemas, push code, or deploy.
+
+Return the read-only connection results, proposed field mapping, revised implementation plan and any remaining blockers. If one check is blocked, complete the other read-only planning work.
