@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "locationId": "5ce9hy8I0qH6fFNBo1cF",
+  "reviewedAt": "2026-09-22T05:58:14.035Z",
+  "statement": "REACHABLE_AUTOMATIONS_REVIEWED_OTHER_RECIPIENTS_EXCLUDED_DND_PRESERVED",
+  "reachableAutomationsReviewed": true,
+  "otherRecipientsExcluded": true,
+  "boundedIdentityOnly": true,
+  "suppressionAndDndPreserved": true,
+  "basis": "Completed prior review plus explicit owner-supplied Ticket System non-reachability confirmation; not an independent technical verification of Ticket System.",
+  "reviewFile": "docs/release-evidence/ghl-recipient-review.json"
+}

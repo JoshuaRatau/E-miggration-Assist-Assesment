@@ -1,0 +1,10 @@
+{
+  "checkedAt": "2026-09-22T06:00:43.839Z",
+  "mappingAccepted": true,
+  "recipientEvidenceAccepted": true,
+  "partialStatusRejected": true,
+  "rejectionCode": "CONTROLLED_SUCCESS_REPORT_REQUIRED",
+  "successfulReportExists": false,
+  "activationReady": false,
+  "productionOperationsPerformed": false
+}

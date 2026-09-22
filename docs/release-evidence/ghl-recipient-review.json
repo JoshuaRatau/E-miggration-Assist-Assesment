@@ -1,12 +1,13 @@
 {
-  "status": "incomplete",
-  "reviewedAt": "2026-09-21T21:56:32.979Z",
+  "status": "complete",
+  "reviewedAt": "2026-09-22T05:58:14.035Z",
   "locationId": "5ce9hy8I0qH6fFNBo1cF",
   "workflowReviewComplete": true,
   "acceptedEvidence": [
     "Five-workflow inventory complete; only Facebook workflow published, sole trigger Facebook Lead Form Submitted",
     "BCC and forwarding empty; assigned-user forwarding disabled",
-    "Inspected staff profile conversation email/SMS notifications disabled"
+    "Inspected staff profile conversation email/SMS notifications disabled",
+    "Account owner confirms Ticket System is used only for client/user and internal ticket logging and does not automatically react to controlled contact creation/update, note creation or opportunity creation"
   ],
   "excludedCodePaths": [
     "Isolated harness does not call support widget, referral notifications, normal intake notifications or campaign workers",
@@ -41,10 +42,16 @@
       "event": "opportunity creation"
     }
   ],
-  "remainingFact": "For these four writes, confirm whether account-level staff notifications or a Ticket System subscriber/consumer is configured; if present, establish its action and recipients exclude everyone except the controlled identity. No such active path is proven by available code/configuration, and absence cannot be established here.",
-  "reachability": "event-emitting writes are known; external handlers and other staff preferences are unverified",
-  "otherRecipientsExcluded": false,
-  "activationEvidence": false,
+  "ownerConfirmation": {
+    "source": "User's explicit supplied confirmation in the current conversation",
+    "statement": "Ticket System is used only for client/user and internal ticket logging. It does not automatically react to the controlled test's GHL contact creation/update, note creation or opportunity creation.",
+    "independentlyTechnicallyVerified": false
+  },
+  "remainingFact": null,
+  "reachability": "Facebook-only workflow is not triggered by these writes; Ticket System is not reachable according to owner confirmation. No established handler links these writes to conversation notifications or other staff recipients.",
+  "reviewStandard": "Original checklist permits owner confirmation and does not require proving every hypothetical external subscription absent. HTTP 401 and private-token presence do not establish an active path.",
+  "otherRecipientsExcluded": true,
+  "activationEvidence": "See CLI-compatible ghl-recipient-evidence.json; this review alone does not establish test success or authorize deployment.",
   "sources": [
     "artifacts/api-server/src/lib/ghl/worker.ts",
     "artifacts/api-server/src/lib/supportHub.ts",

@@ -1,5 +1,69 @@
 # EMA → GHL: team release runbook
 
+## Current handoff — controlled run stopped on 2026-09-22
+
+This section supersedes the historical preparation/status sections below,
+including repeated copies. The recipient review is **complete**. The owner
+explicitly confirmed Ticket System only logs tickets and does not automatically
+react to the four controlled write operations. This is **owner-supplied
+confirmation, not independent technical verification**. Do not reopen that
+question, repeat the completed reviews, or recreate the 22 fields.
+
+The approved isolated test was attempted once using the original identity,
+mapping and fixed UUID pairs. Fresh destination and identity-collision gates
+passed. GHL created contact `DbmJnLc7qWqwQek67U2n` (HTTP 201), then returned it
+on authenticated GET (HTTP 200). The harness stopped with
+`CONTROLLED_DELIVERY_STOPPED_EARLY` during contact verification.
+
+Read-only reconciliation established:
+
+- Exactly one created contact; approved identity and the ten checked mapped
+  values match the individual assessment.
+- GHL GET omits `name`, returning `firstName` and `lastName` instead. Their exact
+  concatenation matches the submitted synthetic name. The worker compares the
+  write-side `name` directly against the absent read-side property, which meets
+  its `READBACK_MISMATCH` condition. The in-memory operation error row was not
+  exported, so this diagnosis is based on source and actual provider readback.
+- GET notes returned zero; contact-scoped opportunity search returned zero
+  with no next page. No contact update, note or opportunity POST was dispatched.
+- No suppression/DND key was sent. Observed responses did not change the
+  represented suppression fields; omitted provider fields are not proof of
+  global messaging settings.
+- Replay was **not reached**. No successful 18-operation report exists.
+  The process ended and its in-memory state cannot be resumed. No second run,
+  existing-contact adoption, cleanup deletion or extra test record was attempted.
+
+### Evidence for the existing deployment owner
+
+All files are under `docs/release-evidence/`:
+
+| File | Current meaning |
+| --- | --- |
+| `ghl-field-mapping.json` | Existing unchanged 22-field mapping; do not run setup |
+| `ghl-recipient-review.json` | Completed review, with owner confirmation explicitly attributed |
+| `ghl-recipient-evidence.json` | CLI-compatible evidence of that review; does not prove test success |
+| `ghl-controlled-status.json` | Actual stopped/partial execution status; activation must reject it |
+| `ghl-controlled-transport.jsonl` | Redacted request/response journal, including the created contact ID |
+| `ghl-controlled-partial-readback.json` | Actual read-only reconciliation and name-shape mismatch |
+| `ghl-handoff-validation.json` | Pure activation-validator check; no production operations |
+
+**Deployment is not ready for activation.** Keep capture and delivery disabled.
+Do not substitute the partial readback/status for `ghl-controlled-report.json`,
+which has not been created. Do not rerun the original controlled command: it
+would encounter the already-created contact and cannot recover the lost handle.
+The next technical work is a provider-shaped name-readback correction and a
+reviewed recovery procedure for this exact run-owned contact and fixed UUIDs.
+It must preserve the existing identity, scope, recipients, suppression settings,
+first-touch attribution and duplicate barriers. No broader approval is implied.
+
+Continue only through the established team GitHub/backend deployment and existing
+Vercel process after recovery and successful replay supply genuine evidence.
+The existing targeted PM2 activation, migration, health-check, rollback and first
+new-production-completion instructions below remain conditional; none was run
+in this continuation. No deployment preparation or completed test suites were
+rerun. No push, merge, production migration, PM2 change or Vercel publication
+was performed.
+
 This is preparation for the existing GitHub/team deployment process. It does not
 push, merge, publish, run production migrations, or enable delivery.
 The authorized outcome is new completed assessments retained in EMA and delivered

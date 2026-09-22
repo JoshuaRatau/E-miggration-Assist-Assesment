@@ -1,20 +1,31 @@
 {
-  "status": "blocked-not-started",
-  "recordedAt": "2026-09-21T21:56:32.979Z",
+  "status": "stopped-review-required",
+  "recordedAt": "2026-09-22T05:58:17.910Z",
   "locationId": "5ce9hy8I0qH6fFNBo1cF",
-  "pipelineId": "gXmKkxDwNOTZnpG6AUgD",
-  "stageId": "7115d545-87ab-4f8b-b8f9-69a0a8464d26",
-  "fieldMappingSha256": "913fd11f6f3b4da1d5c1e7ec402af78b7b60bc3902ac940f3c7a56c0b9f03c75",
-  "mappingFile": "docs/release-evidence/ghl-field-mapping.json",
-  "recipientReviewFile": "docs/release-evidence/ghl-recipient-review.json",
-  "approvedIdentitySourceAvailable": true,
-  "identityStoredInThisReport": false,
-  "missingManifestIsNotABlocker": true,
-  "blocker": "Remaining account-side recipient configuration for the four recorded write events is unverified; staff preferences API returned 401.",
-  "liveContactWrites": 0,
-  "liveNoteWrites": 0,
-  "liveOpportunityWrites": 0,
-  "isolatedDatabaseCreated": false,
+  "code": "CONTROLLED_DELIVERY_STOPPED_EARLY",
+  "liveWrites": {
+    "contacts": 1,
+    "contactUpdates": 0,
+    "notes": 0,
+    "opportunities": 0
+  },
+  "observedProviderIds": {
+    "contactIds": [
+      "DbmJnLc7qWqwQek67U2n"
+    ],
+    "noteIds": [],
+    "opportunityIds": []
+  },
   "controlledSuccessReportProduced": false,
-  "activationPermitted": false
+  "activationPermitted": false,
+  "recipientReviewStatus": "complete-owner-confirmation-recorded",
+  "partialReadbackFile": "docs/release-evidence/ghl-controlled-partial-readback.json",
+  "transportJournalFile": "docs/release-evidence/ghl-controlled-transport.jsonl",
+  "failureDiagnosis": "Provider GET omits name and returns matching firstName/lastName; worker contact verification compares the absent name directly. This satisfies the READBACK_MISMATCH condition; the in-memory operation error row was not exported.",
+  "replay": "not-reached",
+  "isolatedRunState": "process-ended-in-memory-state-not-recoverable",
+  "productionActivated": false,
+  "providerMessageDeliveryObserved": false,
+  "piiIncluded": false,
+  "instruction": "Do not restart or recreate. Preserve and reconcile the transport journal."
 }

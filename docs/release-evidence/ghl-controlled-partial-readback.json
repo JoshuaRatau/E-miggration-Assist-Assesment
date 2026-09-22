@@ -1,0 +1,67 @@
+{
+  "status": "partial-readback-not-success",
+  "checkedAt": "2026-09-22T05:59:30.772Z",
+  "locationId": "5ce9hy8I0qH6fFNBo1cF",
+  "contactId": "DbmJnLc7qWqwQek67U2n",
+  "httpStatuses": {
+    "contact": 200,
+    "notes": 200,
+    "opportunities": 200
+  },
+  "standardReadback": {
+    "approvedIdentityMatches": true,
+    "expectedName": "EMA Controlled Test",
+    "namePropertyPresent": false,
+    "nameExactMatch": false,
+    "firstNameExactMatch": true,
+    "lastNameExactMatch": true,
+    "reconstructedNameExactMatch": true,
+    "reconstructedNameCaseInsensitiveMatch": true,
+    "contactPropertyNames": [
+      "additionalEmails",
+      "additionalPhones",
+      "country",
+      "createdBy",
+      "customFields",
+      "dateAdded",
+      "dateUpdated",
+      "email",
+      "emailLowerCase",
+      "firstName",
+      "firstNameLowerCase",
+      "fullNameLowerCase",
+      "id",
+      "lastName",
+      "lastNameLowerCase",
+      "locationId",
+      "phone",
+      "tags",
+      "type"
+    ]
+  },
+  "mappedFieldMatches": {
+    "ema_lead_id": true,
+    "ema_reference": true,
+    "ema_latest_submission_id": true,
+    "ema_assessment_type": true,
+    "ema_assessment_consent": true,
+    "ema_preferred_contact_channel": true,
+    "ema_whatsapp_number": true,
+    "ema_source": true,
+    "ema_source_campaign": true,
+    "ema_immigration_situation": true
+  },
+  "latestCompletedAt": "2026-09-22T05:58:17.244Z",
+  "consentAt": "2026-09-22T05:58:17.240Z",
+  "providerReadback": {
+    "contacts": 1,
+    "notes": 0,
+    "opportunities": 0
+  },
+  "noteIds": [],
+  "opportunityIds": [],
+  "opportunitySearchPaginationComplete": true,
+  "replay": "not-reached",
+  "runState": "in-memory-process-ended-not-recoverable",
+  "piiIncluded": false
+}

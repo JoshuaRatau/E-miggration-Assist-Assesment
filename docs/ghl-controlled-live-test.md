@@ -1,5 +1,26 @@
 # Controlled test in the LIVE E-Migration Assist GHL sub-account
 
+## Latest execution result — 2026-09-22
+
+The recipient gate is closed with the owner's explicit Ticket System
+non-reachability confirmation, recorded as owner-supplied evidence rather than
+independent technical verification. Earlier unresolved-recipient and
+not-started statements below are historical and superseded by this section.
+Do not repeat the completed review or field setup.
+
+One approved isolated run created contact `DbmJnLc7qWqwQek67U2n`, then stopped
+at contact verification. Actual readback: one contact, zero notes, zero
+opportunities. The approved identity and checked individual mapped values match.
+GHL returns firstName/lastName but no name property; the verifier's direct
+comparison of the submitted name therefore fails. No replay was reached.
+
+The process ended; the in-memory run is not recoverable. No automatic restart,
+contact adoption, cleanup or extra write was attempted. Preserve the transport
+journal, partial readback and stopped status under `docs/release-evidence/`.
+No success report exists and activation remains blocked. See the current
+handoff at the top of `ema-ghl-team-release.md`; the procedure below is not an
+instruction to restart this stopped run.
+
 **Current execution status:** all 22 approved field definitions are now created
 and validated. See `release-evidence/ghl-field-mapping.json` and
 `ema-ghl-team-release.md`; do not create them again. No controlled contact,
