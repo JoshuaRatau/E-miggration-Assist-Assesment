@@ -1,4 +1,13 @@
 import type { Flow } from "./snapshots";
+/** Only the documented absent-name read shape is equivalent. No trimming,
+ * case folding, prefix matching, or fallback over an explicitly returned name. */
+export function standardReadbackMatches(remote: Record<string, unknown>, key: string, expected: unknown) {
+  if (key === "name" && !Object.hasOwn(remote, "name")) {
+    return typeof remote.firstName === "string" && typeof remote.lastName === "string" &&
+      `${remote.firstName} ${remote.lastName}` === expected;
+  }
+  return JSON.stringify(remote[key]) === JSON.stringify(expected);
+}
 export type FieldDefinition = { key: string; name: string; dataType: "TEXT" | "LARGE_TEXT" | "SINGLE_OPTIONS" | "MULTIPLE_OPTIONS"; model: "contact" | "opportunity"; options?: string[] };
 const field = (key: string, name: string, dataType: FieldDefinition["dataType"] = "TEXT", options?: string[]): FieldDefinition =>
   ({ key, name: `EMA ${name}`, dataType, model: "contact", ...(options ? { options } : {}) });

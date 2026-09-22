@@ -109,7 +109,8 @@ function mappingSha256(mapping) {
 function validateControlledReport(value, mapping) {
   const completedAt = Date.parse(value?.completedAt);
   const providerIds = value?.providerIds;
-  ensure(value && value.mode === "executed" && value.reportVersion === 1 &&
+  ensure(value && value.mode === "executed" && value.reportVersion === 2 &&
+    value.recordModel === "one-person-one-contact-one-case" &&
     value.destinationApproved === true &&
     value.locationId === LOCATION && value.pipelineId === PIPELINE && value.stageId === STAGE &&
     value.fieldMappingSha256 === mappingSha256(mapping) && Number.isFinite(completedAt) &&
@@ -117,23 +118,38 @@ function validateControlledReport(value, mapping) {
     value.databaseIsolation === "fresh-in-memory-pglite-no-network-database" &&
     value.providerTransport === "live-ghl-http" &&
     value.providerReadback?.contacts === 1 && value.providerReadback?.notes === 3 &&
-    value.providerReadback?.opportunities === 3 && value.operationsConfirmed === 18 &&
+    value.providerReadback?.opportunities === 1 && value.operationsConfirmed === 18 &&
+    [0, 2].includes(value.operationsCancelled) &&
     typeof providerIds?.contactId === "string" && providerIds.contactId.length > 0 &&
-    Array.isArray(providerIds?.opportunityIds) && providerIds.opportunityIds.length === 3 &&
+    Array.isArray(providerIds?.opportunityIds) && providerIds.opportunityIds.length === 1 &&
     providerIds.opportunityIds.every(id => typeof id === "string" && id.length > 0) &&
-    new Set(providerIds.opportunityIds).size === 3 &&
+    new Set(providerIds.opportunityIds).size === 1 &&
     value.replay === "no-op-verified" && value.piiIncluded === false,
   "CONTROLLED_SUCCESS_REPORT_REQUIRED");
+  if (value.operationsCancelled === 2) {
+    const s = value.supersession;
+    ensure(s?.originalConfirmedUnchanged === 10 && s.originalAttemptHistoryUnchanged === true &&
+      s.obsoleteCreatesCancelled === 2 && s.replacementReuseOperations === 2 &&
+      s.remoteCreates?.contacts === 0 && s.remoteCreates?.opportunities === 0 &&
+      s.caseProgressPreserved === true && s.firstTouchPreserved === true &&
+      s.sourceCheckpointSha256 === "0c6f07f09c10ce2e77b0ed2e46809cc44ddab064a83f2318d63baa30fe36a7cc" &&
+      /^[a-f0-9]{64}$/.test(s.bindingSha256 ?? "") &&
+      /^[a-f0-9]{64}$/.test(value.recipientEvidenceSha256 ?? ""),
+    "CONTROLLED_SUCCESS_REPORT_REQUIRED");
+  }
 }
 
-function validateRecipientEvidence(value, now = Date.now()) {
+function validateRecipientEvidence(value, now = Date.now(), report) {
   const reviewed = Date.parse(value?.reviewedAt);
   const age = now - reviewed;
+  const boundClosedReview = report?.reportVersion === 2 &&
+    report.recordModel === "one-person-one-contact-one-case" &&
+    report.recipientEvidenceSha256 === createHash("sha256").update(JSON.stringify(value)).digest("hex");
   ensure(value?.version === 1 && value.locationId === LOCATION &&
     value.statement === RECIPIENT_STATEMENT &&
     value.reachableAutomationsReviewed === true && value.otherRecipientsExcluded === true &&
     value.boundedIdentityOnly === true && value.suppressionAndDndPreserved === true &&
-    Number.isFinite(reviewed) && age >= -5 * 60_000 && age <= 30 * 60_000,
+    Number.isFinite(reviewed) && age >= -5 * 60_000 && (boundClosedReview || age <= 30 * 60_000),
   "RECIPIENT_EVIDENCE_INVALID");
   ensure(!Object.keys(value).some(key => /email|phone|whatsapp/i.test(key)),
     "RECIPIENT_EVIDENCE_CONTAINS_PII");
@@ -194,8 +210,9 @@ function main(argv = process.argv.slice(2), deps = {}) {
     next.EMA_GHL_DELIVERY_ENABLED = "false";
   } else {
     const mapping = validateMapping(readJsonFile(options["--mapping"], io));
-    validateControlledReport(readJsonFile(options["--controlled-report"], io), mapping);
-    validateRecipientEvidence(readJsonFile(options["--recipient-evidence"], io), deps.now?.() ?? Date.now());
+    const report = readJsonFile(options["--controlled-report"], io);
+    validateControlledReport(report, mapping);
+    validateRecipientEvidence(readJsonFile(options["--recipient-evidence"], io), deps.now?.() ?? Date.now(), report);
     ensure(next.DATABASE_URL && next.GHL_PRIVATE_INTEGRATION_TOKEN, "ACTIVE_CREDENTIALS_REQUIRED");
     Object.assign(next, {
       EMA_GHL_CAPTURE_ENABLED: "true",

@@ -10,6 +10,7 @@ const distDir = path.join(artifactDir, "dist");
 const controlledSource = path.join(artifactDir, "src/lib/ghl/controlled.ts");
 const dbRequire = createRequire(path.resolve(artifactDir, "../../lib/db/package.json"));
 const pgEntry = dbRequire.resolve("pg");
+const productionOnly = process.argv.includes("--production-only");
 
 // The source harness deliberately resolves its migration relative to its source
 // module. A bundled module has a different location, so make that one asset
@@ -22,8 +23,14 @@ const bundledMigrationPlugin = {
       const original = 'new URL("../../../../../lib/db/drizzle/0001_ema_ghl_outbox.sql", import.meta.url)';
       if (args.path !== controlledSource || !source.includes(original))
         throw new Error("CONTROLLED_MIGRATION_REFERENCE_NOT_FOUND");
+      let contents = source.replace(original, 'new URL("./ema-ghl-outbox.sql", import.meta.url)');
+      for (const name of ["0003_ema_ghl_provider_failure_diagnostics.sql", "0004_ema_ghl_single_case.sql"]) {
+        const reference = `new URL("../../../../../lib/db/drizzle/${name}", import.meta.url)`;
+        if (!contents.includes(reference)) throw new Error("CONTROLLED_MIGRATION_REFERENCE_NOT_FOUND");
+        contents = contents.replace(reference, `new URL("./migrations/${name}", import.meta.url)`);
+      }
       return {
-        contents: source.replace(original, 'new URL("./ema-ghl-outbox.sql", import.meta.url)'),
+        contents,
         loader: "ts",
       };
     });
@@ -31,17 +38,25 @@ const bundledMigrationPlugin = {
 };
 
 async function packagePgliteAssets() {
-  const packageEntry = require.resolve("@electric-sql/pglite");
-  const distDirInPackage = path.dirname(packageEntry);
-  for (const asset of ["pglite.wasm", "initdb.wasm", "pglite.data"])
-    await copyFile(path.join(distDirInPackage, asset), path.join(distDir, asset));
-  await copyFile(
-    path.resolve(artifactDir, "../../lib/db/drizzle/0001_ema_ghl_outbox.sql"),
-    path.join(distDir, "ema-ghl-outbox.sql"),
-  );
+  if (!productionOnly) {
+    const packageEntry = require.resolve("@electric-sql/pglite");
+    const distDirInPackage = path.dirname(packageEntry);
+    for (const asset of ["pglite.wasm", "initdb.wasm", "pglite.data"])
+      await copyFile(path.join(distDirInPackage, asset), path.join(distDir, asset));
+    await copyFile(
+      path.resolve(artifactDir, "../../lib/db/drizzle/0001_ema_ghl_outbox.sql"),
+      path.join(distDir, "ema-ghl-outbox.sql"),
+    );
+  }
   const migrationsDir = path.join(distDir, "migrations");
   await mkdir(migrationsDir, { recursive: true });
-  for (const name of ["0001_ema_ghl_outbox.sql", "0002_ema_ghl_production.sql"])
+  for (const name of [
+    "0001_ema_ghl_outbox.sql",
+    "0002_ema_ghl_production.sql",
+    "0003_ema_ghl_provider_failure_diagnostics.sql",
+    "0004_ema_ghl_single_case.sql",
+    "0005_ema_intake_receipts.sql",
+  ])
     await copyFile(path.resolve(artifactDir, "../../lib/db/drizzle", name), path.join(migrationsDir, name));
 }
 
@@ -49,7 +64,11 @@ async function buildTools() {
   await mkdir(distDir, { recursive: true });
   await build({
     entryPoints: {
+      ...(!productionOnly ? {
       "ghl-controlled-live": path.join(artifactDir, "scripts/ghl-controlled-live.ts"),
+      "ghl-controlled-recovery": path.join(artifactDir, "scripts/ghl-controlled-recovery.ts"),
+      "ghl-controlled-continuation": path.join(artifactDir, "scripts/ghl-controlled-continuation.ts"),
+      } : {}),
       "ghl-production-check": path.join(artifactDir, "scripts/ghl-production-check.ts"),
       "ghl-setup": path.join(artifactDir, "scripts/ghl-setup.ts"),
       "ema-migrate": path.resolve(artifactDir, "../../scripts/ec2-migrate.mjs"),
@@ -71,7 +90,7 @@ async function buildTools() {
   });
   await packagePgliteAssets();
   await Promise.all([
-    chmod(path.join(distDir, "ghl-controlled-live.mjs"), 0o755),
+    ...(!productionOnly ? [chmod(path.join(distDir, "ghl-controlled-live.mjs"), 0o755)] : []),
     chmod(path.join(distDir, "ghl-production-check.mjs"), 0o755),
     chmod(path.join(distDir, "ghl-setup.mjs"), 0o755),
     chmod(path.join(distDir, "ema-migrate.mjs"), 0o755),

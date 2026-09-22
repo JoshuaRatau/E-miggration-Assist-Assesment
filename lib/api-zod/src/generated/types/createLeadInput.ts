@@ -29,6 +29,8 @@ export interface CreateLeadInput {
   /** email | whatsapp | phone */
   preferredContactMethod?: string;
   consentAccepted: boolean;
+  /** Stable random token for this exact assessment-save attempt. Retrying the same token and payload returns the saved lead without repeating effects. Reusing the token with changed answers returns 409. A different token remains subject to existing duplicate registration rules. */
+  submissionAttemptId?: string;
   /** UUID returned by POST /api/otp/verify. Required in production — server enforces that the verified channel matches the submitted email or canonical whatsapp. Set DISABLE_OTP_VERIFICATION=1 (non-prod only) to bypass for CLI/automated smoke tests. */
   verifiedOtpId?: string;
   /** Optional attribution channel. Allow-list: web_form | referral | linkedin | facebook | google | direct | csv_import | manual | api | other. Defaults to "web_form" when omitted. Unknown values are coerced to "other". */

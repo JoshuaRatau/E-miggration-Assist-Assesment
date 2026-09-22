@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 import type { Executor } from "./snapshots";
 import { GhlFailure, validateFieldMapping, type GhlConfig, type OperationKind } from "./config";
 import { type GhlClient, type Method } from "./client";
-import { customValues, standardValues, historyBody, type Assessment } from "./fields";
+import { customValues, standardValues, standardReadbackMatches, historyBody, type Assessment } from "./fields";
 import { assertProductionDeliveryReady } from "./production";
 
 async function rows<T = any>(db: Executor, query: ReturnType<typeof sql>): Promise<T[]> {
@@ -62,13 +62,13 @@ export class GhlWorker {
                 WHERE prior.id IN (${sql.join(this.config.controlled.records.map(r => sql`${r.submissionId}::uuid`), sql`,`)})
                 AND (prior.completed_at,prior.id)<(current.completed_at,current.id)
                 AND pending.environment=q.environment AND pending.location_id=q.location_id
-                AND pending.state<>'confirmed')`
+                 AND pending.state NOT IN ('confirmed','cancelled'))`
             : sql`true`}
           AND ((q.state IN ('pending','retry') AND q.available_at<=now()) OR (q.state='running' AND q.lease_until<now()))
           AND NOT EXISTS(SELECT 1 FROM ema_ghl_mutation_barriers b WHERE b.scope=${scope} AND b.operation_id<>q.id)
           AND NOT EXISTS(SELECT 1 FROM ema_ghl_operations earlier WHERE earlier.submission_id=q.submission_id
             AND earlier.environment=q.environment AND earlier.location_id=q.location_id
-            AND earlier.ordinal<q.ordinal AND earlier.state<>'confirmed')
+             AND earlier.ordinal<q.ordinal AND earlier.state NOT IN ('confirmed','cancelled'))
           ORDER BY q.available_at,q.ordinal LIMIT 1)
         AND ${fenced} RETURNING o.*`);
       op = candidates[0];
@@ -116,7 +116,13 @@ export class GhlWorker {
         } catch (error) {
           const e = error instanceof GhlFailure ? error : new GhlFailure("AMBIGUOUS_TRANSPORT");
           await this.db.execute(sql`UPDATE ema_ghl_attempts SET finished_at=now(),outcome='error',
-            error_code=${e.code},http_status=${e.status ?? null} WHERE id=${id} AND ${fenced}`);
+            error_code=${e.code},http_status=${e.status ?? null},
+            provider_response=${e.providerResponse ? JSON.stringify(e.providerResponse) : null}::jsonb,
+            correlation_id=${e.correlation?.id ?? null},
+            correlation_source=${e.correlation?.source ?? null},
+            provider_failure_reason=${e.providerFailureReason ?? null},
+            classification_source=${e.classificationSource ?? null}
+            WHERE id=${id} AND ${fenced}`);
           // Explicit client/auth/rate-limit rejection is not an in-flight write.
            if (method !== "GET" && e.status && e.status >= 400 && e.status < 500 && e.status !== 408)
             await this.db.execute(sql`DELETE FROM ema_ghl_mutation_barriers WHERE scope=${scope} AND operation_id=${op.id} AND ${fenced}`);
@@ -129,6 +135,13 @@ export class GhlWorker {
       const result = await this.perform(op.kind, submission, request, ambiguous);
       await renew();
       if (result.contactId || result.opportunityId) {
+        if (result.opportunityId) {
+          const registered = await rows(this.db, sql`INSERT INTO ema_ghl_cases(environment,location_id,contact_id,opportunity_id)
+            SELECT ${environment},${locationId},${result.contactId},${result.opportunityId} WHERE ${fenced}
+            ON CONFLICT(environment,location_id,contact_id) DO UPDATE SET opportunity_id=ema_ghl_cases.opportunity_id
+            WHERE ema_ghl_cases.opportunity_id=excluded.opportunity_id RETURNING opportunity_id`);
+          if (!registered.length) throw new GhlFailure("OPPORTUNITY_OWNERSHIP_REVIEW");
+        }
         await this.db.execute(sql`INSERT INTO ema_ghl_links(environment,location_id,lead_id,contact_id,opportunity_id,latest_completed_at)
           SELECT ${environment},${locationId},${submission.lead_id},${result.contactId ?? null},${result.opportunityId ?? null},
           ${result.latest ?? null}::timestamptz WHERE ${fenced}
@@ -179,11 +192,14 @@ export class GhlWorker {
     const getContact = async (id: string) => {
       const result = (await call("contact.get", "GET", `/contacts/${encode(id)}`)).contact;
       if (!result || result.id !== id || result.locationId !== c.locationId) throw new GhlFailure("REMOTE_IDENTITY_MISMATCH");
+      const identity = standardValues(s);
+      if ((identity.email && result.email?.toLowerCase() !== identity.email.toLowerCase()) ||
+        (identity.phone && result.phone !== identity.phone)) throw new GhlFailure("IDENTITY_CONFLICT");
       return result;
     };
     // Every operation must re-establish remote ownership, including note and
     // opportunity operations which ordinarily use persisted local links.
-    if (c.controlled && contactId) await getContact(contactId);
+    if (contactId) await getContact(contactId);
     if (kind === "contact") {
       const standard = standardValues(s), values = customValues(s);
       let fields = Object.entries(values).map(([key, fieldValue]) => ({ id: idFor(key), fieldValue }));
@@ -218,7 +234,7 @@ export class GhlWorker {
         if (await ambiguous("contact.create")) {
           // The original create may have succeeded. Reconcile read-only and do
           // not issue a second mutation while its outcome remains uncertain.
-          if (Object.entries(standard).some(([key, value]) => !same(remote[key], value)) ||
+          if (Object.entries(standard).some(([key, value]) => !standardReadbackMatches(remote, key, value)) ||
             fields.some(f => !same(fieldValue(remote, f.id), f.fieldValue))) throw new GhlFailure("AMBIGUOUS_CREATE");
         } else {
           await call("contact.update", "PUT", `/contacts/${encode(remote.id)}`, { ...standard, customFields: fields });
@@ -244,7 +260,7 @@ export class GhlWorker {
         if (latestAt && latestId && latestId !== s.id && new Date(latestAt).getTime() > new Date(s.completed_at).getTime())
           return { remoteId: contactId, superseded: true };
         const { standard, fields } = previous.expected;
-        if (Object.entries(standard).some(([key, value]) => !same(contact[key], value)) ||
+        if (Object.entries(standard).some(([key, value]) => !standardReadbackMatches(contact, key, value)) ||
             fields.some((f: any) => !same(fieldValue(contact, f.id), f.fieldValue))) throw new GhlFailure("READBACK_MISMATCH");
       }
       return { remoteId: contactId };
@@ -273,8 +289,38 @@ export class GhlWorker {
     }
     if (!c.pipelineId || !c.stageId) throw new GhlFailure("PIPELINE_STAGE_REQUIRED");
     const leadField = idFor("ema_lead_id", "opportunity");
-    if (kind === "opportunity") {
-      if (link?.opportunity_id) return { remoteId: link.opportunity_id, opportunityId: link.opportunity_id };
+    // Links are per assessment lead, but the case belongs to the person/contact.
+    // The original immutable submission and durable link establish provenance;
+    // a matching display name or an arbitrary contact opportunity never does.
+    const verifyCase = async (o: any, createdByThisRequest = false) => {
+      if (!o?.id || o.locationId !== c.locationId || o.contactId !== contactId ||
+        o.pipelineId !== c.pipelineId) throw new GhlFailure("OPPORTUNITY_OWNERSHIP_REVIEW");
+      const owner = opportunityValue(o, leadField);
+      const reference = opportunityValue(o, idFor("ema_reference", "opportunity"));
+      if (!owner || !o.name?.includes(`[ema-lead:${owner}]`))
+        throw new GhlFailure("OPPORTUNITY_OWNERSHIP_REVIEW");
+      // Only the direct successful POST response can establish new provenance.
+      // An existing search result with coincidentally matching markers cannot.
+      if (createdByThisRequest) {
+        if (owner !== s.lead_id || reference !== s.answers.referenceNumber)
+          throw new GhlFailure("OPPORTUNITY_OWNERSHIP_REVIEW");
+        return;
+      }
+      const owners = await rows(this.db, sql`SELECT a.answers FROM ema_ghl_links l
+        JOIN ema_assessment_submissions a ON a.lead_id=l.lead_id
+        JOIN ema_ghl_cases registered ON registered.environment=l.environment
+          AND registered.location_id=l.location_id AND registered.contact_id=l.contact_id
+          AND registered.opportunity_id=l.opportunity_id
+        WHERE l.environment=${c.environment} AND l.location_id=${c.locationId}
+        AND l.contact_id=${contactId} AND l.opportunity_id=${o.id}
+        AND l.lead_id::text=${owner} AND a.completed_at IS NOT NULL`);
+      const identity = standardValues(s);
+      if (!owners.some(({ answers }) => answers.referenceNumber === reference &&
+        (!identity.email || standardValues({ ...s, answers }).email === identity.email) &&
+        (!identity.phone || standardValues({ ...s, answers }).phone === identity.phone)))
+        throw new GhlFailure("OPPORTUNITY_OWNERSHIP_REVIEW");
+    };
+    if (kind === "opportunity" || kind === "opportunity_reuse") {
       const marker = `[ema-lead:${s.lead_id}]`;
       // Enumerate all opportunities for this contact. Never silently adopt an unmarked one.
       const all: any[] = [];
@@ -285,17 +331,23 @@ export class GhlWorker {
         if (result.opportunities.length < 100 && !result.meta?.nextPage) break;
         if (page === 100) throw new GhlFailure("PAGINATION_REVIEW_REQUIRED");
       }
-      const matching = all.filter(o => o.name?.includes(marker) && opportunityValue(o, leadField) === s.lead_id);
-      if (matching.length > 1) throw new GhlFailure("MULTIPLE_REMOTE_MATCHES");
-      if (matching.length === 1) return { remoteId: matching[0].id, opportunityId: matching[0].id };
-      if (all.length) {
-        // Shared-contact controlled assessments may see earlier opportunities,
-        // but only those already linked to this same run's allowlisted leads.
-        const known = c.controlled ? await rows(this.db, sql`SELECT opportunity_id FROM ema_ghl_links
-          WHERE environment=${c.environment} AND location_id=${c.locationId} AND contact_id=${contactId}
-          AND lead_id IN (${sql.join(c.controlled.records.map(r => sql`${r.leadId}::uuid`), sql`,`)})`) : [];
-        if (all.some(o => !known.some(k => k.opportunity_id === o.id))) throw new GhlFailure("OPPORTUNITY_OWNERSHIP_REVIEW");
+      if (all.length > 1) throw new GhlFailure("MULTIPLE_REMOTE_MATCHES");
+      if (all.length === 1) {
+        await verifyCase(all[0]);
+        if (link?.opportunity_id && link.opportunity_id !== all[0].id)
+          throw new GhlFailure("OPPORTUNITY_OWNERSHIP_REVIEW");
+        const remote = (await call("opportunity.get", "GET", `/opportunities/${encode(all[0].id)}`)).opportunity;
+        if (remote?.id !== all[0].id) throw new GhlFailure("READBACK_MISMATCH");
+        await verifyCase(remote);
+        return { remoteId: remote.id, contactId, opportunityId: remote.id, reused: true };
       }
+      const known = await rows(this.db, sql`SELECT opportunity_id FROM ema_ghl_links
+        WHERE environment=${c.environment} AND location_id=${c.locationId}
+        AND contact_id=${contactId} AND opportunity_id IS NOT NULL
+        UNION SELECT opportunity_id FROM ema_ghl_cases
+        WHERE environment=${c.environment} AND location_id=${c.locationId} AND contact_id=${contactId}`);
+      if (known.length || link?.opportunity_id) throw new GhlFailure("OPPORTUNITY_OWNERSHIP_REVIEW");
+      if (kind === "opportunity_reuse") throw new GhlFailure("OPPORTUNITY_OWNERSHIP_REVIEW");
       if (await ambiguous("opportunity.create")) throw new GhlFailure("AMBIGUOUS_CREATE");
       const result = await call("opportunity.create", "POST", "/opportunities/", {
         locationId: c.locationId, contactId, pipelineId: c.pipelineId, pipelineStageId: c.stageId,
@@ -303,12 +355,13 @@ export class GhlWorker {
         customFields: [{ id: leadField, fieldValue: s.lead_id }, { id: idFor("ema_reference", "opportunity"), fieldValue: s.answers.referenceNumber }],
       });
       if (!result.opportunity?.id) throw new GhlFailure("AMBIGUOUS_CREATE");
-      return { remoteId: result.opportunity.id, opportunityId: result.opportunity.id };
+      await verifyCase(result.opportunity, true);
+      return { remoteId: result.opportunity.id, contactId, opportunityId: result.opportunity.id };
     }
-    const previous = await saved("opportunity");
+    const previous = await saved("opportunity_reuse") ?? await saved("opportunity");
     const o = (await call("opportunity.get", "GET", `/opportunities/${encode(previous.remoteId)}`)).opportunity;
-    if (!o || o.id !== previous.remoteId || o.locationId !== c.locationId || o.contactId !== contactId ||
-      o.pipelineId !== c.pipelineId || opportunityValue(o, leadField) !== s.lead_id) throw new GhlFailure("READBACK_MISMATCH");
+    if (!o || o.id !== previous.remoteId) throw new GhlFailure("READBACK_MISMATCH");
+    await verifyCase(o);
     // Deliberately do not reset stage/status: the sales team may already have progressed it.
     return { remoteId: o.id };
   }
@@ -316,7 +369,26 @@ export class GhlWorker {
 
 export async function submissionDeliveryState(db: Executor, submissionId: string, config: GhlConfig) {
   const result = await rows(db, sql`SELECT state FROM ema_ghl_operations WHERE submission_id=${submissionId}
-    AND environment=${config.environment} AND location_id=${config.locationId}`);
+    AND environment=${config.environment} AND location_id=${config.locationId} AND state<>'cancelled'`);
   return result.length === 6 && result.every(r => r.state === "confirmed") ? "synced" :
     result.some(r => r.state === "review" || r.state === "blocked") ? "needs_attention" : "pending";
+}
+
+/** Internal, already-redacted operation-journal diagnostics. Never returns request payloads or lead_audit data. */
+export async function providerFailureDiagnostics(db: Executor, operationId: string) {
+  return rows<{
+    attempt_id: string;
+    action: string;
+    finished_at: Date | string | null;
+    http_status: number | null;
+    error_code: string | null;
+    provider_response: Record<string, unknown> | null;
+    correlation_id: string | null;
+    correlation_source: string | null;
+    provider_failure_reason: string | null;
+    classification_source: string | null;
+  }>(db, sql`SELECT id AS attempt_id,action,finished_at,http_status,error_code,provider_response,correlation_id,correlation_source,
+    provider_failure_reason,classification_source
+    FROM ema_ghl_attempts WHERE operation_id=${operationId} AND outcome='error'
+    ORDER BY started_at,id`);
 }

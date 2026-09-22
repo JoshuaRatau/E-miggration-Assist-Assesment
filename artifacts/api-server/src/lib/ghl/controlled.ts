@@ -5,6 +5,8 @@ import type { GhlClient, Method } from "./client";
 import type { Assessment } from "./fields";
 import type { Executor } from "./snapshots";
 import { snapshot, complete, type Transactional } from "./snapshots";
+import { reviewRecovery, type RecoveryRecords } from "./recovery";
+import { reconcileContinuation, type ContinuationEvidence } from "./continuation";
 
 export type ControlledRecord = {
   flow: "individual" | "overstay" | "business";
@@ -81,6 +83,39 @@ export async function preflightControlled(config: GhlConfig, readClient: GhlClie
   if (fingerprint !== digest(manifest)) throw new GhlFailure("CONTROLLED_MANIFEST_CHANGED");
   receipts.set(config, { fingerprint, expires: Date.now() + 30 * 60_000 });
 }
+/** Explicit single stopped-run recovery; ordinary preflight remains create-only. */
+export async function preflightControlledRecovery(config: GhlConfig, client: GhlClient, recorded: RecoveryRecords) {
+  receipts.delete(config);
+  parseControlledManifest(JSON.stringify(config.controlled), config.locationId);
+  const fingerprint = digest(config.controlled!);
+  const fixtures = await reviewRecovery(config, client, recorded);
+  if (fingerprint !== digest(config.controlled!)) throw new GhlFailure("CONTROLLED_MANIFEST_CHANGED");
+  receipts.set(config, { fingerprint, expires: Date.now() + 30 * 60_000 });
+  return fixtures;
+}
+export async function preflightControlledContinuation(config: GhlConfig, db: Executor, client: GhlClient, evidence: ContinuationEvidence) {
+  receipts.delete(config);
+  assertIsolatedControlledDatabase(db);
+  parseControlledManifest(JSON.stringify(config.controlled), config.locationId);
+  const fingerprint = digest(config.controlled!);
+  const state = await reconcileContinuation(db, config, client, evidence);
+  if (fingerprint !== digest(config.controlled!)) throw new GhlFailure("CONTROLLED_MANIFEST_CHANGED");
+  receipts.set(config, { fingerprint, expires: Date.now() + 30 * 60_000 });
+  return state;
+}
+/** Single-case continuation supplies a targeted, strict checkpoint reconciliation.
+ * The receipt remains process-local and bound to the isolated database manifest. */
+export async function preflightControlledSingleCase(
+  config: GhlConfig, db: Executor, reconcile: () => Promise<void>,
+) {
+  receipts.delete(config);
+  assertIsolatedControlledDatabase(db);
+  parseControlledManifest(JSON.stringify(config.controlled), config.locationId);
+  const fingerprint = digest(config.controlled!);
+  await reconcile();
+  if (fingerprint !== digest(config.controlled!)) throw new GhlFailure("CONTROLLED_MANIFEST_CHANGED");
+  receipts.set(config, { fingerprint, expires: Date.now() + 30 * 60_000 });
+}
 export async function checkControlledDatabase(config: GhlConfig, db: Executor) {
   if (!config.controlled) return;
   requireControlledPreflight(config);
@@ -103,14 +138,18 @@ export function assertIsolatedControlledDatabase(db: Executor | undefined): asse
  * Existing full HTTP intake handlers are intentionally not started: they send
  * notifications. The controlled harness exercises transactional persistence only.
  */
-export async function createControlledDatabase() {
+export async function createControlledDatabase(checkpoint?: Blob) {
   const [{ PGlite }, { drizzle }, { readFile }] = await Promise.all([
     import("@electric-sql/pglite"), import("drizzle-orm/pglite"), import("node:fs/promises"),
   ]);
-  const pg = new PGlite();
+  const pg = new PGlite(checkpoint ? { loadDataDir: checkpoint } : undefined);
   if (pg.dataDir !== undefined) { await pg.close(); throw new GhlFailure("CONTROLLED_DATABASE_NOT_IN_MEMORY"); }
-  await pg.exec("CREATE TABLE prelaunch_leads(id uuid PRIMARY KEY, reference_number text NOT NULL UNIQUE, consent_timestamp timestamptz)");
-  await pg.exec(await readFile(new URL("../../../../../lib/db/drizzle/0001_ema_ghl_outbox.sql", import.meta.url), "utf8"));
+  if (!checkpoint) {
+    await pg.exec("CREATE TABLE prelaunch_leads(id uuid PRIMARY KEY, reference_number text NOT NULL UNIQUE, consent_timestamp timestamptz)");
+    await pg.exec(await readFile(new URL("../../../../../lib/db/drizzle/0001_ema_ghl_outbox.sql", import.meta.url), "utf8"));
+    await pg.exec(await readFile(new URL("../../../../../lib/db/drizzle/0003_ema_ghl_provider_failure_diagnostics.sql", import.meta.url), "utf8"));
+    await pg.exec(await readFile(new URL("../../../../../lib/db/drizzle/0004_ema_ghl_single_case.sql", import.meta.url), "utf8"));
+  }
   const db = drizzle(pg);
   isolated.add(db);
   return { db, pg, isolation: "fresh-in-memory-no-network" as const, close: async () => { isolated.delete(db); await pg.close(); } };
@@ -119,10 +158,10 @@ export async function createControlledDatabase() {
  * shutdown/cleanup: normal close is permitted only after a verified no-op replay.
  * This does not survive process death; never restart and adopt a remote contact.
  */
-export async function createControlledRun(config: GhlConfig) {
+export async function createControlledRun(config: GhlConfig, checkpoint?: Blob) {
   if (!config.controlled) throw new GhlFailure("CONTROLLED_MANIFEST_REQUIRED");
   parseControlledManifest(JSON.stringify(config.controlled), config.locationId);
-  const session = await createControlledDatabase();
+  const session = await createControlledDatabase(checkpoint);
   let replayVerified = false;
   return {
     db: session.db, pg: session.pg, isolation: session.isolation,
@@ -130,17 +169,26 @@ export async function createControlledRun(config: GhlConfig) {
       requireControlledPreflight(config);
       const before = await session.pg.query("SELECT * FROM ema_ghl_operations ORDER BY id");
       const links = await session.pg.query("SELECT * FROM ema_ghl_links ORDER BY lead_id");
-      if (before.rows.length !== 18 || before.rows.some((r: any) => r.state !== "confirmed") ||
+      const cases = await session.pg.query<any>("SELECT * FROM ema_ghl_cases ORDER BY environment,location_id,contact_id");
+      const confirmed = before.rows.filter((r: any) => r.state === "confirmed");
+      const cancelled = before.rows.filter((r: any) => r.state === "cancelled");
+      if (confirmed.length !== 18 || before.rows.length !== confirmed.length + cancelled.length ||
+        ![0, 2].includes(cancelled.length) ||
+        cancelled.some((r: any) => r.kind !== "opportunity" || r.error_code !== "SUPERSEDED_SINGLE_CASE_PLAN") ||
         links.rows.length !== 3 || new Set(links.rows.map((r: any) => r.contact_id)).size !== 1 ||
         links.rows.some((r: any) => !r.contact_id || !r.opportunity_id) ||
-        new Set(links.rows.map((r: any) => r.opportunity_id)).size !== 3)
+        new Set(links.rows.map((r: any) => r.opportunity_id)).size !== 1 ||
+        cases.rows.length !== 1 || cases.rows[0].contact_id !== (links.rows[0] as any).contact_id ||
+        cases.rows[0].opportunity_id !== (links.rows[0] as any).opportunity_id)
         throw new GhlFailure("CONTROLLED_DELIVERY_NOT_COMPLETE");
       for (const r of config.controlled!.records)
         await session.db.transaction(tx => complete(tx, r.leadId, config));
       if (await worker.tick()) throw new GhlFailure("CONTROLLED_REPLAY_NOT_NOOP");
       const after = await session.pg.query("SELECT * FROM ema_ghl_operations ORDER BY id");
       const afterLinks = await session.pg.query("SELECT * FROM ema_ghl_links ORDER BY lead_id");
-      if (JSON.stringify(before.rows) !== JSON.stringify(after.rows) || JSON.stringify(links.rows) !== JSON.stringify(afterLinks.rows))
+      const afterCases = await session.pg.query("SELECT * FROM ema_ghl_cases ORDER BY environment,location_id,contact_id");
+      if (JSON.stringify(before.rows) !== JSON.stringify(after.rows) || JSON.stringify(links.rows) !== JSON.stringify(afterLinks.rows) ||
+        JSON.stringify(cases.rows) !== JSON.stringify(afterCases.rows))
         throw new GhlFailure("CONTROLLED_REPLAY_NOT_NOOP");
       replayVerified = true;
     },

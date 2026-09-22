@@ -1,4 +1,4 @@
-import { saveAssessment } from "../lib/ghl/snapshots";
+import { saveIntakeAssessment, sendIntakeOutcome } from "../lib/intakePersistence";
 import { type IRouter, Router } from "express";
 import { z } from "zod";
 import { or, eq, desc, sql } from "drizzle-orm";
@@ -261,7 +261,7 @@ router.post("/business-intake", async (req, res) => {
     .limit(1);
 
   const existing = dupRows[0];
-  if (existing) {
+  if (existing && !req.body.submissionAttemptId) {
     req.log.info(
       { leadId: existing.id, referenceNumber: existing.referenceNumber },
       "Duplicate business submission blocked — already registered",
@@ -332,7 +332,7 @@ router.post("/business-intake", async (req, res) => {
 
   let inserted;
   try {
-    [inserted] = await saveAssessment(db, (tx) => tx
+    [inserted] = await saveIntakeAssessment(db, (tx) => tx
       .insert(prelaunchLeadsTable)
       .values({
         referenceNumber,
@@ -381,8 +381,11 @@ router.post("/business-intake", async (req, res) => {
       .returning(), "business", data, {
         source: "business_intake",
         funnelContext: sanitizeFunnelContext((req.body as { funnelContext?: unknown }).funnelContext),
-      }, true);
+      }, true, { email: data.email, whatsapp: normalizedWa, attemptId: req.body.submissionAttemptId });
   } catch (err) {
+    if (sendIntakeOutcome(err, res, lead => ({
+      leadId: lead.id, referenceNumber: lead.referenceNumber, tier, priority, score,
+    }))) return;
     req.log.error({ err }, "Failed to insert business intake lead");
     return res.status(500).json({ error: "Failed to record intake" });
   }

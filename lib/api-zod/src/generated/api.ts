@@ -48,6 +48,13 @@ export const CreateLeadBody = zod.object({
     .optional()
     .describe("email | whatsapp | phone"),
   consentAccepted: zod.boolean(),
+  submissionAttemptId: zod
+    .string()
+    .uuid()
+    .optional()
+    .describe(
+      "Stable random token for this exact assessment-save attempt. Retrying the same token and payload returns the saved lead without repeating effects. Reusing the token with changed answers returns 409. A different token remains subject to existing duplicate registration rules.",
+    ),
   verifiedOtpId: zod
     .string()
     .uuid()

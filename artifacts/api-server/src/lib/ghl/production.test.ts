@@ -55,13 +55,18 @@ describe("production gates and additive schema, isolated PGlite only", () => {
     expect(() => controlledConfig({ ...env(), EMA_GHL_CONTROLLED_LIVE_APPROVAL: "ALLOW_THREE_SYNTHETIC_RECORDS_IN_LIVE_ACCOUNT" }, "synthetic-location"))
       .toThrow("TEST_ENVIRONMENT_REQUIRED");
   });
-  it("fails on v1 then accepts v2 without replacing or changing existing rows", async () => {
+  it("requires all additive integration migrations without replacing existing rows", async () => {
     await expect(validateProductionSchema(db)).rejects.toMatchObject({ code: "PRODUCTION_SCHEMA_NOT_READY" });
     const transport = vi.fn();
     await expect(startGhlDelivery({ env: env(), loadDatabase: async () => db, fetch: transport })).rejects.toMatchObject({ code: "PRODUCTION_SCHEMA_NOT_READY" });
     expect(transport).not.toHaveBeenCalled();
     await pg.exec("INSERT INTO ema_ghl_worker_leases VALUES('sentinel','11111111-1111-4111-8111-111111111111',now())");
     await pg.exec(await migration("0002_ema_ghl_production.sql"));
+    await pg.exec(await migration("0003_ema_ghl_provider_failure_diagnostics.sql"));
+    await expect(validateProductionSchema(db)).rejects.toMatchObject({ code: "PRODUCTION_SCHEMA_NOT_READY" });
+    await pg.exec(await migration("0004_ema_ghl_single_case.sql"));
+    await expect(validateProductionSchema(db)).rejects.toMatchObject({ code: "PRODUCTION_SCHEMA_NOT_READY" });
+    await pg.exec(await migration("0005_ema_intake_receipts.sql"));
     await expect(validateProductionSchema(db)).resolves.toBeUndefined();
     expect((await pg.query("SELECT * FROM ema_ghl_worker_leases")).rows).toHaveLength(1);
   });
@@ -74,6 +79,9 @@ describe("production gates and additive schema, isolated PGlite only", () => {
       await pg.exec("ROLLBACK");
     }
     await pg.exec("BEGIN; ALTER TABLE ema_assessment_submissions DISABLE TRIGGER ema_snapshot_immutable");
+    await expect(validateProductionSchema(db)).rejects.toMatchObject({ code: "PRODUCTION_SCHEMA_NOT_READY" });
+    await pg.exec("ROLLBACK");
+    await pg.exec("BEGIN; ALTER TABLE ema_ghl_links DROP CONSTRAINT ema_ghl_links_case_fk");
     await expect(validateProductionSchema(db)).rejects.toMatchObject({ code: "PRODUCTION_SCHEMA_NOT_READY" });
     await pg.exec("ROLLBACK");
   });

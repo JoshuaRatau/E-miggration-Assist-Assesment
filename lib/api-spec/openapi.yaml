@@ -603,6 +603,14 @@ components:
           description: 'email | whatsapp | phone'
         consentAccepted:
           type: boolean
+        submissionAttemptId:
+          type: string
+          format: uuid
+          description: >-
+            Stable random token for this exact assessment-save attempt. Retrying
+            the same token and payload returns the saved lead without repeating
+            effects. Reusing the token with changed answers returns 409.
+            A different token remains subject to existing duplicate registration rules.
         verifiedOtpId:
           type: string
           format: uuid

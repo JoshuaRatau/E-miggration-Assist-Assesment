@@ -14,9 +14,10 @@ import {
 const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), "migrations");
 
 export function loadApprovedMigrations(migrationsDir = dir) {
-  const names = fs.readdirSync(migrationsDir).filter(name => /^000[12]_.*\.sql$/.test(name)).sort();
+  const names = fs.readdirSync(migrationsDir).filter(name => /^\d{4}_.*\.sql$/.test(name)).sort();
   ensureAssertion(
-    names.length === 2 && names.every(name => Object.hasOwn(APPROVED_MIGRATION_HASHES, name)),
+    names.length === Object.keys(APPROVED_MIGRATION_HASHES).length &&
+      names.every(name => Object.hasOwn(APPROVED_MIGRATION_HASHES, name)),
     "MIGRATION_SET_MISMATCH",
   );
   return prepareApprovedMigrations(name => fs.readFileSync(path.join(migrationsDir, name), "utf8"));

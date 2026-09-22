@@ -6,6 +6,21 @@ E-Migration Assist (the public brand) helps users navigate the immigration proce
 
 ## Run & Operate
 
+**Deployment responsibility (owner correction, 2026-09-22):** AWS access is
+human-only. Replit prepares and tests the integration and supplies the handoff;
+the authorised colleague executes deployment through the existing team process.
+Do not make AWS/SSM attempts from Replit or treat Replit's AWS access as a
+blocker. Existing denial evidence is historical only. Do not change
+infrastructure or substitute a different deployment process.
+
+**EMA → GHL business model (owner correction, 2026-09-22):** One person → one
+contact → one EMA case/opportunity. Later assessments reuse the verified owned
+case while retaining their own immutable answers, type, source and reference in
+EMA and corresponding GHL notes. Preserve first-touch attribution and case
+stage/status. Do not change GHL duplicate settings or adopt unrelated/ambiguous
+opportunities. The former separate-opportunity-per-assessment plan is superseded;
+its history must remain intact and obsolete creates must be cancelled explicitly.
+
 `pnpm install` / `pnpm dev` / `pnpm build` / `pnpm typecheck` / `pnpm orval` / `pnpm db:push`
 
 **Required env:** `DATABASE_URL`, `RESEND_API_KEY`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`, `OTP_SECRET`, `REPLIT_OBJECT_STORAGE_URL`.

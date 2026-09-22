@@ -9,7 +9,7 @@ export interface Transactional extends Executor {
   transaction<T>(callback: (tx: Executor) => Promise<T>): Promise<T>;
 }
 export type Flow = "individual" | "overstay" | "business";
-const excluded = new Set(["verifiedOtpId", "website", "finalize", "adminNotes"]);
+const excluded = new Set(["verifiedOtpId", "submissionAttemptId", "website", "finalize", "adminNotes"]);
 export function cleanAnswers(data: Record<string, unknown>) {
   return Object.fromEntries(Object.entries(data).filter(([key, value]) => !excluded.has(key) && value !== undefined));
 }

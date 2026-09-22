@@ -14,10 +14,15 @@ const migrations = prepareApprovedMigrations(name =>
 const required = {
   ema_assessment_submissions: ["id", "lead_id", "flow", "answers", "attribution", "captured_at", "completed_at"],
   ema_ghl_operations: ["id", "submission_id", "environment", "location_id", "kind", "ordinal", "state", "attempts", "available_at", "lease_token", "lease_until", "remote_id", "result", "error_code", "confirmed_at"],
-  ema_ghl_attempts: ["id", "operation_id", "action", "started_at", "finished_at", "outcome", "http_status", "error_code"],
+  ema_ghl_attempts: [
+    "id", "operation_id", "action", "started_at", "finished_at", "outcome", "http_status", "error_code",
+    "provider_response", "correlation_id", "correlation_source", "provider_failure_reason", "classification_source",
+  ],
   ema_ghl_links: ["environment", "location_id", "lead_id", "contact_id", "opportunity_id", "latest_completed_at"],
   ema_ghl_worker_leases: ["scope", "token", "expires_at"],
   ema_ghl_mutation_barriers: ["scope", "operation_id", "action", "created_at"],
+  ema_ghl_cases: ["environment", "location_id", "contact_id", "opportunity_id"],
+  ema_intake_receipts: ["attempt_id", "flow", "request_hash", "lead_id", "created_at"],
 };
 const expectedFunction = migrations[0].raw.split("AS $$")[1].split("$$;")[0].trim();
 
@@ -55,18 +60,47 @@ class MockClient {
       this.assertionPass++;
       if (this.scenario === "ledger" || (this.scenario === "postcommit" && this.assertionPass === 2))
         return { rows: [], rowCount: 0 };
-      return { rows: Object.entries(APPROVED_MIGRATION_HASHES).map(([name, sha256]) => ({ name, sha256 })), rowCount: 2 };
+      return { rows: Object.entries(APPROVED_MIGRATION_HASHES).map(([name, sha256]) => ({ name, sha256 })), rowCount: migrations.length };
     }
     if (sql.startsWith("SELECT c.relname"))
       return { rows: this.scenario === "table" ? [] : Object.keys(required).map(relname => ({ relname })) };
     if (sql.startsWith("SELECT table_name,column_name"))
       return { rows: this.scenario === "column" ? [] : Object.entries(required).flatMap(([table_name, names]) => names.map(column_name => ({ table_name, column_name }))) };
+    if (sql.includes("SELECT column_name,data_type,is_nullable"))
+      return { rows: this.scenario === "receiptColumns" ? [] : Object.entries({
+        attempt_id: "uuid", flow: "text", request_hash: "text",
+        lead_id: "uuid", created_at: "timestamp with time zone",
+      }).map(([column_name, data_type]) => ({ column_name, data_type, is_nullable: "NO" })) };
+    if (sql.includes("FROM pg_constraint WHERE conrelid='public.ema_intake_receipts'"))
+      return { rows: this.scenario === "receiptConstraints" ? [] : [
+        "PRIMARY KEY (attempt_id)",
+        "CHECK ((flow = ANY (ARRAY['individual'::text, 'overstay'::text, 'business'::text])))",
+        "CHECK ((request_hash ~ '^[0-9a-f]{64}$'::text))",
+        "FOREIGN KEY (lead_id) REFERENCES prelaunch_leads(id)",
+      ].map(definition => ({ convalidated: true, definition })) };
+    if (sql.includes("FROM pg_constraint c WHERE"))
+      return { rows: this.scenario === "caseRegistry" ? [] : [
+        { contype: "p", convalidated: true, columns: ["environment", "location_id", "contact_id"] },
+        { contype: "u", convalidated: true, columns: ["environment", "location_id", "opportunity_id"] },
+        { contype: "u", convalidated: true, columns: ["environment", "location_id", "contact_id", "opportunity_id"] },
+        { conname: "ema_ghl_links_case_fk", contype: "f", convalidated: true,
+          references_cases: this.scenario !== "caseFk",
+          columns: ["environment", "location_id", "contact_id", "opportunity_id"],
+          referenced_columns: ["environment", "location_id", "contact_id", "opportunity_id"] },
+      ] };
+    if (sql.includes("ema_ghl_operations_kind_check"))
+      return { rows: this.scenario === "operationChecks" ? [] : [
+        { conname: "ema_ghl_operations_kind_check", convalidated: true,
+          expression: "(kind = ANY (ARRAY['contact'::text, 'contact_verify'::text, 'history'::text, 'history_verify'::text, 'opportunity'::text, 'opportunity_verify'::text, 'opportunity_reuse'::text]))" },
+        { conname: "ema_ghl_operations_state_check", convalidated: true,
+          expression: "(state = ANY (ARRAY['pending'::text, 'running'::text, 'retry'::text, 'confirmed'::text, 'review'::text, 'blocked'::text, 'cancelled'::text]))" },
+      ] };
     if (sql.includes("FROM pg_constraint"))
       return { rows: this.scenario === "constraint" ? [] : [1, 2].map(() => ({ convalidated: true, expression: "(environment = ANY (ARRAY['development'::text, 'test'::text, 'production'::text]))" })) };
     if (sql.includes("FROM pg_trigger"))
       return { rows: this.scenario === "trigger" ? [] : [{ tgtype: 19, tgenabled: "O", returns_trigger: true, lanname: "plpgsql", prosrc: expectedFunction }] };
     if (sql.includes("FROM pg_index"))
-      return { rows: this.scenario === "ownership" ? [] : [{ indisunique: true, indisvalid: true, indisready: true, predicate: "(opportunity_id IS NOT NULL)", columns: ["environment", "location_id", "opportunity_id"] }] };
+      return { rows: this.scenario === "ownership" ? [] : [{ indisunique: false, indisvalid: true, indisready: true, predicate: "(opportunity_id IS NOT NULL)", columns: ["environment", "location_id", "opportunity_id"] }] };
     return { rows: [], rowCount: 0 };
   }
 }
@@ -84,6 +118,8 @@ async function run(scenario) {
 for (const scenario of [
   "connection", "unrecorded", "ledgerConflict", "sqlFailure",
   "ledger", "table", "column", "constraint", "trigger", "ownership",
+  "caseRegistry", "caseFk", "operationChecks",
+  "receiptColumns", "receiptConstraints",
 ]) {
   const { client, result, logs } = await run(scenario);
   assert.equal(result.failed, true, scenario);

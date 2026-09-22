@@ -26,9 +26,11 @@ beforeAll(async () => {
   await pg.exec("CREATE TABLE prelaunch_leads(id uuid PRIMARY KEY, reference_number text NOT NULL UNIQUE, consent_timestamp timestamptz)");
   const migration = await readFile(new URL("../../../../../lib/db/drizzle/0001_ema_ghl_outbox.sql", import.meta.url), "utf8");
   await pg.exec(migration);
+  await pg.exec(await readFile(new URL("../../../../../lib/db/drizzle/0003_ema_ghl_provider_failure_diagnostics.sql", import.meta.url), "utf8"));
+  await pg.exec(await readFile(new URL("../../../../../lib/db/drizzle/0004_ema_ghl_single_case.sql", import.meta.url), "utf8"));
 }, 30000);
 beforeEach(async () => {
-  await pg.exec("TRUNCATE ema_ghl_attempts,ema_ghl_operations,ema_ghl_links,ema_ghl_worker_leases,ema_assessment_submissions,prelaunch_leads CASCADE");
+  await pg.exec("TRUNCATE ema_ghl_attempts,ema_ghl_operations,ema_ghl_links,ema_ghl_cases,ema_ghl_worker_leases,ema_assessment_submissions,prelaunch_leads CASCADE");
   vi.stubGlobal("fetch", vi.fn(() => { throw new Error("NETWORK_FORBIDDEN"); }));
 });
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
@@ -100,6 +102,122 @@ function remoteMock(timeoutMs?: number) {
   };
 }
 const run = async (w: GhlWorker, count = 6) => { for (let i = 0; i < count; i++) await w.tick(); };
+
+describe("one person one durable EMA case", () => {
+  it("does not adopt an unregistered case even when its markers exactly match the current assessment", async () => {
+    const seeded = await seed(), mock = remoteMock(), worker = new GhlWorker(db, mock.client, config);
+    await run(worker, 4);
+    mock.opportunities.push({
+      id: "coincidental-case", locationId: config.locationId, contactId: "contact-1",
+      pipelineId: config.pipelineId, pipelineStageId: config.stageId, status: "open",
+      name: `EMA ${seeded.lead.referenceNumber} [ema-lead:${seeded.lead.id}]`,
+      customFields: [
+        { id: config.fieldIds["opportunity.ema_lead_id"], fieldValue: seeded.lead.id },
+        { id: config.fieldIds["opportunity.ema_reference"], fieldValue: seeded.lead.referenceNumber },
+      ],
+    });
+    await worker.tick();
+    expect((await query("SELECT error_code FROM ema_ghl_operations WHERE kind='opportunity'"))[0].error_code).toBe("OPPORTUNITY_OWNERSHIP_REVIEW");
+    expect(await query("SELECT * FROM ema_ghl_cases")).toHaveLength(0);
+    expect(mock.requests.filter(r => r.method === "POST" && r.path === "/opportunities/")).toHaveLength(0);
+  });
+
+  it("validates the direct create response and registers provenance before verification", async () => {
+    const seeded = await seed(), mock = remoteMock(), worker = new GhlWorker(db, mock.client, config);
+    await run(worker, 5);
+    expect(await query("SELECT * FROM ema_ghl_cases")).toHaveLength(1);
+    expect(await query("SELECT * FROM ema_ghl_links WHERE opportunity_id='opportunity-1'")).toHaveLength(1);
+    await worker.tick();
+    expect(await submissionDeliveryState(db, seeded.id, config)).toBe("synced");
+  });
+  it("serializes concurrent workers for different submissions of the same person", async () => {
+    await seed(); await seed("overstay"); await seed("business");
+    const mock = remoteMock();
+    const a = new GhlWorker(db, mock.client, config), b = new GhlWorker(db, mock.client, config);
+    for (let i = 0; i < 18; i++) await Promise.all([a.tick(), b.tick()]);
+    expect(await query("SELECT * FROM ema_ghl_operations WHERE state='confirmed'")).toHaveLength(18);
+    expect(mock.opportunities).toHaveLength(1);
+    expect(mock.notes).toHaveLength(3);
+    expect(mock.requests.filter(r => r.path === "/contacts/upsert" && r.method === "POST")).toHaveLength(1);
+  });
+
+  it("durable registry prohibits one case mapped to another contact or two cases for one contact", async () => {
+    const mock = remoteMock();
+    await seed(); await run(new GhlWorker(db, mock.client, config));
+    await expect(pg.exec(`INSERT INTO ema_ghl_cases VALUES ('test','${config.locationId}','other-contact','opportunity-1')`)).rejects.toThrow();
+    await expect(pg.exec(`INSERT INTO ema_ghl_cases VALUES ('test','${config.locationId}','contact-1','other-opportunity')`)).rejects.toThrow();
+  });
+
+  it("rejects changed linked identity before notes, updates or case reuse", async () => {
+    const mock = remoteMock(), worker = new GhlWorker(db, mock.client, config);
+    await seed(); await worker.tick();
+    mock.contact.phone = "+27829999999";
+    const writes = mock.requests.filter(r => r.method !== "GET").length;
+    await worker.tick();
+    expect((await query("SELECT error_code FROM ema_ghl_operations WHERE kind='contact_verify'"))[0].error_code).toBe("IDENTITY_CONFLICT");
+    expect(mock.requests.filter(r => r.method !== "GET")).toHaveLength(writes);
+  });
+
+  it("reuses original case across all flows, preserves progress and replays without effects", async () => {
+    const mock = remoteMock();
+    const worker = new GhlWorker(db, mock.client, config);
+    const first = await seed();
+    await run(worker);
+    mock.opportunities[0].status = "won";
+    mock.opportunities[0].pipelineStageId = "progressed-stage";
+    const original = JSON.stringify(mock.opportunities[0]);
+    const overstay = await seed("overstay");
+    const business = await seed("business");
+    await run(worker, 12);
+    expect(await submissionDeliveryState(db, first.id, config)).toBe("synced");
+    expect(await submissionDeliveryState(db, overstay.id, config)).toBe("synced");
+    expect(await submissionDeliveryState(db, business.id, config)).toBe("synced");
+    expect(mock.notes).toHaveLength(3);
+    expect(mock.opportunities).toHaveLength(1);
+    expect(JSON.stringify(mock.opportunities[0])).toBe(original);
+    expect(await query("SELECT * FROM ema_ghl_cases")).toHaveLength(1);
+    expect(await query("SELECT * FROM ema_ghl_links WHERE opportunity_id='opportunity-1'")).toHaveLength(3);
+    for (const item of [first, overstay, business]) await db.transaction(tx => complete(tx, item.lead.id, config));
+    const count = mock.requests.length;
+    await Promise.all([worker.tick(), new GhlWorker(db, mock.client, config).tick()]);
+    expect(mock.requests).toHaveLength(count);
+    expect(mock.requests.filter(r => r.method === "POST" && r.path === "/opportunities/")).toHaveLength(1);
+  });
+
+  it("explicitly cancelled creates stay cancelled and read-only replacement reuses the original case", async () => {
+    const mock = remoteMock(), worker = new GhlWorker(db, mock.client, config);
+    await seed(); await run(worker);
+    const next = await seed("overstay");
+    await run(worker, 4);
+    await pg.exec(`UPDATE ema_ghl_operations SET state='cancelled',error_code='SUPERSEDED_SINGLE_CASE_PLAN' WHERE submission_id='${next.id}' AND kind='opportunity'`);
+    await db.execute(sql`INSERT INTO ema_ghl_operations(id,submission_id,environment,location_id,kind,ordinal)
+      VALUES(${randomUUID()},${next.id},${config.environment},${config.locationId},'opportunity_reuse',4)`);
+    await run(worker, 2);
+    expect(await submissionDeliveryState(db, next.id, config)).toBe("synced");
+    await db.transaction(tx => complete(tx, next.lead.id, config));
+    expect(await query("SELECT * FROM ema_ghl_operations WHERE state='cancelled'")).toHaveLength(1);
+    expect(mock.opportunities).toHaveLength(1);
+    expect(await worker.tick()).toBe(false);
+  });
+
+  it("never creates when a reuse-only operation cannot find its case", async () => {
+    const mock = remoteMock(), worker = new GhlWorker(db, mock.client, config);
+    await seed(); await run(worker, 4);
+    await pg.exec("UPDATE ema_ghl_operations SET kind='opportunity_reuse' WHERE kind='opportunity'");
+    await worker.tick();
+    expect(mock.opportunities).toHaveLength(0);
+    expect((await query("SELECT state FROM ema_ghl_operations WHERE kind='opportunity_reuse'"))[0].state).toBe("review");
+  });
+
+  it("rejects ambiguous cases instead of selecting the owned match", async () => {
+    const mock = remoteMock(), worker = new GhlWorker(db, mock.client, config);
+    await seed(); await run(worker);
+    mock.opportunities.push({ ...mock.opportunities[0], id: "other-case" });
+    await seed("business"); await run(worker, 5);
+    expect((await query("SELECT count(*)::int n FROM ema_ghl_operations WHERE error_code='MULTIPLE_REMOTE_MATCHES'"))[0].n).toBe(1);
+    expect(mock.requests.filter(r => r.method === "POST" && r.path === "/opportunities/")).toHaveLength(1);
+  });
+});
 
 describe("immutable completion and atomic outbox", () => {
   it("captures individual answers before finalisation, queues exactly once afterwards", async () => {
@@ -240,7 +358,7 @@ describe("mock-only delivery and recovery", () => {
     expect((await query("SELECT error_code FROM ema_ghl_operations WHERE kind='contact'"))[0].error_code).toBe("AMBIGUOUS_CREATE");
     expect(mock.requests.filter(r => r.path === "/contacts/upsert")).toHaveLength(1);
   });
-  it("reconciles ambiguous opportunity creation", async () => {
+  it("keeps ambiguous unregistered opportunity creation for review without another create", async () => {
     const { id } = await seed(), mock = remoteMock(), worker = new GhlWorker(db, mock.client, config);
     await run(worker, 4);
     mock.intercept = async r => {
@@ -253,7 +371,7 @@ describe("mock-only delivery and recovery", () => {
     await worker.tick();
     await pg.exec("UPDATE ema_ghl_operations SET available_at=now() WHERE state='retry'");
     await run(worker, 2);
-    expect(await submissionDeliveryState(db, id, config)).toBe("synced");
+    expect(await submissionDeliveryState(db, id, config)).toBe("needs_attention");
     expect(mock.requests.filter(r => r.path === "/opportunities/")).toHaveLength(1);
   });
   it("does not adopt unrelated existing opportunities", async () => {
@@ -332,6 +450,7 @@ describe("mock-only delivery and recovery", () => {
     await seed(); const mock = remoteMock();
     const originals = ["ema_source", "ema_source_campaign", "ema_utm_source", "ema_utm_medium", "ema_utm_campaign", "ema_funnel_context"];
     mock.contact = { id: "contact-1", locationId: config.locationId,
+      email: "synthetic@example.invalid", phone: "+27820000000",
       customFields: originals.map(key => ({ id: config.fieldIds[`contact.${key}`], value: `original-${key}` })) };
     await run(new GhlWorker(db, mock.client, config), 4);
     for (const key of originals)
@@ -356,7 +475,8 @@ describe("mock-only delivery and recovery", () => {
   });
   it("a real late mock PUT cannot race a newer write: durable scope barrier requires review", async () => {
     await seed(); const mock = remoteMock(30), worker = new GhlWorker(db, mock.client, config);
-    mock.contact = { id: "contact-1", locationId: config.locationId, customFields: [] };
+    mock.contact = { id: "contact-1", locationId: config.locationId,
+      email: "synthetic@example.invalid", phone: "+27820000000", customFields: [] };
     let release!: () => void;
     let lateCompleted!: () => void;
     const released = new Promise<void>(resolve => { release = resolve; });

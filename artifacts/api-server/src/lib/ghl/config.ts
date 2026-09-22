@@ -1,7 +1,7 @@
 import { controlledConfig, type ControlledManifest } from "./controlled";
 import { fieldDefinitions } from "./fields";
 export const operationKinds = ["contact", "contact_verify", "history", "history_verify", "opportunity", "opportunity_verify"] as const;
-export type OperationKind = typeof operationKinds[number];
+export type OperationKind = typeof operationKinds[number] | "opportunity_reuse";
 export type GhlConfig = {
   environment: "development" | "test" | "production";
   locationId: string;
@@ -30,8 +30,20 @@ export function captureConfig(env: GhlEnvironment = process.env): GhlConfig {
 }
 
 export class GhlFailure extends Error {
-  constructor(public code: string, public status?: number, public retryAfterMs?: number) { super(code); }
+  constructor(
+    public code: string,
+    public status?: number,
+    public retryAfterMs?: number,
+    public providerResponse?: Record<string, unknown>,
+    public correlation?: ProviderCorrelation,
+    public providerFailureReason?: "DUPLICATE_OPPORTUNITY",
+    public classificationSource?: "sanitizer:exact-message-allowlist",
+  ) { super(code); }
 }
+export type ProviderCorrelation = {
+  id: string;
+  source: `response-header:${"x-request-id" | "x-correlation-id"}` | "body.traceId";
+};
 export type GhlEnvironment = Record<string, string | undefined>;
 // Existing customer-owned fields must never be destinations of EMA writes.
 export const protectedGhlFieldIds = [

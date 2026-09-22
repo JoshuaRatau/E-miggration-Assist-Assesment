@@ -1,4 +1,5 @@
-import { saveAssessment, finalizeAssessment } from "../lib/ghl/snapshots";
+import { finalizeAssessment } from "../lib/ghl/snapshots";
+import { saveIntakeAssessment, sendIntakeOutcome } from "../lib/intakePersistence";
 import { Router, type IRouter } from "express";
 import {
   db,
@@ -393,7 +394,7 @@ router.post("/leads", async (req, res) => {
     dupConditions.push(eq(prelaunchLeadsTable.whatsapp, normalizedWhatsapp));
 
   let existing: typeof prelaunchLeadsTable.$inferSelect | undefined;
-  if (dupConditions.length > 0) {
+  if (dupConditions.length > 0 && !req.body.submissionAttemptId) {
     const rows = await db
       .select()
       .from(prelaunchLeadsTable)
@@ -418,7 +419,9 @@ router.post("/leads", async (req, res) => {
 
   const referenceNumber = generateReferenceNumber();
 
-  const [inserted] = await saveAssessment(db, (tx) => tx
+  let inserted;
+  try {
+  [inserted] = await saveIntakeAssessment(db, (tx) => tx
     .insert(prelaunchLeadsTable)
     .values({
       referenceNumber,
@@ -462,7 +465,11 @@ router.post("/leads", async (req, res) => {
       source: normalizeSource(data.source) ?? "web_form",
       sourceCampaign: normalizeCampaign(data.sourceCampaign),
       funnelContext: sanitizeFunnelContext((req.body as { funnelContext?: unknown }).funnelContext),
-    }, false);
+    }, finalize, { email: data.email, whatsapp: normalizedWhatsapp, attemptId: req.body.submissionAttemptId });
+  } catch (error) {
+    if (sendIntakeOutcome(error, res, serializeLead)) return;
+    throw error;
+  }
 
   if (!inserted) {
     return res.status(500).json({ error: "Failed to create lead" });

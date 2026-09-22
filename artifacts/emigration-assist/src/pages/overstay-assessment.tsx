@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { confirmedIntake, withSubmissionAttempt } from "../lib/finalize-assessment";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -207,7 +208,10 @@ export default function OverstayAssessment() {
   const next = () => setStep((s) => s + 1);
   const back = () => setStep((s) => Math.max(STEP_INTRO, s - 1));
 
+  const submittingRef = useRef(false);
   const submit = async () => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -215,7 +219,7 @@ export default function OverstayAssessment() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
+        body: JSON.stringify(await withSubmissionAttempt("overstay", {
           firstName: form.firstName.trim(),
           currentSituation: form.currentSituation,
           location: form.location,
@@ -237,7 +241,7 @@ export default function OverstayAssessment() {
               : null,
           consentAccepted: true,
           funnelContext: buildSubmissionFunnelContext(),
-        }),
+        })),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
@@ -252,10 +256,7 @@ export default function OverstayAssessment() {
         }
         throw new Error(j.error ?? `Submission failed (${res.status})`);
       }
-      const data = (await res.json()) as {
-        leadId: string;
-        referenceNumber: string;
-      };
+      const data = confirmedIntake(await res.json());
       setResult({ leadId: data.leadId, referenceNumber: data.referenceNumber });
       const fc = readFunnelContext();
       trackEvent("funnel_lead_submitted", {
@@ -275,6 +276,7 @@ export default function OverstayAssessment() {
           : "Something went wrong. Please try again.",
       );
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };

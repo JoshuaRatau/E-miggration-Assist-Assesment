@@ -1,4 +1,4 @@
-import { confirmAssessmentCompletion } from "../lib/finalize-assessment";
+import { confirmedIntake, confirmAssessmentCompletion, withSubmissionAttempt } from "../lib/finalize-assessment";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, Link } from "wouter";
 import { z } from "zod";
@@ -328,7 +328,9 @@ export function Assessment() {
   // BEFORE the documents gate, so the documents step (when chosen) has
   // a real lead.id to attach uploads to.  finalize:false defers the
   // confirmation send until the very end of the flow.
-  const submitLead = (data: AssessmentFormValues) => {
+  const savingRef = useRef(false);
+  const submitLead = async (data: AssessmentFormValues) => {
+    if (savingRef.current) return;
     if (createdLead) {
       // Already saved this session — just advance to the documents gate.
       setStep(7);
@@ -365,13 +367,25 @@ export function Assessment() {
       funnelContext: buildSubmissionFunnelContext(),
     } as any;
 
+    savingRef.current = true;
+    try {
+      Object.assign(submitData, await withSubmissionAttempt("individual", submitData));
+    } catch {
+      savingRef.current = false;
+      toast({ title: "Submission could not be prepared", description: "Please try again.", variant: "destructive" });
+      return;
+    }
     createLead.mutate(
       { data: submitData },
       {
+        onSettled: () => { savingRef.current = false; },
         onSuccess: (result) => {
-          trackEvent("assessment_completed", {
-            referenceNumber: result.referenceNumber,
-          });
+          try {
+            confirmedIntake({ leadId: result.id, referenceNumber: result.referenceNumber });
+          } catch {
+            toast({ title: "Submission could not be confirmed", description: "Please try again.", variant: "destructive" });
+            return;
+          }
           const fc = readFunnelContext();
           trackEvent("funnel_lead_submitted", {
             referenceNumber: result.referenceNumber,
@@ -391,7 +405,9 @@ export function Assessment() {
           window.scrollTo(0, 0);
         },
         onError: (err: any) => {
-          const data = err?.response?.data;
+          // Generated fetch client exposes parsed errors on ApiError.data,
+          // not on the native Response. Keep the existing duplicate reference.
+          const data = err?.data ?? err?.response?.data;
           if (
             err?.response?.status === 409 ||
             data?.error === "already_registered"
@@ -428,8 +444,10 @@ export function Assessment() {
   // "final" by hitting the deferred dispatcher, then reveals the
   // summary page. Called from BOTH the "no documents" branch (skip
   // straight from the gate) AND the upload-completion branch.
+  const finalizingRef = useRef(false);
   const finalizeAndShowSummary = async () => {
-    if (!createdLead || finalizing) return;
+    if (!createdLead || finalizingRef.current) return;
+    finalizingRef.current = true;
     setFinalizing(true);
     setFinalizationError(null);
     try {
@@ -439,6 +457,9 @@ export function Assessment() {
             `${BASE_URL}/api/leads/${createdLead.id}/finalize`,
           );
           setFinalized(true);
+          trackEvent("assessment_completed", {
+            referenceNumber: createdLead.referenceNumber,
+          });
           // Meta Pixel: only count a Lead on a genuine success response
           // (fetch resolves on 4xx/5xx too). No PII — descriptive params only.
           trackPixel("Lead", {
@@ -463,6 +484,7 @@ export function Assessment() {
       setStep(SUMMARY_STEP);
       window.scrollTo(0, 0);
     } finally {
+      finalizingRef.current = false;
       setFinalizing(false);
     }
   };

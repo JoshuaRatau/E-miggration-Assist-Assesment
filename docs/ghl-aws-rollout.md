@@ -1,5 +1,15 @@
 # GHL integration: AWS deployment and rollout gates
 
+> **OBSOLETE HISTORICAL DESIGN — NOT EXECUTABLE RELEASE INSTRUCTIONS.**
+> The single authoritative current handoff is
+> [EMA → GHL deployment-owner runbook](ema-ghl-team-release.md).
+> It supersedes every gate, record-model assumption and deployment instruction
+> below. The approved model is one person → one contact → one case, not one
+> opportunity per assessment. AWS execution is human-only; Replit does not call
+> AWS/SSM or request IAM access. The existing controlled test has passed, while
+> human production deployment, activation and end-to-end verification remain.
+> Retain the text below only as historical design context; do not execute it.
+
 > **Status: future runbook, not a deployment record.** The approved work is
 > development-only. Replit remains the development environment and AWS is the
 > intended production environment, but this repository does not establish that
@@ -41,8 +51,12 @@ the release commit. The current implementation contract is documented in
 
 - Capture defaults off; development capture requires `EMA_GHL_CAPTURE_ENABLED=true`
   and a separately configured `EMA_GHL_TEST_LOCATION_ID`.
-- The additive migration is `lib/db/drizzle/0001_ema_ghl_outbox.sql`; it has only
-  been applied inside isolated in-memory tests, not the application database.
+- The additive migrations are `lib/db/drizzle/0001_ema_ghl_outbox.sql`,
+  `0002_ema_ghl_production.sql`, and
+  `0003_ema_ghl_provider_failure_diagnostics.sql`. The third migration adds
+  nullable, strictly constrained provider-failure diagnostics to the operation
+  attempt journal. Migration execution remains an explicit reviewed one-off;
+  application startup never applies migrations.
 - `artifacts/api-server/scripts/ghl-setup.ts` defaults to a network-free dry run
   (`--dry-run`, alias `--plan`). Its real apply mode is restricted to
   development/test and requires `--apply`, matching `--location-id` and
@@ -265,6 +279,9 @@ commit, and evidence link in the change record.
 - [ ] Approved one-off migration runner applies exactly the pinned migration;
       schema push is not used.
 - [ ] Migration history and expected tables/columns/indexes are verified.
+- [ ] The release migration plan lists exactly 0001, 0002, and 0003; the
+      pre-commit schema assertion confirms the five provider-failure diagnostic
+      columns on `ema_ghl_attempts` before delivery is enabled.
 - [ ] Existing application health and lead capture are verified while the GHL
       feature remains off.
 

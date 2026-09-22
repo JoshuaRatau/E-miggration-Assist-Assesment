@@ -11,6 +11,7 @@ vi.mock("@workspace/db", async () => {
   return { ...schema, db: chain };
 });
 vi.mock("../ghl/snapshots", () => ({ finalizeAssessment: mocks.finalize, saveAssessment: mocks.save }));
+vi.mock("../intakePersistence", () => ({ saveIntakeAssessment: mocks.save, sendIntakeOutcome: () => false }));
 vi.mock("../confirmation", () => ({ buildConfirmationDispatcher: () => mocks.confirmation }));
 vi.mock("../recordLeadEvent", () => ({ recordLeadEvent: mocks.event }));
 vi.mock("../adminAuth", () => ({ requireAdminToken: vi.fn() }));
@@ -43,7 +44,7 @@ beforeEach(() => {
   vi.stubEnv("NODE_ENV", "test");
   vi.stubEnv("DISABLE_OTP_VERIFICATION", "1");
 });
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("actual route boundary regression without server, network, or application DB", () => {
   it("finalisation commit failure is not acknowledged and does not dispatch", async () => {
@@ -90,6 +91,30 @@ describe("actual route boundary regression without server, network, or applicati
     }],
   ] as const;
   for (const [router, path, body] of fixtures) {
+    if (path !== "/leads") {
+    it(`${path} acknowledges only a committed completed snapshot`, async () => {
+      mocks.save.mockResolvedValueOnce([{ id: leadId, referenceNumber: "SAVED-REFERENCE" }]);
+      const res = response();
+      await handler(router, path)(req(body), res);
+      expect(mocks.save).toHaveBeenCalledOnce();
+      expect(mocks.save.mock.calls[0][5]).toBe(true);
+      expect(res.statusCode).toBe(201);
+      expect(res.body).toMatchObject({ leadId, referenceNumber: "SAVED-REFERENCE" });
+    });
+    it(`${path} retains failure for retry and never acknowledges an uncommitted save`, async () => {
+      mocks.save.mockRejectedValueOnce(new Error("SYNTHETIC_TRANSACTION_FAILURE"));
+      const res = response();
+      await handler(router, path)(req(body), res);
+      expect(res.statusCode).toBe(500);
+      expect(res.body.leadId).toBeUndefined();
+      expect(mocks.confirmation).not.toHaveBeenCalled();
+      expect(mocks.event).not.toHaveBeenCalled();
+      mocks.save.mockResolvedValueOnce([{ id: leadId, referenceNumber: "RETRY-REFERENCE" }]);
+      const retried = response();
+      await handler(router, path)(req(body), retried);
+      expect(retried.statusCode).toBe(201);
+    });
+    }
     it(`${path} preserves duplicate 409/reference without saving or queuing`, async () => {
       mocks.rows = [[{ id: leadId, referenceNumber: "EXISTING-REFERENCE" }]];
       const res = response();
@@ -108,6 +133,31 @@ describe("actual route boundary regression without server, network, or applicati
   }
 });
 describe("frontend finalisation contract", () => {
+  it("reuses the attempt token for lost-response retries and refreshed OTP, but not changed answers", async () => {
+    const { withSubmissionAttempt } = await import(frontendHelperPath);
+    const values = new Map<string, string>();
+    vi.stubGlobal("sessionStorage", {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+    });
+    const first = await withSubmissionAttempt("test-flow", { email: "synthetic@example.invalid", verifiedOtpId: "proof-1" });
+    const retry = await withSubmissionAttempt("test-flow", { email: "synthetic@example.invalid", verifiedOtpId: "proof-2" });
+    const changed = await withSubmissionAttempt("test-flow", { email: "changed@example.invalid", verifiedOtpId: "proof-2" });
+    expect(retry.submissionAttemptId).toBe(first.submissionAttemptId);
+    expect(changed.submissionAttemptId).not.toBe(first.submissionAttemptId);
+    expect([...values.values()].join("")).not.toContain("@example.invalid");
+    expect([...values.values()].join("")).not.toContain("proof-");
+  });
+  it("all intake flows reject malformed/non-committed acknowledgments", async () => {
+    const { confirmedIntake } = await import(frontendHelperPath);
+    for (const body of [null, {}, { leadId, referenceNumber: "" },
+      { leadId: "not-an-id", referenceNumber: "REF" },
+      { leadId: "00000000-0000-0000-0000-000000000000", referenceNumber: "EMA-BUS-PENDING" }]) {
+      expect(() => confirmedIntake(body)).toThrow("could not be confirmed");
+    }
+    expect(confirmedIntake({ leadId, referenceNumber: "CONFIRMED" }))
+      .toEqual({ leadId, referenceNumber: "CONFIRMED" });
+  });
   it.each([400, 500])("HTTP %i rejects instead of navigating to summary", async status => {
     const fetcher: any = vi.fn(async () => ({ ok: false, status }));
     await expect(confirmAssessmentCompletion("/synthetic/finalize", fetcher)).rejects.toThrow();
