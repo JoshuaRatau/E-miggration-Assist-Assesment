@@ -4,7 +4,7 @@ import { logger } from "./logger";
  * Eride Support Hub integration.
  *
  * Mirrors a Support Centre widget submission to the shared Eride Support Hub
- * (https://eride-support-hub.replit.app) so it surfaces as a ticket in the
+ * (https://support-api.eridetech.africa) so it surfaces as a ticket in the
  * cross-product triage wallboard at /admin/support/tickets and is assigned a
  * canonical reference (e.g. "EMA-SUP-2026-000012").
  *
@@ -15,21 +15,16 @@ import { logger } from "./logger";
  */
 
 const HUB_URL = (
-  process.env.SUPPORT_HUB_URL?.trim() || "https://eride-support-hub.replit.app"
+  process.env.SUPPORT_HUB_URL?.trim() || "https://support-api.eridetech.africa"
 ).replace(/\/+$/, "");
 
 // E-Migration Assist product code in the hub's registry. The hub assigns the
 // authoritative UUID; we resolve it by code so a re-seed can't break us.
 const HUB_PRODUCT_CODE = "EMA";
 
-// Last-resort product id if the dynamic lookup and env override both fail.
-const HUB_PRODUCT_ID_FALLBACK =
-  process.env.SUPPORT_HUB_PRODUCT_ID?.trim() ||
-  "6e23325e-6d20-40ea-ade3-ced64862ed17";
-
 // Resolved product id is cached for the process lifetime once a dynamic lookup
-// succeeds (the registry id is stable). Fallbacks are never cached so a later
-// submission can retry the lookup.
+// succeeds (the registry id is stable). Failures are never cached so a later
+// submission can retry the lookup. Never reuse IDs from the retired hub.
 let cachedProductId: string | null = null;
 
 /**
@@ -38,9 +33,9 @@ let cachedProductId: string | null = null;
  *   1. SUPPORT_HUB_PRODUCT_ID env override (operator escape hatch)
  *   2. cached value from a prior successful lookup
  *   3. live GET /api/support/products, matched on productCode === "EMA"
- *   4. hardcoded fallback UUID
+ * No match or failed lookup prevents forwarding; it must not select an old ID.
  */
-async function resolveProductId(): Promise<string> {
+async function resolveProductId(): Promise<string | null> {
   const override = process.env.SUPPORT_HUB_PRODUCT_ID?.trim();
   if (override) return override;
   if (cachedProductId) return cachedProductId;
@@ -53,28 +48,28 @@ async function resolveProductId(): Promise<string> {
       const products = (await res.json().catch(() => null)) as
         | Array<{ id?: string; productCode?: string }>
         | null;
-      const match = Array.isArray(products)
-        ? products.find((p) => p?.productCode === HUB_PRODUCT_CODE)
-        : null;
-      if (match?.id) {
-        cachedProductId = match.id;
-        return match.id;
+      const matches = Array.isArray(products)
+        ? products.filter((p) => p?.productCode === HUB_PRODUCT_CODE)
+        : [];
+      if (matches.length === 1 && typeof matches[0]?.id === "string" && matches[0].id.trim()) {
+        cachedProductId = matches[0].id;
+        return cachedProductId;
       }
-      logger.warn("Eride hub product registry has no EMA product; using fallback id");
+      logger.warn("Eride hub product registry has no unique valid EMA product; forwarding skipped");
     } else {
       logger.warn(
         { status: res.status },
-        "Eride hub product lookup failed; using fallback id",
+        "Eride hub product lookup failed; forwarding skipped",
       );
     }
   } catch (err) {
     logger.warn(
       { err: err instanceof Error ? err.message : String(err) },
-      "Eride hub product lookup threw; using fallback id",
+      "Eride hub product lookup threw; forwarding skipped",
     );
   }
 
-  return HUB_PRODUCT_ID_FALLBACK;
+  return null;
 }
 
 // Our widget categories → the hub's category enum. The hub has no catch-all
@@ -106,6 +101,7 @@ export async function forwardSupportTicketToHub(args: {
   }
 
   const productId = await resolveProductId();
+  if (!productId) return { ok: false, reason: "hub_product_unresolved" };
   const summary = args.message.replace(/\s+/g, " ").trim().slice(0, 140);
   const payload = {
     productId,
